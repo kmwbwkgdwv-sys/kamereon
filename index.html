@@ -34,6 +34,8 @@ label.l select,label.l input[type=number]{width:55%;margin:0;padding:8px}
 #tools{position:fixed;right:calc(8px + var(--sr));top:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px;z-index:12}
 #tools button{padding:9px 10px;font-size:13px;background:rgba(20,28,36,.85)}
 #tools button.on{background:#2e8b63}
+#tools.two,#sys.two{display:grid;grid-template-columns:auto auto;align-items:start}
+#tools.three,#sys.three{display:grid;grid-template-columns:auto auto auto;align-items:start}
 #tDrop{border-left:10px solid #b9b9b9}
 #sys{position:fixed;left:calc(8px + var(--sl));top:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px;z-index:12}
 #sys button{padding:8px 10px;font-size:13px;background:rgba(20,28,36,.85)}
@@ -165,7 +167,7 @@ small{color:#9fb2c2}
 <div id="tools" class="hide">
   <button id="tPaint">🎨 ペイント</button>
   <button id="tDrop">💧 スポイト</button>
-  <button id="tPose">🧍 体・ポーズ調整</button>
+  <button id="tPose">🧍 体の形</button>
   <button id="tDecoy">👥 分身を置く</button>
   <button id="tDecoyX">分身を消す</button>
   <button id="tZoomIn">＋</button>
@@ -193,11 +195,11 @@ small{color:#9fb2c2}
 
 <!-- ポーズ -->
 <div id="pPose" class="sheet hide">
-  <div class="row"><button data-shape="round">● 丸キャラ</button><button data-shape="box" class="sec">■ 四角キャラ</button><button data-size="1">小(1倍)</button><button data-size="1.5" class="sec">1.5倍</button><button data-size="2" class="sec">2倍</button></div>
-  <div class="row" id="presets"></div>
-  <div class="row"><button id="poseSave" class="sec">いまのポーズを保存</button><button data-slot="0" class="sec">★1</button><button data-slot="1" class="sec">★2</button><button data-slot="2" class="sec">★3</button></div>
+  <div class="row"><button data-shape="round">● 丸キャラ</button><button data-shape="box" class="sec">■ 四角キャラ</button></div>
+  <div class="row"><button data-size="1">小(1倍)</button><button data-size="1.5" class="sec">1.5倍</button><button data-size="2" class="sec">2倍</button></div>
   <div class="row"><button id="rotL" class="sec">⟲ 体の向き</button><button id="rotR" class="sec">体の向き ⟳</button><button class="sec" data-close>閉じる</button></div>
-  <div id="sliders"></div>
+  <small>ポーズは右下の「ポーズ」ボタンの丸い枠からえらびます。</small>
+</div>
 </div>
 
 <!-- ゲーム開始のカウントダウン -->
