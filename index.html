@@ -7,7 +7,9 @@
 <style>
 :root{--sl:env(safe-area-inset-left,0px);--sr:env(safe-area-inset-right,0px);--sb:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;overflow:hidden;background:#10151c;color:#fff;font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;user-select:none;-webkit-user-select:none}
+*{touch-action:manipulation}
+.sheet,.card,.screen,#lobby,#reveal{touch-action:pan-y}
+html,body{position:fixed;inset:0;width:100%;touch-action:none;overscroll-behavior:none;-webkit-text-size-adjust:100%;margin:0;height:100%;overflow:hidden;background:#10151c;color:#fff;font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;user-select:none;-webkit-user-select:none}
 #cv{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;touch-action:none;display:block}
 .hide{display:none!important}
 .screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding-left:calc(16px + var(--sl))!important;padding-right:calc(16px + var(--sr))!important;background:linear-gradient(160deg,#17324a,#1d5a45);z-index:30;padding:16px;overflow:auto}
@@ -32,6 +34,7 @@ label.l select,label.l input[type=number]{width:55%;margin:0;padding:8px}
 #tools{position:fixed;right:calc(8px + var(--sr));top:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px;z-index:12}
 #tools button{padding:9px 10px;font-size:13px;background:rgba(20,28,36,.85)}
 #tools button.on{background:#2e8b63}
+#tDrop{border-left:10px solid #b9b9b9}
 #sys{position:fixed;left:calc(8px + var(--sl));top:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px;z-index:12}
 #sys button{padding:8px 10px;font-size:13px;background:rgba(20,28,36,.85)}
 .sheet{position:fixed;left:0;right:0;bottom:0;max-height:44vh;overflow:auto;background:rgba(14,19,26,.93);border-radius:16px 16px 0 0;padding:10px 12px calc(12px + env(safe-area-inset-bottom));z-index:14;font-size:13px}
@@ -101,7 +104,7 @@ small{color:#9fb2c2}
     <button id="btnSet1" class="sec">⚙ 設定</button>
   </div>
   <div id="status"></div>
-  <p class="sub" style="margin-top:12px">操作: PCは WASD＋マウス / Space ジャンプ / P ペイント / O ポーズ / F 分身。スマホは左スティック＋画面ドラッグ。</p>
+  <p class="sub" style="margin-top:12px">操作: PCは WASD＋マウス / Space ジャンプ（壁に向かって長押しでよじ登り） / P ペイント / E スポイト / O ポーズ / Q ポーズ切替 / F 分身。スマホは左スティック＋画面ドラッグ。</p>
 </div></div>
 
 <!-- HUD -->
@@ -120,7 +123,9 @@ small{color:#9fb2c2}
 </div>
 <div id="tools" class="hide">
   <button id="tPaint">🎨 ペイント</button>
+  <button id="tDrop">💧 スポイト</button>
   <button id="tPose">🧍 ポーズ</button>
+  <button id="tNext">🔁 ポーズ切替</button>
   <button id="tDecoy">👥 分身を置く</button>
   <button id="tDecoyX">分身を消す</button>
   <button id="tZoomIn">＋</button>
@@ -137,17 +142,20 @@ small{color:#9fb2c2}
     <button class="sec" data-close>閉じる</button>
   </div>
   <div id="swatches"></div>
+  <label class="l">🔍 拡大 <input id="pZoom" type="range" min="1" max="5" step="0.1" value="1"></label>
+  <label class="l">見る高さ（足↔頭） <input id="pY" type="range" min="0.05" max="1" step="0.05" value="0.6"></label>
   <label class="l">ブラシの太さ <input id="bSize" type="range" min="1" max="24" value="8"></label>
   <label class="l">発光 <input id="mEm" type="range" min="0" max="1.5" step="0.05" value="0"></label>
   <label class="l">メタリック <input id="mMe" type="range" min="0" max="1" step="0.05" value="0"></label>
   <label class="l">ツヤ <input id="mRo" type="range" min="0" max="0.95" step="0.05" value="0.1"></label>
-  <small>体をなぞって塗る／体以外をドラッグで視点回転。スポイトは押してから壁や床をタップ。</small>
+  <small>2本指でつまむ（PCはホイール）でも拡大できます。体をなぞって塗る／体以外をドラッグで視点回転。スポイトは押してから壁や床をタップ。</small>
 </div>
 
 <!-- ポーズ -->
 <div id="pPose" class="sheet hide">
   <div class="row"><button data-shape="round">● 丸キャラ</button><button data-shape="box" class="sec">■ 四角キャラ</button><button data-size="1">小(1倍)</button><button data-size="1.5" class="sec">1.5倍</button><button data-size="2" class="sec">2倍</button></div>
   <div class="row" id="presets"></div>
+  <div class="row"><button id="poseSave" class="sec">いまのポーズを保存</button><button data-slot="0" class="sec">★1</button><button data-slot="1" class="sec">★2</button><button data-slot="2" class="sec">★3</button></div>
   <div class="row"><button id="rotL" class="sec">⟲ 体の向き</button><button id="rotR" class="sec">体の向き ⟳</button><button class="sec" data-close>閉じる</button></div>
   <div id="sliders"></div>
 </div>
@@ -182,13 +190,14 @@ small{color:#9fb2c2}
 
 <!-- スマホ操作 -->
 <div id="joy" class="hide"><div id="knob"></div></div>
-<button id="bJump" class="tbtn hide">ジャンプ</button>
+<button id="bJump" class="tbtn hide">ジャンプ<br><small style="color:#fff">長押しで登る</small></button>
 <button id="bFire" class="tbtn hide">撃つ</button>
 
 <!-- 設定 -->
 <div id="modal" class="hide"><div class="card">
   <h2>設定</h2>
   <label class="l">軽量化モード <input id="oLite" type="checkbox" style="width:22px;height:22px"></label>
+  <label class="l">光のにじみ（重い端末はオフ） <input id="oBloom" type="checkbox" style="width:22px;height:22px"></label>
   <label class="l">視点感度 <input id="oSens" type="range" min="0.2" max="3" step="0.1"></label>
   <label class="l">BGM音量 <input id="oBgm" type="range" min="0" max="1" step="0.05"></label>
   <label class="l">効果音の音量 <input id="oSe" type="range" min="0" max="1" step="0.05"></label>

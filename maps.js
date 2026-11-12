@@ -40,6 +40,53 @@ const TOY = ['#e04f4f', '#4f7fe0', '#f0d040', '#4fbf6a', '#b06fd8', '#f08a3c'];
 const CARD = ['#c7a36a', '#b8935a', '#d4b483', '#a8834f'];
 const CONT = ['#b8452f', '#2f6fb0', '#3f9b6a', '#d98a2b', '#7b5ea7', '#8d8f94', '#c9b037'];
 
+// 中に入れる建物：1階は壁・入口・窓・店内の棚やカウンター、上の階は窓つき、屋上に設備。f = 入口が向く z 方向(±1)
+const shop = (h, x, z, w, d, ht, c, f, ac, night, y = 0) => {
+  const zb = z - f * (d / 2 - 0.2), zf = z + f * (d / 2 - 0.2), sw = w / 2 - 1.3, g = night ? 1.1 : 0.2;
+  h.B(x, y, zb, w, 3.2, 0.4, c); h.B(x - w / 2 + 0.2, y, z, 0.4, 3.2, d, c); h.B(x + w / 2 - 0.2, y, z, 0.4, 3.2, d, c);
+  h.B(x - w / 2 + sw / 2, y, zf, sw, 3.2, 0.4, c); h.B(x + w / 2 - sw / 2, y, zf, sw, 3.2, 0.4, c); h.B(x, y + 2.4, zf, 2.6, 0.8, 0.4, c, NC);
+  h.B(x - w / 2 + sw / 2, y + 1.0, zf + f * 0.2, sw - 0.8, 1.3, 0.08, '#9fd0e8', { nocol: true, glow: g * 0.6 }); h.B(x + w / 2 - sw / 2, y + 1.0, zf + f * 0.2, sw - 0.8, 1.3, 0.08, '#9fd0e8', { nocol: true, glow: g * 0.6 });
+  h.B(x, y + 3.2, z, w, ht - 3.2, d, c, { r: 0.18 }); h.B(x, y + ht, z, w + 0.3, 0.3, d + 0.3, '#3a3d44');
+  for (let yy = 4.3; yy < ht - 1; yy += 2.3) h.B(x, y + yy, z + f * (d / 2 + 0.02), w - 1.6, 1.2, 0.08, night ? '#ffd98a' : '#9fd0e8', { nocol: true, glow: g });
+  h.B(x, y + 2.9, z + f * (d / 2 + 0.75), w - 0.8, 0.16, 1.5, ac, NC); h.B(x, y + 3.5, z + f * (d / 2 + 0.12), Math.min(4, w - 2), 0.7, 0.14, ac, { nocol: true, glow: g * 0.8 });
+  h.B(x, y, z, w - 0.8, 0.03, d - 0.8, '#d9d2c4', { flat: true }); h.B(x, y + 3.08, z, w * 0.5, 0.06, d * 0.35, '#fff4c2', { nocol: true, glow: 1.3 });
+  // 店内
+  h.B(x, y, zb + f * 0.7, w - 2, 1.9, 0.7, '#8a5a33'); for (let i = 0; i < 3; i++) h.B(x, y + 0.4 + i * 0.55, zb + f * 0.72, w - 2.3, 0.3, 0.74, TOY[(i + Math.round(Math.abs(x))) % 6], NC);
+  h.B(x - w / 4, y, z + f * (d / 2 - 2), Math.min(2.4, w / 3), 1, 0.8, '#3f5f8a', { r: 0.1 }); h.B(x - w / 4, y + 1, z + f * (d / 2 - 2), 0.5, 0.35, 0.5, '#22262b');
+  if (d > 6) { h.B(x + w / 5, y, z - f * 0.6, 0.8, 1.4, d * 0.32, '#d9d2c4'); h.B(x + w / 5, y + 1.4, z - f * 0.6, 0.7, 0.25, d * 0.3, TOY[Math.round(Math.abs(z)) % 6], NC); }
+  h.B(x + w / 2 - 1.1, y, zb + f * 2, 1, 0.9, 1, CARD[0], { r: 0.07 }); h.B(x + w / 2 - 1.1, y + 0.9, zb + f * 2, 0.8, 0.7, 0.8, CARD[2], { r: 0.07 }); h.B(x - w / 2 + 1.1, y, zb + f * 2.2, 1, 1, 1, CARD[1], { r: 0.07 });
+  // 屋上
+  h.cyl(x - w / 4, y + ht + 0.3, z, 0.7, 1.4, '#8d8f94'); h.B(x + w / 4, y + ht + 0.3, z + 1, 1.4, 0.8, 1, '#b9c0c7', { r: 0.1 });
+};
+
+// 隠れ場所になる小物（マップごとの kit から自動でたくさん配置される）。pal はそのマップの色
+const pick = (h, a) => a[Math.floor(h.rnd() * a.length)];
+export const KIT = {
+  crate(h, x, z) { const s = 0.8 + h.rnd() * 0.5; h.B(x, 0, z, s, s, s, pick(h, CARD), { r: 0.07 }); if (h.rnd() < 0.55) h.B(x + 0.08, s, z - 0.05, s * 0.8, s * 0.8, s * 0.8, pick(h, CARD), { r: 0.07 }); if (h.rnd() < 0.45) h.B(x + s * 0.95, 0, z + 0.2, s * 0.85, s * 0.7, s * 0.85, pick(h, CARD), { r: 0.07 }); },
+  barrel(h, x, z, pal) { const n = 1 + Math.floor(h.rnd() * 3); for (let i = 0; i < n; i++) h.cyl(x + (i % 2) * 0.95, 0, z + (i > 1 ? 0.95 : 0), 0.45, 1.05 + h.rnd() * 0.2, pick(h, pal)); },
+  bush(h, x, z) { const r = 0.7 + h.rnd() * 0.5; h.ball(x, r * 0.75, z, r, pick(h, ['#2f7d3a', '#3b8f46', '#2e6b34']), { col: true }); if (h.rnd() < 0.6) h.ball(x + r * 0.9, r * 0.55, z + 0.3, r * 0.7, '#3b8f46', { col: true }); },
+  rock(h, x, z, pal) { const s = 0.9 + h.rnd() * 1.1; h.B(x, 0, z, s, s * (0.6 + h.rnd() * 0.6), s * (0.7 + h.rnd() * 0.5), pick(h, pal), { r: 0.4 }); if (h.rnd() < 0.5) h.B(x + s * 0.7, 0, z + s * 0.4, s * 0.6, s * 0.45, s * 0.6, pick(h, pal), { r: 0.3 }); },
+  planter(h, x, z, pal) { h.B(x, 0, z, 1.3, 0.6, 1.3, pick(h, pal), { r: 0.12 }); h.ball(x, 1.15, z, 0.7, '#2f7d3a', { col: true }); },
+  pillar(h, x, z, pal) { h.cyl(x, 0, z, 0.5 + h.rnd() * 0.25, 2.2 + h.rnd() * 1.6, pick(h, pal)); },
+  screen(h, x, z, pal) { const w = 2 + h.rnd() * 1.6, c = pick(h, pal), ht = 1.5 + h.rnd() * 0.6; if (h.rnd() < 0.5) { h.B(x, 0, z, w, ht, 0.22, c); if (h.rnd() < 0.5) h.B(x + w / 2, 0, z + 0.8, 0.22, ht, 1.6, c); } else { h.B(x, 0, z, 0.22, ht, w, c); if (h.rnd() < 0.5) h.B(x + 0.8, 0, z + w / 2, 1.6, ht, 0.22, c); } },
+  manne(h, x, z, pal) { // マネキン（隠れている人と見分けにくい）
+    const s = pick(h, [0.6, 0.6, 0.9, 1.2]), c = pick(h, pal);
+    h.cyl(x, 0, z, 0.2 * s, 0.6 * s, c, { rt: 0.16 * s }); h.B(x, 0.6 * s, z, 0.44 * s, 0.62 * s, 0.36 * s, c, { r: 0.17 * s, nocol: true }); h.ball(x, 1.46 * s, z, 0.25 * s, c);
+    h.cyl(x - 0.28 * s, 0.7 * s, z, 0.075 * s, 0.45 * s, c, NC); h.cyl(x + 0.28 * s, 0.7 * s, z, 0.075 * s, 0.45 * s, c, NC);
+  },
+  toy(h, x, z) { const n = 2 + Math.floor(h.rnd() * 4); for (let i = 0; i < n; i++) { const s = 0.5 + h.rnd() * 0.4; h.B(x + (i % 2) * 0.8, Math.floor(i / 2) * 0.62, z + (i % 3) * 0.15, s, 0.6, s, pick(h, TOY), { r: 0.1 }); } },
+  shelfK(h, x, z, pal) { const al = h.rnd() < 0.5; h.B(x, 0, z, al ? 2.2 : 0.7, 1.9, al ? 0.7 : 2.2, pick(h, pal)); for (let i = 0; i < 3; i++) h.B(x, 0.35 + i * 0.6, z, al ? 2.0 : 0.76, 0.28, al ? 0.76 : 2.0, pick(h, TOY), NC); },
+  sofaK(h, x, z, pal) { if (h.rnd() < 0.5) sofaX(h, x, z, 2.4 + h.rnd(), pick(h, pal), h.rnd() < 0.5 ? 1 : -1); else sofaZ(h, x, z, 2.4 + h.rnd(), pick(h, pal), h.rnd() < 0.5 ? 1 : -1); },
+  stool(h, x, z, pal) { for (let i = 0; i < 3; i++) h.cyl(x + i * 0.75, 0, z + (i % 2) * 0.5, 0.28, 0.5 + (i % 2) * 0.25, pick(h, pal)); },
+  plantK(h, x, z) { plant(h, x, z); if (h.rnd() < 0.5) plant(h, x + 0.9, z + 0.3); },
+  tiresK(h, x, z) { tires(h, x, z, 2 + Math.floor(h.rnd() * 3)); if (h.rnd() < 0.6) tires(h, x + 1.05, z + 0.2, 1 + Math.floor(h.rnd() * 3)); },
+  pylonK(h, x, z) { for (let i = 0; i < 3; i++) pylon(h, x + i * 0.6, z + (i % 2) * 0.5); h.B(x + 0.6, 0, z - 0.9, 2, 0.9, 0.3, '#f4f4f4', { r: 0.1 }); },
+  vend(h, x, z) { h.B(x, 0, z, 1, 1.9, 0.8, pick(h, ['#e0413a', '#2f6fb0', '#f4f4f4', '#3f9b6a']), { r: 0.1 }); if (h.rnd() < 0.5) h.cyl(x + 0.95, 0, z, 0.33, 0.85, '#55606b'); },
+  pot(h, x, z) { for (let i = 0; i < 3; i++) { const px = x + i * 0.8, pz = z + (i % 2) * 0.6, s = 0.8 + h.rnd() * 0.6; h.cyl(px, 0, pz, 0.35 * s, 0.7 * s, '#b5651d', { rt: 0.22 * s }); h.ball(px, 0.95 * s, pz, 0.36 * s, '#b5651d', { col: true }); } },
+  crystal(h, x, z) { h.cone(x, 0, z, 0.7, 2.2 + h.rnd(), '#5a3a8a', { seg: 5 }); h.cone(x + 0.75, 0, z + 0.3, 0.45, 1.4, '#7b4fb8', { seg: 5 }); },
+  neonBox(h, x, z, pal) { const s = 0.9 + h.rnd() * 0.5; h.B(x, 0, z, s, s, s, pick(h, pal), { r: 0.15 }); h.B(x, s, z, s * 0.9, 0.06, s * 0.9, pick(h, ['#ff3ab8', '#33eaff', '#ffd940']), { nocol: true, glow: 1.3 }); if (h.rnd() < 0.5) h.B(x + s, 0, z, s * 0.8, s * 1.4, s * 0.8, pick(h, pal), { r: 0.15 }); }
+};
+
 export const MAPS = {
   /* ---------- 待合室 ---------- */
   lobby: {
@@ -59,7 +106,7 @@ export const MAPS = {
 
   /* ---------- おうち ---------- */
   house: {
-    name: 'おうち', hx: 30, hz: 22, sky: '#d5dde6', spawn: [0, -11],
+    name: 'おうち', hx: 30, hz: 22, sky: '#d5dde6', kit: ['toy', 'plantK', 'screen', 'sofaK', 'shelfK', 'crate', 'manne', 'manne', 'stool'], pal: ['#e8dcc8', '#b98d5c', '#7d8fb3', '#8fbf7a', '#f3f1ec', '#c9573f', '#3f5f8a'], clutter: 70, spawn: [0, -11],
     build(h) {
       h.F(-15, -11, 30, 22, 0, ['vstripe', '#b98d5c', '#ad8253', 15, 1]);
       h.F(15, -11, 30, 22, 0, ['checker', '#ecebe4', '#a9bcc6', 15, 11]);
@@ -114,7 +161,7 @@ export const MAPS = {
 
   /* ---------- 公園 ---------- */
   park: {
-    name: '公園', hx: 36, hz: 28, sky: '#8fc8f0', dark: 0.95, floorTex: 'grass', spawn: [0, -6],
+    name: '公園', hx: 36, hz: 28, sky: '#8fc8f0', dark: 0.95, floorTex: 'grass', kit: ['bush', 'bush', 'rock', 'planter', 'crate', 'manne', 'manne', 'barrel', 'screen'], pal: ['#6fae5a', '#8d8f94', '#8a5a33', '#2e6b34', '#d8c9a3'], clutter: 100, spawn: [0, -6],
     build(h) {
       h.F(0, 0, 72, 56, '#6fae5a');
       h.outer(6, '#3c6e3a');
@@ -158,7 +205,7 @@ export const MAPS = {
 
   /* ---------- 学校 ---------- */
   school: {
-    name: '学校', hx: 34, hz: 26, sky: '#d5dde6', spawn: [0, 0],
+    name: '学校', hx: 34, hz: 26, sky: '#d5dde6', kit: ['shelfK', 'crate', 'screen', 'toy', 'manne', 'manne', 'stool', 'plantK'], pal: ['#f2efe6', '#c9a26b', '#d7b47c', '#5f87b8', '#b85f5f', '#cfe0d3'], clutter: 70, spawn: [0, 0],
     build(h) {
       h.F(0, 0, 68, 6, '#d9d4c7');
       h.F(0, -14.5, 68, 23, 0, ['vstripe', '#c9a26b', '#bf9860', 34, 1]);
@@ -199,7 +246,7 @@ export const MAPS = {
 
   /* ---------- 倉庫 ---------- */
   warehouse: {
-    name: '倉庫', hx: 36, hz: 26, sky: '#39424d', dark: 0.62, floorTex: 'concrete', spawn: [3, 1],
+    name: '倉庫', hx: 36, hz: 26, sky: '#39424d', dark: 0.62, floorTex: 'concrete', kit: ['crate', 'crate', 'barrel', 'pillar', 'tiresK', 'screen', 'manne', 'manne'], pal: ['#8a8d91', '#70757b', '#2f6fb0', '#d98a2b', '#b8452f', '#3d5f93'], clutter: 110, spawn: [3, 1],
     build(h) {
       h.F(0, 0, 72, 52, '#8a8d91');
       h.outer(7, '#70757b');
@@ -239,7 +286,7 @@ export const MAPS = {
 
   /* ---------- 商店街 ---------- */
   town: {
-    name: '夜の商店街', hx: 36, hz: 28, sky: '#0b1024', night: true, dark: 0.42, floorTex: 'asphalt', spawn: [0, 0],
+    name: '夜の商店街', hx: 36, hz: 28, sky: '#0b1024', night: true, dark: 0.42, floorTex: 'asphalt', kit: ['crate', 'barrel', 'planter', 'vend', 'manne', 'manne', 'screen'], pal: ['#b9b7b0', '#4a4d52', '#d9b08c', '#c97b63', '#9fb7c4', '#8a5a33'], clutter: 80, spawn: [0, 0],
     build(h) {
       h.F(0, 0, 72, 56, '#4a4d52');
       h.outer(9, '#8d8f94');
@@ -253,9 +300,7 @@ export const MAPS = {
         h.B(sx * 20, 0, sz * 16, 32, 0.15, 24, '#b9b7b0', { flat: true });
         [[9, 8], [19.5, 10], [30.5, 10]].forEach((b, i) => {
           const x = sx * b[0], z = sz * 22.2, ht = 6 + Math.floor(h.rnd() * 4), fz = sz * 17.2;
-          h.B(x, 0.15, z, b[1], ht, 10, BC[(q * 3 + i) % 12]);
-          h.B(x, 2.9, fz - sz * 0.7, b[1] - 1, 0.15, 1.4, AW[(q + i) % 6], NC);
-          h.B(x - 1.5, 0.15, fz - sz * 0.03, 1.2, 2.1, 0.08, '#3a2a1c', NC); h.B(x + 1.6, 1.0, fz - sz * 0.03, 2.6, 1.4, 0.08, '#9fd0e8', NC);
+          shop(h, x, z, b[1], 10, ht, BC[(q * 3 + i) % 12], -sz, AW[(q + i) % 6], true, 0.15);
         });
         h.ball(sx * 9, 2.55, sz * 16.3, 0.2, '#ffb46b', { glow: 1 }); h.ball(sx * 30.5, 2.55, sz * 16.3, 0.2, '#ffb46b', { glow: 1 });
         // 店先の小物
@@ -279,7 +324,7 @@ export const MAPS = {
   },
   /* ---------- ガソリンスタンド（まんたんステーションより） ---------- */
   station: {
-    name: 'ガソリンスタンド', hx: 34, hz: 26, sky: '#a9d4ee', floorTex: 'asphalt', spawn: [0, 13],
+    name: 'ガソリンスタンド', hx: 34, hz: 26, sky: '#a9d4ee', floorTex: 'asphalt', kit: ['crate', 'barrel', 'tiresK', 'planter', 'manne', 'manne', 'pylonK', 'vend', 'screen'], pal: ['#5a5d62', '#e0413a', '#f4f4f4', '#eee9df', '#b9c0c7', '#2f6fb0'], clutter: 90, spawn: [0, 13],
     build(h) {
       h.F(0, 0, 68, 52, '#5a5d62'); h.outer(7, '#b9c0c7');
       h.F(0, 21, 68, 10, '#44474c', ['img:road', '#44474c', 0.2, 8, 1.2], 1);
@@ -323,7 +368,7 @@ export const MAPS = {
 
   /* ---------- サーキット（レースマスター「マスター・サーキット」より） ---------- */
   circuit: {
-    name: 'サーキット', hx: 38, hz: 28, sky: '#a8d6f5', floorTex: 'grass', spawn: [0, 0],
+    name: 'サーキット', hx: 38, hz: 28, sky: '#a8d6f5', floorTex: 'grass', kit: ['tiresK', 'pylonK', 'bush', 'crate', 'barrel', 'manne', 'manne', 'rock', 'screen'], pal: ['#5fa84f', '#45474e', '#e0413a', '#ffffff', '#b8bcc6', '#8d8f94'], clutter: 90, spawn: [0, 0],
     build(h) {
       h.F(0, 0, 76, 56, '#5fa84f'); h.outer(7, '#3c6e3a');
       const RD = '#45474e';
@@ -350,7 +395,8 @@ export const MAPS = {
       for (let i = 0; i < 8; i++) { pylon(h, -18 + i * 1.5, 10.9); pylon(h, 6 + i * 1.5, 19.2); }
       kart(h, 2, -13, '#e04f4f'); kart(h, 4.5, -16.5, '#4f7fe0'); kart(h, 7, -13, '#f0d040'); kart(h, 9.5, -16.5, '#4fbf6a'); kart(h, -24, 14, '#b06fd8'); kart(h, 16, 16, '#f08a3c');
       // ピット
-      h.B(0, 0, 24.6, 30, 3.6, 4.6, '#d9d2c4'); for (let i = 0; i < 5; i++) { h.B(-12 + i * 6, 0, 22, 4.4, 2.6, 0.7, ['#2a3038', '#3a4050'][i % 2]); h.B(-12 + i * 6, 2.9, 22.2, 4.4, 0.5, 0.2, TOY[i], { nocol: true, glow: 0.5 }); }
+      h.B(0, 0, 26.9, 30, 3.6, 0.4, '#d9d2c4'); h.B(0, 3.2, 24.6, 30.4, 0.4, 5, '#b8bcc6'); for (let i = 0; i <= 5; i++) h.B(-15 + i * 6, 0, 24.6, 0.4, 3.2, 4.6, '#d9d2c4');
+      for (let i = 0; i < 5; i++) { h.B(-12 + i * 6, 0, 26.2, 3.6, 1, 0.8, ['#b8452f', '#2f6fb0'][i % 2], { r: 0.08 }); tires(h, -13.6 + i * 6, 24.4, 2 + i % 3); if (i % 2) kart(h, -11.4 + i * 6, 24.2, TOY[i]); h.B(-12 + i * 6, 2.9, 22.2, 4.4, 0.5, 0.2, TOY[i], { nocol: true, glow: 0.5 }); }
       for (let i = 0; i < 6; i++) { h.cyl(-17 + i * 0.95, 0, 21, 0.4, 1.1, ['#b8452f', '#2f6fb0'][i % 2]); h.B(15 + (i % 3) * 1.3, Math.floor(i / 3) * 0.9, 21, 1.1, 0.9, 1.1, '#b8452f', { r: 0.1 }); }
       tires(h, -20.5, 22.5, 4); tires(h, -21.7, 23, 3); tires(h, 21, 23, 4); h.B(20, 0, 20.5, 2.2, 0.9, 1, '#55606b');
       // 表彰台・アイテムボックス・ジャンプ台
@@ -368,7 +414,7 @@ export const MAPS = {
 
   /* ---------- 古代の砂漠（レースマスター「古代の砂漠」より） ---------- */
   desert: {
-    name: '古代の砂漠', hx: 38, hz: 28, sky: '#f2cc8f', spawn: [0, 4],
+    name: '古代の砂漠', hx: 38, hz: 28, sky: '#f2cc8f', kit: ['rock', 'rock', 'pot', 'pillar', 'crate', 'manne', 'manne', 'screen'], pal: ['#d6ab66', '#c9a36a', '#b8905a', '#ddb672'], clutter: 110, spawn: [0, 4],
     build(h) {
       const S = '#d6ab66', ST = '#c9a36a', ST2 = '#b8905a';
       h.F(0, 0, 76, 56, S); h.outer(7, '#c49a5e');
@@ -403,7 +449,7 @@ export const MAPS = {
 
   /* ---------- ネオン街（レースマスター「ネオン・メトロポリス」より） ---------- */
   neon: {
-    name: 'ネオン街', hx: 36, hz: 28, sky: '#16052a', night: true, dark: 0.4, spawn: [0, 0],
+    name: 'ネオン街', hx: 36, hz: 28, sky: '#16052a', night: true, dark: 0.4, kit: ['neonBox', 'neonBox', 'barrel', 'manne', 'manne', 'screen', 'pillar'], pal: ['#1c1c2e', '#1a1430', '#221436', '#2a2440', '#3a3550'], clutter: 80, spawn: [0, 0],
     build(h) {
       const NE = ['#ff3ab8', '#33eaff', '#ffd940', '#8a5cff', '#3dff9a'];
       h.F(0, 0, 72, 56, '#1c1c2e'); h.outer(10, '#14101f');
@@ -414,7 +460,7 @@ export const MAPS = {
         // ネオン帯つきのビル
         [[10, 18, 9, 9], [21, 21, 9, 10], [31, 18, 8, 12], [12, 8.5, 6, 5], [30, 8, 7, 5]].forEach((b, i) => {
           const x = sx * b[0], z = sz * b[1], ht = 7 + Math.floor(h.rnd() * 7), nc = NE[(q + i) % 5];
-          h.B(x, 0, z, b[2], ht, b[3], ['#1a1430', '#141a36', '#221436'][i % 3], { r: 0.25 });
+          if (i < 3) shop(h, x, z, b[2], b[3], ht, ['#1a1430', '#141a36', '#221436'][i % 3], -sz, nc, true); else h.B(x, 0, z, b[2], ht, b[3], ['#1a1430', '#141a36', '#221436'][i % 3], { r: 0.25 });
           for (let y = 2.4; y < ht; y += 2.6) h.B(x, y, z, b[2] + 0.12, 0.16, b[3] + 0.12, nc, { nocol: true, glow: 1.6 });
           h.B(x, ht, z, 0.2, 2, 0.2, '#e0263a', { nocol: true, glow: 1.5 });
           h.B(x - sx * (b[2] / 2 + 0.06), 1.2, z, 0.1, 1.5, Math.min(3, b[3] - 2), NE[(q + i + 2) % 5], { nocol: true, glow: 1.2 });
@@ -438,7 +484,7 @@ export const MAPS = {
 
   /* ---------- 火山（レースマスター「火山コア」より） ---------- */
   volcano: {
-    name: '火山', hx: 36, hz: 28, sky: '#2a0a06', night: true, dark: 0.5, spawn: [0, 2],
+    name: '火山', hx: 36, hz: 28, sky: '#2a0a06', night: true, dark: 0.5, kit: ['rock', 'rock', 'crystal', 'barrel', 'crate', 'manne', 'manne', 'pillar', 'screen'], pal: ['#2b2422', '#3a302c', '#332a27', '#40342f'], clutter: 120, spawn: [0, 2],
     build(h) {
       const RK = '#2b2422', RK2 = '#3a302c', LV = '#ff6a14';
       h.F(0, 0, 72, 56, RK); h.outer(9, '#1f1917');

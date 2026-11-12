@@ -1,7 +1,7 @@
 // ぬりかくれ！ - ペイントかくれんぼ (Three.js + Firebase Realtime Database)
 import * as THREE from 'three';
 import { firebaseConfig } from './firebase-config.js';
-import { MAPS, MAP_LIST } from './maps.js';
+import { MAPS, MAP_LIST, KIT } from './maps.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const $ = id => document.getElementById(id);
@@ -13,7 +13,7 @@ const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 const configured = !!firebaseConfig.apiKey && !/^YOUR/.test(firebaseConfig.apiKey);
 
 /* ---------------- 設定 ---------------- */
-const settings = { lite: false, sens: 1, bgm: 0.3, se: 0.6 };
+const settings = { lite: false, sens: 1, bgm: 0.3, se: 0.6, bloom: !isTouch };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('nurikakure_set') || '{}')); } catch (e) {}
 const saveSet = () => { try { localStorage.setItem('nurikakure_set', JSON.stringify(settings)); } catch (e) {} };
 
@@ -100,7 +100,9 @@ sun.position.set(12, 46, 8); sun.shadow.mapSize.set(settings.lite ? 1024 : 4096,
 { const c = sun.shadow.camera; c.left = -30; c.right = 30; c.top = 30; c.bottom = -30; c.near = 1; c.far = 80; }
 scene.add(hemi, sun);
 let composer = null;
+let lastW = 0, lastH = 0;
 function resize() {
+  lastW = innerWidth; lastH = innerHeight;
   renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth, innerHeight); }
 }
@@ -109,7 +111,12 @@ function applyGfx() {
   renderer.setPixelRatio(settings.lite ? Math.min(dpr, 1) * 0.8 : Math.min(dpr, 2.5));
   sun.castShadow = !settings.lite; resize();
 }
-addEventListener('resize', resize); applyGfx();
+addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 300)); applyGfx();
+if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+// スマホで2本指操作中にページごと拡大されてしまうのを防ぐ
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+document.addEventListener('touchmove', e => { if (e.touches.length > 1 || !(e.target.closest && e.target.closest('.sheet,.card'))) e.preventDefault(); }, { passive: false });
+document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
 // ブルーム（光のにじみ）。読み込めなければ通常描画のまま
 Promise.all(['EffectComposer', 'RenderPass', 'UnrealBloomPass', 'OutputPass'].map(n => import(`three/addons/postprocessing/${n}.js`))).then(([E, Rp, U, O]) => {
   const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: 4 });
@@ -165,7 +172,7 @@ function addBox(x, y, z, w, h, d, color, opt = {}) {
   if (opt.pat) { const p = patternTex(opt.pat[0], opt.pat[1], opt.pat[2], opt.pat[3], opt.pat[4]); mat.map = p.t; m.userData.pc = p.c; }
   m.position.set(x, y + h / 2, z); m.castShadow = !opt.flat; m.receiveShadow = true;
   scene.add(m); worldMeshes.push(m);
-  if (!opt.nocol) colliders.push({ x0: x - w / 2, x1: x + w / 2, z0: z - d / 2, z1: z + d / 2, y0: y, y1: y + h });
+  if (!opt.nocol) colliders.push({ x0: x - w / 2, x1: x + w / 2, z0: z - d / 2, z1: z + d / 2, y0: y, y1: y + h, nc: !!opt.noclimb });
 }
 function addCyl(x, y, z, r, h, color, opt = {}) {
   const m = new THREE.Mesh(new THREE.CylinderGeometry(opt.rt == null ? r : opt.rt, r, h, opt.seg || 24), new THREE.MeshStandardMaterial({ color, roughness: 0.85 }));
@@ -233,12 +240,20 @@ function loadMap(name) {
     F: (x, z, w, d, color, pat, lift) => addBox(x, lift ? 0 : -0.2, z, w, lift ? 0.02 : 0.2, d, color, { nocol: true, flat: true,
       pat: pat || (M.floorTex && !lift ? ['img:' + M.floorTex, color, 0.38, w / 5, d / 5] : ['noise', color, 0, w / 4, d / 4]), rough: pat && (pat[0] === 'checker' || pat[0] === 'img:tile') ? 0.28 : (pat ? 0.5 : 0.9) }),
     outer: (ht, color) => { // 抜けられない厚い外壁
-      const px = { pat: ['panel', color, 0, (2 * hx + 6) / 3, ht / 3] }, pz = { pat: ['panel', color, 0, 2 * hz / 3, ht / 3] };
+      const px = { noclimb: true, pat: ['panel', color, 0, (2 * hx + 6) / 3, ht / 3] }, pz = { noclimb: true, pat: ['panel', color, 0, 2 * hz / 3, ht / 3] };
       addBox(0, 0, -hz - 1.5, 2 * hx + 6, ht, 3, color, px); addBox(0, 0, hz + 1.5, 2 * hx + 6, ht, 3, color, px);
       addBox(-hx - 1.5, 0, 0, 3, ht, 2 * hz, color, pz); addBox(hx + 1.5, 0, 0, 3, ht, 2 * hz, color, pz);
     }
   };
   M.build(h);
+  if (M.kit) { // 隠れ場所になる小物をたくさん並べる（全員同じ配置になるよう乱数は固定）
+    const n = M.clutter || 90; let made = 0, guard = 0;
+    while (made < n && guard++ < n * 14) {
+      const x = (h.rnd() * 2 - 1) * (hx - 1.8), z = (h.rnd() * 2 - 1) * (hz - 1.8);
+      if (Math.hypot(x - M.spawn[0], z - M.spawn[1]) < 4.5 || !isFree(x, z, 1.35)) continue;
+      KIT[M.kit[Math.floor(h.rnd() * M.kit.length)]](h, x, z, M.pal || ['#b9b9b9']); made++;
+    }
+  }
   scene.background.set(M.sky); scene.fog = new THREE.Fog(M.sky, 60, 170); applyLight();
   if (M.night) { // 星空
     const n = 700, a = new Float32Array(n * 3), r = rng(99);
@@ -282,18 +297,18 @@ function boxGeo(w, h, d, col, row) { // 四角キャラ用：側面4枚を横一
 }
 const PARTS = ['torso', 'head', 'armL', 'armR', 'legL', 'legR'];
 const GEOS = {
-  round: {
-    head: partGeo(new THREE.SphereGeometry(0.2, 28, 20), 0, 0),
-    torso: partGeo(new THREE.CapsuleGeometry(0.2, 0.24, 8, 24).scale(1, 1, 0.68), 1, 0),
-    armL: partGeo(new THREE.CapsuleGeometry(0.07, 0.42, 6, 16), 2, 0),
-    armR: partGeo(new THREE.CapsuleGeometry(0.07, 0.42, 6, 16), 3, 0),
-    legL: partGeo(new THREE.CapsuleGeometry(0.095, 0.56, 6, 16), 0, 1),
-    legR: partGeo(new THREE.CapsuleGeometry(0.095, 0.56, 6, 16), 1, 1)
+  round: { // 丸みのあるマネキン風（頭大きめ・手足は短め）
+    head: partGeo(new THREE.SphereGeometry(0.25, 32, 24), 0, 0),
+    torso: partGeo(new THREE.CapsuleGeometry(0.22, 0.2, 10, 28).scale(1, 1, 0.82), 1, 0),
+    armL: partGeo(new THREE.CapsuleGeometry(0.078, 0.3, 8, 18), 2, 0),
+    armR: partGeo(new THREE.CapsuleGeometry(0.078, 0.3, 8, 18), 3, 0),
+    legL: partGeo(new THREE.CapsuleGeometry(0.105, 0.39, 8, 18), 0, 1),
+    legR: partGeo(new THREE.CapsuleGeometry(0.105, 0.39, 8, 18), 1, 1)
   },
   box: {
-    head: boxGeo(0.36, 0.36, 0.36, 0, 0), torso: boxGeo(0.44, 0.62, 0.26, 1, 0),
-    armL: boxGeo(0.14, 0.56, 0.14, 2, 0), armR: boxGeo(0.14, 0.56, 0.14, 3, 0),
-    legL: boxGeo(0.19, 0.75, 0.19, 0, 1), legR: boxGeo(0.19, 0.75, 0.19, 1, 1)
+    head: boxGeo(0.42, 0.42, 0.42, 0, 0), torso: boxGeo(0.46, 0.62, 0.3, 1, 0),
+    armL: boxGeo(0.15, 0.45, 0.15, 2, 0), armR: boxGeo(0.15, 0.45, 0.15, 3, 0),
+    legL: boxGeo(0.2, 0.6, 0.2, 0, 1), legR: boxGeo(0.2, 0.6, 0.2, 1, 1)
   },
   gun: new THREE.BoxGeometry(0.09, 0.09, 0.55)
 };
@@ -325,10 +340,10 @@ function makeAvatar(skin) {
   const meshes = [];
   const part = (geo, parent, x, y, z, half) => { const m = new THREE.Mesh(geo, skin.mat); m.userData.half = half; m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; parent.add(m); meshes.push(m); return m; };
   const pivot = (parent, x, y) => { const g = new THREE.Group(); g.position.set(x, y, 0); parent.add(g); return g; };
-  part(GEOS.round.torso, waist, 0, 0.3, 0, 0.3); part(GEOS.round.head, waist, 0, 0.84, 0, 0.12);
-  const aL = pivot(waist, -0.3, 0.56), aR = pivot(waist, 0.3, 0.56), lL = pivot(hip, -0.12, 0), lR = pivot(hip, 0.12, 0);
-  part(GEOS.round.armL, aL, 0, -0.28, 0, 0.26); part(GEOS.round.armR, aR, 0, -0.28, 0, 0.26);
-  part(GEOS.round.legL, lL, 0, -0.375, 0, 0.35); part(GEOS.round.legR, lR, 0, -0.375, 0, 0.35);
+  part(GEOS.round.torso, waist, 0, 0.3, 0, 0.3); part(GEOS.round.head, waist, 0, 0.85, 0, 0.16);
+  const aL = pivot(waist, -0.275, 0.5), aR = pivot(waist, 0.275, 0.5), lL = pivot(hip, -0.11, 0), lR = pivot(hip, 0.11, 0);
+  part(GEOS.round.armL, aL, 0, -0.2, 0, 0.2); part(GEOS.round.armR, aR, 0, -0.2, 0, 0.2);
+  part(GEOS.round.legL, lL, 0, -0.3, 0, 0.27); part(GEOS.round.legR, lR, 0, -0.3, 0, 0.27);
   const gun = new THREE.Mesh(GEOS.gun, gunMat); gun.position.set(0.22, 0.38, -0.35); gun.visible = false; waist.add(gun);
   // 名前タグ
   const tc = document.createElement('canvas'); tc.width = 256; tc.height = 64;
@@ -434,7 +449,7 @@ let toastT = 0;
 function toast(msg, ms = 2200) { const t = $('toast'); t.textContent = msg; t.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => { t.style.opacity = 0; }, ms); }
 const show = (id, on) => $(id).classList.toggle('hide', !on);
 function setPanel(p) {
-  panel = p; eyedrop = false; $('bDrop').classList.remove('on'); $('bDrop').style.background = '';
+  panel = p; eyedrop = false; $('bDrop').style.background = ''; $('tDrop').classList.remove('on');
   show('pPaint', p === 'paint'); show('pPose', p === 'pose');
   $('tPaint').classList.toggle('on', p === 'paint'); $('tPose').classList.toggle('on', p === 'pose');
   if (p && document.pointerLockElement) document.exitPointerLock();
@@ -696,14 +711,26 @@ function setBrush(color, remember) {
   }
 }
 function pickColor(h) {
-  const m = h.object;
-  if (m.userData.pc && h.uv && m.material.map) {
-    const c = m.userData.pc, t = m.material.map;
-    const u = ((h.uv.x * t.repeat.x) % 1 + 1) % 1, v = ((h.uv.y * t.repeat.y) % 1 + 1) % 1;
+  const m = h.object, map = m.material.map;
+  const c = m.userData.pc || (map && map.image && map.image.getContext ? map.image : null); // 模様つきの面や塗った体はその場所の色を読む
+  if (c && h.uv && map) {
+    const u = ((h.uv.x * map.repeat.x) % 1 + 1) % 1, v = ((h.uv.y * map.repeat.y) % 1 + 1) % 1;
     const d = c.getContext('2d').getImageData(Math.min(c.width - 1, Math.floor(u * c.width)), Math.min(c.height - 1, Math.floor((1 - v) * c.height)), 1, 1).data;
     return '#' + [d[0], d[1], d[2]].map(n => n.toString(16).padStart(2, '0')).join('');
   }
   return '#' + m.material.color.getHexString();
+}
+function setDrop(on) {
+  eyedrop = on; $('bDrop').style.background = on ? '#2e8b63' : ''; $('tDrop').classList.toggle('on', on);
+  if (on) toast(document.pointerLockElement ? '画面中央の色を取ります：クリック' : '色を取りたい場所をタップ', 2500);
+}
+function doPick(h) {
+  const c = pickColor(h); setBrush(c, true); setDrop(false); sfx('pop');
+  $('tDrop').style.borderLeft = '10px solid ' + c; toast('色を取りました → ペイントで塗れます', 1800);
+}
+function dropAt(e) { // e があればその場所、なければ画面中央
+  if (e) { const own = ents[uid] ? ents[uid].av.meshes : []; return castPtr(e, worldMeshes.concat(own)); }
+  ndc.set(0, 0); ray.setFromCamera(ndc, camera); ray.near = 0; ray.far = 100; return ray.intersectObjects(worldMeshes, false)[0];
 }
 
 /* ---------------- 分身 ---------------- */
@@ -773,7 +800,7 @@ function doShot(o, d, seed, mine, by) {
 }
 
 /* ---------------- 入力 ---------------- */
-const keys = {}; const joy = { x: 0, y: 0, id: null }; let jumpQ = false;
+const keys = {}; const joy = { x: 0, y: 0, id: null }; let jumpQ = false, jumpHold = false;
 addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
   keys[e.code] = true;
@@ -783,33 +810,42 @@ addEventListener('keydown', e => {
     if (e.code === 'KeyP') setPanel(panel === 'paint' ? '' : 'paint');
     if (e.code === 'KeyO') setPanel(panel === 'pose' ? '' : 'pose');
     if (e.code === 'KeyF') placeDecoy();
+    if (e.code === 'KeyQ') nextPose();
+    if (e.code === 'KeyE') { if (document.pointerLockElement === cv) { const h = dropAt(null); if (h) doPick(h); } else setDrop(!eyedrop); }
   }
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 function look(dx, dy, k) {
+  if (panel === 'paint') k /= paintZoom; // 拡大中は視点もゆっくり動かす
   me.camYaw -= dx * 0.0026 * settings.sens * k; me.camPitch -= dy * 0.0026 * settings.sens * k;
   me.camPitch = Math.max(-1.5, Math.min(1.5, me.camPitch));
 }
 function castPtr(e, list) { ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera); ray.near = 0; ray.far = 100; return ray.intersectObjects(list, false)[0]; }
 let lookId = null, lx = 0, ly = 0, paintId = null;
+// ペイント中の拡大（1〜5倍）。スライダー・ホイール・2本指のピンチで変えられる
+let paintZoom = 1, paintY = 0.6, pinchD = 0; const pts = new Map();
+function setZoom(z) { paintZoom = Math.max(1, Math.min(5, z)); $('pZoom').value = paintZoom; }
+const pinchDist = () => { const a = [...pts.values()]; return Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); };
 cv.addEventListener('pointerdown', e => {
   audioInit(); if (!inRoom) return;
+  if (e.pointerType === 'touch') { pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (pts.size === 2 && panel === 'paint') { pinchD = pinchDist(); if (paintId !== null) { paintId = null; queueSkin(); } lookId = null; return; } }
+  if (eyedrop && canTool()) { const h = dropAt(document.pointerLockElement === cv ? null : e); if (h) { doPick(h); return; } }
   if (document.pointerLockElement === cv) { fire(); return; }
   if (e.pointerType === 'mouse' && !panel && !(meta.state === 'lobby' && lobbyOpen)) { if (cv.requestPointerLock) cv.requestPointerLock(); return; }
   if (panel === 'paint' && ents[uid]) {
-    if (eyedrop) { const h = castPtr(e, worldMeshes); if (h) { setBrush(pickColor(h), true); eyedrop = false; $('bDrop').style.background = ''; sfx('pop'); return; } }
-    else { const h = castPtr(e, ents[uid].av.meshes); if (h && h.uv) { paintId = e.pointerId; paintAt(h.uv, true); try { cv.setPointerCapture(e.pointerId); } catch (_) {} return; } }
+    { const h = castPtr(e, ents[uid].av.meshes); if (h && h.uv) { paintId = e.pointerId; paintAt(h.uv, true); try { cv.setPointerCapture(e.pointerId); } catch (_) {} return; } }
   }
   if (lookId === null) { lookId = e.pointerId; lx = e.clientX; ly = e.clientY; try { cv.setPointerCapture(e.pointerId); } catch (_) {} }
 });
 cv.addEventListener('pointermove', e => {
+  if (pts.has(e.pointerId)) { pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (pinchD && pts.size >= 2) { const d = pinchDist(); if (d > 0) { setZoom(paintZoom * d / pinchD); pinchD = d; } return; } }
   if (document.pointerLockElement === cv) { look(e.movementX || 0, e.movementY || 0, 1); return; }
   if (e.pointerId === paintId) { const h = ents[uid] && castPtr(e, ents[uid].av.meshes); if (h && h.uv) paintAt(h.uv); return; }
   if (e.pointerId === lookId) { look(e.clientX - lx, e.clientY - ly, 2); lx = e.clientX; ly = e.clientY; }
 });
-const ptrEnd = e => { if (e.pointerId === paintId) { paintId = null; queueSkin(); } if (e.pointerId === lookId) lookId = null; };
+const ptrEnd = e => { pts.delete(e.pointerId); if (pts.size < 2) pinchD = 0; if (e.pointerId === paintId) { paintId = null; queueSkin(); } if (e.pointerId === lookId) lookId = null; };
 cv.addEventListener('pointerup', ptrEnd); cv.addEventListener('pointercancel', ptrEnd);
-cv.addEventListener('wheel', e => { me.dist = Math.max(1.2, Math.min(7, me.dist + Math.sign(e.deltaY) * 0.4)); }, { passive: true });
+cv.addEventListener('wheel', e => { if (panel === 'paint') setZoom(paintZoom - Math.sign(e.deltaY) * 0.3); else me.dist = Math.max(1.2, Math.min(7, me.dist + Math.sign(e.deltaY) * 0.4)); }, { passive: true });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 { // スティック
   const j = $('joy'), k = $('knob');
@@ -817,19 +853,21 @@ cv.addEventListener('contextmenu', e => e.preventDefault());
   const end = e => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; k.style.transform = ''; };
   j.addEventListener('pointerdown', e => { audioInit(); joy.id = e.pointerId; try { j.setPointerCapture(e.pointerId); } catch (_) {} mv(e); });
   j.addEventListener('pointermove', mv); j.addEventListener('pointerup', end); j.addEventListener('pointercancel', end);
-  $('bJump').addEventListener('pointerdown', e => { e.preventDefault(); jumpQ = true; });
+  $('bJump').addEventListener('pointerdown', e => { e.preventDefault(); jumpQ = true; jumpHold = true; });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) $('bJump').addEventListener(ev, () => { jumpHold = false; });
   $('bFire').addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); fire(); });
 }
 
 /* ---------------- 移動・カメラ ---------------- */
 function collide(p) {
-  const R = me.r; let ground = 0;
+  const R = me.r; let ground = 0; me.blocked = false;
   for (const c of colliders) {
     const cx = Math.max(c.x0, Math.min(p.x, c.x1)), cz = Math.max(c.z0, Math.min(p.z, c.z1));
     const dx = p.x - cx, dz = p.z - cz, d2 = dx * dx + dz * dz;
     if (d2 >= R * R) continue;
     if (p.y >= c.y1 - 0.36) { if (d2 < R * R * 0.5) ground = Math.max(ground, c.y1); continue; } // 上に乗れる
     if (p.y + me.h * 0.92 < c.y0) continue;
+    if (!c.nc) me.blocked = true; // 登れる壁・物に触れている
     if (d2 > 1e-8) { const d = Math.sqrt(d2), k = (R - d) / d; p.x += dx * k; p.z += dz * k; }
     else { // 中に入り込んだら一番近い面へ押し出す
       const a = [p.x - c.x0, c.x1 - p.x, p.z - c.z0, c.z1 - p.z], i = a.indexOf(Math.min(...a));
@@ -872,6 +910,7 @@ function updateMe(dt) {
   jumpQ = false;
   me.vy -= 20 * dt; me.pos.y += me.vy * dt;
   const g = collide(me.pos);
+  if ((keys.Space || jumpHold) && me.blocked && !frozen) me.vy = 3.6; // よじ登り：壁に向かってジャンプ長押し
   if (me.pos.y <= g) { me.pos.y = g; me.vy = 0; me.ground = true; } else me.ground = false;
   if (third) unstick();
   const bx = MAPINFO.hx - 0.4, bz = MAPINFO.hz - 0.4; // マップの外（裏世界）には出られない
@@ -882,8 +921,10 @@ function updateMe(dt) {
 const _t = new V3(), _b = new V3();
 function updateCamera() {
   camera.rotation.set(me.camPitch, me.camYaw, 0);
+  const pz = panel === 'paint' && tp(), fov = pz ? 70 / paintZoom : 70;
+  if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
   if (tp()) {
-    _t.set(me.pos.x, me.pos.y + Math.min(1.0, me.h * 0.7 + 0.2), me.pos.z); _b.set(0, 0, 1).applyQuaternion(camera.quaternion);
+    _t.set(me.pos.x, me.pos.y + (pz ? me.h * paintY : Math.min(1.0, me.h * 0.7 + 0.2)), me.pos.z); _b.set(0, 0, 1).applyQuaternion(camera.quaternion);
     let d = me.dist; ray.set(_t, _b); ray.near = 0; ray.far = d;
     const h = ray.intersectObjects(worldMeshes, false)[0]; if (h) d = Math.max(0.35, h.distance - 0.15);
     camera.position.copy(_t).addScaledVector(_b, d);
@@ -995,7 +1036,8 @@ function tick() {
     }
   } else { const t = now / 9000; camera.position.set(Math.sin(t) * 30, 16, Math.cos(t) * 30); camera.lookAt(0, 0, 0); camera.rotation.order = 'YXZ'; }
   fpGun.position.z *= 0.8; fpGun.rotation.x *= 0.8;
-  if (composer && !settings.lite) { try { composer.render(); } catch (e) { console.warn(e); composer = null; } }
+  if (innerWidth !== lastW || innerHeight !== lastH) resize();
+  if (composer && settings.bloom && !settings.lite) { try { composer.render(); } catch (e) { console.warn(e); composer = null; } }
   else renderer.render(scene, camera);
 }
 
@@ -1041,8 +1083,12 @@ $('tZoomOut').onclick = () => { me.dist = Math.min(7, me.dist + 0.6); };
 document.querySelectorAll('[data-close]').forEach(b => { b.onclick = () => setPanel(''); });
 $('bcolor').addEventListener('input', e => setBrush(e.target.value, false));
 $('bcolor').addEventListener('change', e => setBrush(e.target.value, true));
+$('pZoom').addEventListener('input', e => setZoom(Number(e.target.value)));
+$('pY').addEventListener('input', e => { paintY = Number(e.target.value); });
 $('bSize').addEventListener('input', e => { brush.size = Number(e.target.value); });
-$('bDrop').onclick = () => { eyedrop = !eyedrop; $('bDrop').style.background = eyedrop ? '#2e8b63' : ''; if (eyedrop) toast('壁・床・家具をタップして色を吸い取る'); };
+$('bDrop').onclick = () => setDrop(!eyedrop);
+$('tDrop').onclick = () => setDrop(!eyedrop);
+$('tNext').onclick = () => nextPose();
 $('bFill').onclick = () => fillSkin(brush.color);
 $('bReset').onclick = () => fillSkin(BASE_COLOR);
 $('mEm').addEventListener('input', e => { mySkin.mat.emissiveIntensity = Number(e.target.value); queueMat(); });
@@ -1051,10 +1097,31 @@ $('mRo').addEventListener('input', e => { mySkin.mat.roughness = 1 - Number(e.ta
 // ポーズ
 const POSE_DEF = [['体を前後に倒す', -90, 90], ['体を横に倒す', -90, 90], ['腰を曲げる', -30, 120], ['左腕 前後', -180, 180], ['左腕 開く', 0, 180], ['右腕 前後', -180, 180], ['右腕 開く', 0, 180], ['左脚 前後', -120, 120], ['左脚 開く', 0, 90], ['右脚 前後', -120, 120], ['右脚 開く', 0, 90]];
 const PRESETS = {
-  '立つ': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'T字': [0, 0, 0, 0, 90, 0, 90, 0, 0, 0, 0], 'バンザイ': [0, 0, 0, 180, 8, 180, 8, 0, 0, 0, 0],
-  '座る': [0, 0, 0, 0, 0, 0, 0, 90, 0, 90, 0], 'しゃがむ': [0, 0, 70, 30, 0, 30, 0, 100, 8, 100, 8], '丸まる': [0, 0, 110, 70, 0, 70, 0, 120, 0, 120, 0],
-  'うつ伏せ': [90, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], '仰向け': [-90, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], '横向き': [0, 90, 0, 0, 0, 0, 0, 0, 0, 0, 0], '大の字': [-90, 0, 0, 0, 120, 0, 120, 0, 35, 0, 35]
+  '立つ': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'T字': [0, 0, 0, 0, 90, 0, 90, 0, 0, 0, 0], 'バンザイ': [0, 0, 0, 180, 8, 180, 8, 0, 0, 0, 0], 'Y字': [0, 0, 0, 180, 35, 180, 35, 0, 25, 0, 25],
+  '片手上げ': [0, 0, 0, 180, 10, 0, 0, 0, 0, 0, 0], '片足立ち': [0, 0, 0, 0, 60, 0, 60, 0, 0, 90, 0], '開脚': [0, 0, 0, 0, 30, 0, 30, 0, 75, 0, 75], '前かがみ': [0, 0, 90, 0, 0, 0, 0, 0, 0, 0, 0],
+  '座る': [0, 0, 0, 0, 0, 0, 0, 90, 0, 90, 0], '体育座り': [-15, 0, 55, 75, 0, 75, 0, 115, 0, 115, 0], 'しゃがむ': [0, 0, 70, 30, 0, 30, 0, 100, 8, 100, 8], '丸まる': [0, 0, 110, 70, 0, 70, 0, 120, 0, 120, 0],
+  'うつ伏せ': [90, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'スーパーマン': [90, 0, 0, 180, 0, 180, 0, 0, 0, 0, 0], '仰向け': [-90, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], '大の字': [-90, 0, 0, 0, 120, 0, 120, 0, 35, 0, 35],
+  '横向き': [0, 90, 0, 0, 0, 0, 0, 0, 0, 0, 0], '横寝ひねり': [0, 90, 40, 60, 0, 0, 0, 60, 0, 0, 0], '逆立ち': [180, 0, 0, 180, 0, 180, 0, 0, 0, 0, 0], 'ななめ': [35, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 };
+let savedPoses = [null, null, null], poseIdx = 0, saveArm = false;
+try { const o = JSON.parse(localStorage.getItem('nurikakure_poses') || '[]'); for (let i = 0; i < 3; i++) if (Array.isArray(o[i]) && o[i].length === 11) savedPoses[i] = o[i].map(Number); } catch (e) {}
+function usePose(arr, name) {
+  me.pose = arr.slice(); sliderEls.forEach((el, i) => { el.value = me.pose[i]; }); applyPose();
+  if (name) toast('ポーズ：' + name, 1200);
+}
+function nextPose() { // ボタン1つで次々に切り替え（保存したポーズ → 用意されたポーズ）
+  if (!canTool()) return;
+  const list = savedPoses.map((p, i) => p && ['★' + (i + 1), p]).filter(Boolean).concat(Object.entries(PRESETS));
+  poseIdx = (poseIdx + 1) % list.length; usePose(list[poseIdx][1], list[poseIdx][0]);
+}
+function slotUI() { document.querySelectorAll('[data-slot]').forEach(b => { const i = Number(b.dataset.slot); b.classList.toggle('sec', !savedPoses[i]); b.textContent = '★' + (i + 1) + (savedPoses[i] ? '' : '（空）'); }); $('poseSave').classList.toggle('sec', !saveArm); }
+document.querySelectorAll('[data-slot]').forEach(b => { b.onclick = () => {
+  const i = Number(b.dataset.slot);
+  if (saveArm) { savedPoses[i] = me.pose.slice(); saveArm = false; try { localStorage.setItem('nurikakure_poses', JSON.stringify(savedPoses)); } catch (e) {} toast(`★${i + 1} に保存しました`); }
+  else if (savedPoses[i]) usePose(savedPoses[i], '★' + (i + 1)); else toast('まだ保存されていません（「保存」→ ★ の順に押す）');
+  slotUI();
+}; });
+$('poseSave').onclick = () => { saveArm = !saveArm; slotUI(); if (saveArm) toast('保存先の ★ を押してください'); };
 const sliderEls = [];
 function applyPose() { const e = ents[uid]; if (e) e.av.setPose(me.pose); queuePose(); }
 POSE_DEF.forEach((d, i) => {
@@ -1065,7 +1132,7 @@ POSE_DEF.forEach((d, i) => {
 });
 for (const name in PRESETS) {
   const b = document.createElement('button'); b.textContent = name; b.className = 'sec';
-  b.onclick = () => { me.pose = PRESETS[name].slice(); sliderEls.forEach((s, i) => { s.value = me.pose[i]; }); applyPose(); };
+  b.onclick = () => usePose(PRESETS[name]);
   $('presets').append(b);
 }
 function setBody(shape, size) {
@@ -1078,11 +1145,13 @@ function setBody(shape, size) {
 document.querySelectorAll('[data-shape]').forEach(b => { b.onclick = () => setBody(b.dataset.shape, me.size); });
 document.querySelectorAll('[data-size]').forEach(b => { b.onclick = () => setBody(me.shape, Number(b.dataset.size)); });
 setBody(me.shape, me.size);
+slotUI();
 $('rotL').onclick = () => { me.yaw += Math.PI / 12; }; $('rotR').onclick = () => { me.yaw -= Math.PI / 12; };
 // 設定
-function openSettings() { $('oLite').checked = settings.lite; $('oSens').value = settings.sens; $('oBgm').value = settings.bgm; $('oSe').value = settings.se; show('modal', true); if (document.pointerLockElement) document.exitPointerLock(); }
+function openSettings() { $('oLite').checked = settings.lite; $('oBloom').checked = !!settings.bloom; $('oSens').value = settings.sens; $('oBgm').value = settings.bgm; $('oSe').value = settings.se; show('modal', true); if (document.pointerLockElement) document.exitPointerLock(); }
 $('btnSet1').onclick = openSettings; $('btnSet2').onclick = openSettings;
 $('btnSetClose').onclick = () => show('modal', false);
+$('oBloom').addEventListener('change', e => { settings.bloom = e.target.checked; saveSet(); });
 $('oLite').addEventListener('change', e => { settings.lite = e.target.checked; applyGfx(); saveSet(); });
 $('oSens').addEventListener('input', e => { settings.sens = Number(e.target.value); saveSet(); });
 $('oBgm').addEventListener('input', e => { settings.bgm = Number(e.target.value); audioInit(); applyVol(); saveSet(); });
