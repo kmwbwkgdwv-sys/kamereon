@@ -647,9 +647,612 @@ export const KIT = {
     h.B(x, ht + 0.1, z, w + 0.1, 0.35, d + 0.1, pick(h, acc), { glow: 0.8, r: 0.05 });
   }
 };
+/* ---- 向きのある物を置く道具：a = 正面（dir）の向きの長さ、b = 横 ---- */
+function frame(h, x, z, dir) {
+  const ax = dir[0], az = dir[1];
+  const at = (a, b) => [x + ax * a - az * b, z + az * a + ax * b];
+  const B = (a, b, y, la, ht, lb, col, o) => { const [px, pz] = at(a, b); h.B(px, y, pz, ax ? la : lb, ht, ax ? lb : la, col, o); };
+  const tilt = ang => (ax ? [0, 0, -ax * ang] : [az * ang, 0, 0]); // +a のはしが下がるようにかたむける
+  return { at, B, tilt, ax, az };
+}
+// 2点をむすぶ細い棒（当たり判定は棒にそって並べた球）
+function rod(h, p, q, r, c, o) { const dx = q[0] - p[0], dy = q[1] - p[1], dz = q[2] - p[2], l = Math.hypot(dx, dy, dz); h.capc((p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2, r, Math.max(0.01, l - 2 * r), dx, dy, dz, c, o); }
+// くまのぬいぐるみ（体・頭・耳・うで・あし・口もと）
+function bear(h, x, y, z, s, c, yaw) {
+  const fx = Math.cos(yaw), fz = Math.sin(yaw), rx = -fz, rz = fx, lc = shade(c, 1.22), fab = ['fabric', c, 0, 2, 2];
+  h.ball(x, y + 0.42 * s, z, 0.42 * s, c, { pat: fab });
+  h.ball(x + fx * 0.05 * s, y + 1.0 * s, z + fz * 0.05 * s, 0.32 * s, c, { pat: fab });
+  for (const t of [-1, 1]) {
+    h.ball(x + rx * t * 0.24 * s, y + 1.27 * s, z + rz * t * 0.24 * s, 0.11 * s, c);
+    h.ball(x + rx * t * 0.38 * s + fx * 0.12 * s, y + 0.55 * s, z + rz * t * 0.38 * s + fz * 0.12 * s, 0.14 * s, c);
+    h.ball(x + rx * t * 0.22 * s + fx * 0.32 * s, y + 0.15 * s, z + rz * t * 0.22 * s + fz * 0.32 * s, 0.16 * s, c);
+    h.ball(x + rx * t * 0.11 * s + fx * 0.28 * s, y + 1.08 * s, z + rz * t * 0.11 * s + fz * 0.28 * s, 0.035 * s, '#1b1d20', NC);
+  }
+  h.ball(x + fx * 0.28 * s, y + 0.95 * s, z + fz * 0.28 * s, 0.11 * s, lc, NC); h.ball(x + fx * 0.39 * s, y + 0.98 * s, z + fz * 0.39 * s, 0.035 * s, '#1b1d20', NC);
+  h.ball(x + fx * 0.28 * s, y + 0.42 * s, z + fz * 0.28 * s, 0.2 * s, lc, NC); // おなか
+}
+// 物をいくつか、空いている所に置く（部屋ごとに家具や遊具をそろえる）
+function scatter(h, kinds, x0, x1, z0, z1, pal, acc, tries = 40) {
+  for (const k of kinds) for (let t = 0; t < tries; t++) {
+    const x = x0 + h.rnd() * (x1 - x0), z = z0 + h.rnd() * (z1 - z0);
+    if (h.free(x, z, KIT_R[k] || 1.4)) { KIT[k](h, x, z, pal, acc); break; }
+  }
+}
+
+// 自転車：車輪・フレーム・サドル・ハンドル・かご（al = x の向き）
+function bikeAt(h, x, z, al, c, basket) {
+  const P = (a, y, b = 0) => (al ? [x + a, y, z + b] : [x + b, y, z + a]);
+  for (const s of [-1, 1]) { const [px, py, pz] = P(s * 0.55, 0.34); h.torus(px, py, pz, 0.31, 0.04, al ? [0, 0, 0] : [0, Math.PI / 2, 0], '#1b1d20'); h.cyl(px, py, pz, 0.05, 0.08, '#c9ccd0', { nocol: true, rot: al ? [Math.PI / 2, 0, 0] : [0, 0, Math.PI / 2] }); }
+  const rA = P(-0.55, 0.34), bb = P(-0.02, 0.3), sp = P(-0.2, 0.82), hd = P(0.38, 0.8), fA = P(0.55, 0.34);
+  for (const [a, b] of [[rA, sp], [sp, bb], [bb, hd], [hd, fA], [rA, bb], [sp, hd]]) rod(h, a, b, 0.025, c);
+  h.lump(...P(-0.22, 0.9), 0.14, 0.05, 0.08, '#2a3038', { seed: 1, bump: 0.05, freq: 1 });
+  rod(h, P(0.36, 0.95, -0.28), P(0.36, 0.95, 0.28), 0.02, '#2a3038'); rod(h, hd, P(0.36, 0.95), 0.02, c);
+  if (basket) { const [bx, by, bz] = P(0.62, 0.7); h.B(bx, by, bz, al ? 0.28 : 0.34, 0.2, al ? 0.34 : 0.28, '#c9ccd0', { r: 0.02, pat: ['vband', '#c9ccd0', '#8d8f94', 3, 1] }); }
+}
+// 人形（ドレス・頭・かみの毛・うで・リボン）
+function doll(h, x, y, z, s, c, yaw) {
+  const fx = Math.cos(yaw), fz = Math.sin(yaw), rx = -fz, rz = fx, skin = '#f3d2b0', hair = pick(h, ['#3a2a1c', '#e0b040', '#8a5a33', '#1b1d20', '#c9573f']);
+  for (const t of [-1, 1]) h.cyl(x + rx * t * 0.07 * s, y, z + rz * t * 0.07 * s, 0.045 * s, 0.2 * s, skin, { seg: 8 });
+  h.cone(x, y + 0.18 * s, z, 0.3 * s, 0.42 * s, c, { rt: 0.12 * s, seg: 16, pat: ['dots', c, '#f4f4f4', 4, 1] });
+  h.cyl(x, y + 0.6 * s, z, 0.12 * s, 0.2 * s, c, { seg: 12 });
+  h.ball(x, y + 0.95 * s, z, 0.17 * s, skin);
+  h.lump(x - fx * 0.03 * s, y + 1.0 * s, z - fz * 0.03 * s, 0.2 * s, 0.17 * s, 0.2 * s, hair, { seed: seed8(h), bump: 0.12, freq: 2 });
+  for (const t of [-1, 1]) { rod(h, [x + rx * t * 0.14 * s, y + 0.76 * s, z + rz * t * 0.14 * s], [x + rx * t * 0.22 * s + fx * 0.05 * s, y + 0.45 * s, z + rz * t * 0.22 * s + fz * 0.05 * s], 0.04 * s, skin); h.ball(x + rx * t * 0.06 * s + fx * 0.15 * s, y + 0.97 * s, z + rz * t * 0.06 * s + fz * 0.15 * s, 0.02 * s, '#1b1d20', NC); }
+  h.ball(x + rx * 0.14 * s, y + 1.14 * s, z + rz * 0.14 * s, 0.06 * s, '#ff6fa8'); // リボン
+}
+/* ---- 遊具（下にもぐる・中に入る・すき間にはりつく。どれも見た目どおりに当たる） ---- */
+Object.assign(KIT, {
+  slideK(h, x, z, pal, acc) { // すべり台：はしご・踊り場・屋根・すべる所（踊り場の下にもぐれる。すべる所は歩いてものぼれる）
+    const dir = pick(h, DIRS), F = frame(h, x - dir[0] * 1.2, z - dir[1] * 1.2, dir), c = pick(h, acc), c2 = pick(h, ['#f4f4f4', '#2f6fb0', '#e0413a', '#f0d040']), P = 1.5, L = 2.6;
+    for (const sa of [-1, 1]) for (const sb of [-1, 1]) { const [px, pz] = F.at(sa * 0.6, sb * 0.6); h.cyl(px, 0, pz, 0.07, P + 1.1, c2, { seg: 12 }); }
+    F.B(0, 0, P - 0.12, 1.3, 0.12, 1.3, '#d9d2c4', { r: 0.03, pat: ['grain', '#d9d2c4', 0, 2, 2] });
+    for (const sb of [-1, 1]) F.B(0, sb * 0.62, P, 1.15, 0.6, 0.06, c, { r: 0.03, pat: ['dots', c, '#f4f4f4', 2, 1] });
+    const sb = h.rnd() < 0.5 ? 1 : -1, pp = rpat(h, pal, acc, 2, 1, ['bigcamo', 'dots', 'hstripe', 'check2', 'zigzag']);
+    F.B(0, sb * 0.62, 0, 1.15, P - 0.15, 0.06, pp[1], { pat: pp, r: 0.02, sink: true }); // 踊り場の下の模様の板（下にもぐって同じ模様に塗る）
+    { const [rx, rz] = F.at(0, 0); h.cone(rx, P + 1.1, rz, 1.05, 0.75, c2, { seg: 4, pat: ['vband', c2, '#f4f4f4', 4, 1] }); }
+    for (const t of [-1, 1]) F.B(-0.82, t * 0.3, 0, 0.07, P + 0.55, 0.07, c2, { r: 0.02 });
+    for (let k = 1; k <= 5; k++) F.B(-0.82, 0, k * P / 5 - 0.03, 0.07, 0.05, 0.6, '#f4f4f4', { r: 0.02 });
+    const dh = P - 0.25, len = Math.hypot(L, dh), ang = Math.atan2(dh, L), a0 = 0.65, mid = a0 + L / 2;
+    F.B(mid, 0, 0.25 + dh / 2 - 0.03, len, 0.06, 0.75, c, { nocol: true, rot: F.tilt(ang), rough: 0.3 });
+    for (const t of [-1, 1]) F.B(mid, t * 0.4, 0.25 + dh / 2 - 0.02, len, 0.18, 0.05, c, { nocol: true, rot: F.tilt(ang) });
+    const N = 6;
+    for (let i = 0; i < N; i++) { const aa = a0 + (i + 0.5) * L / N, yt = P - i * dh / N, yb = Math.max(0, P - (i + 1) * dh / N - 0.12), [px, pz] = F.at(aa, 0); h.boxc(px, yb, pz, F.ax ? L / N : 0.85, yt - yb, F.ax ? 0.85 : L / N, { sharp: true }); }
+    F.B(a0 + L + 0.15, 0, 0, 0.4, 0.22, 0.85, c, { r: 0.05 });
+  },
+  jungle(h, x, z, pal, acc) { // ジャングルジム：色とりどりの棒の箱（中にもぐれる・上に登れる・中に模様の板）
+    const s = 0.8, nx = 3, nz = 2, ny = 3, x0 = x - nx * s / 2, z0 = z - nz * s / 2, cs = TOY, col = i => cs[i % cs.length];
+    for (let i = 0; i <= nx; i++) for (let k = 0; k <= nz; k++) h.cyl(x0 + i * s, 0, z0 + k * s, 0.045, ny * s + 0.06, col(i + k), { seg: 10 });
+    for (let j = 1; j <= ny; j++) {
+      const y = j * s - 0.04;
+      for (let i = 0; i < nx; i++) for (let k = 0; k <= nz; k++) h.B(x0 + (i + 0.5) * s, y, z0 + k * s, s, 0.08, 0.08, col(j + k), { r: 0.035 });
+      for (let i = 0; i <= nx; i++) for (let k = 0; k < nz; k++) h.B(x0 + i * s, y, z0 + (k + 0.5) * s, 0.08, 0.08, s, col(j + i + 1), { r: 0.035 });
+    }
+    h.B(x0 + s * 1.5, ny * s + 0.04, z0 + s * 0.5, s * 0.96, 0.06, s * 0.96, '#d9d2c4', { r: 0.02, pat: ['grain', '#d9d2c4', 0, 1, 1] });
+    h.B(x0 + s * 2.5, s + 0.04, z0 + s * 0.5, s * 0.96, 0.06, s * 0.96, '#d9d2c4', { r: 0.02, pat: ['grain', '#d9d2c4', 0, 1, 1] });
+    const p = rpat(h, pal, acc, 1, 1, ['bigcamo', 'dots', 'check2', 'hstripe']); h.B(x0 + s * 0.5, 0, z0 + s, s * 0.9, s * 0.95, 0.06, p[1], { pat: p, r: 0.02, sink: true });
+  },
+  swing(h, x, z, pal, acc) { // ブランコ：A字の柱・上の棒・座板・くさり
+    const al = h.rnd() < 0.5, L = 3.4, H = 2.3, c = pick(h, acc), P = (a, b) => (al ? [x + a, z + b] : [x + b, z + a]);
+    for (const s of [-1, 1]) for (const t of [-1, 1]) { const [px, pz] = P(s * L / 2, t * 0.6), [tx, tz] = P(s * L / 2, 0); rod(h, [px, 0, pz], [tx, H, tz], 0.06, c); }
+    { const [px, pz] = P(0, 0); h.cyl(px, H, pz, 0.07, L + 0.2, c, { rot: al ? [0, 0, Math.PI / 2] : [Math.PI / 2, 0, 0] }); h.B(px, 0, pz, al ? L - 0.4 : 1.4, 0.02, al ? 1.4 : L - 0.4, '#c9a36a', FL); }
+    for (let i = 0; i < 2; i++) {
+      const a = (i - 0.5) * 1.4, [px, pz] = P(a, 0); h.B(px, 0.42, pz, al ? 0.5 : 0.3, 0.06, al ? 0.3 : 0.5, pick(h, TOY), { r: 0.03 });
+      for (const t of [-1, 1]) { const [cx, cz] = P(a + t * 0.22, 0); h.B(cx, 0.48, cz, 0.025, H - 0.48, 0.025, '#9aa1a8', NC); }
+    }
+  },
+  seesaw(h, x, z, pal, acc) { // シーソー：支点・板・取っ手・はしのタイヤ
+    const al = h.rnd() < 0.5, c = pick(h, acc), L = 3.4, t = (h.rnd() < 0.5 ? 1 : -1) * 0.16;
+    h.cone(x, 0, z, 0.4, 0.42, '#55606b', { seg: 3 });
+    h.B(x, 0.42, z, al ? L : 0.34, 0.08, al ? 0.34 : L, c, { r: 0.03, rot: al ? [0, 0, t] : [t, 0, 0], pat: ['grain', c, 0, 3, 1] });
+    for (const s of [-1, 1]) {
+      const off = s * (L / 2 - 0.35), yy = 0.46 + (al ? off * Math.sin(t) : -off * Math.sin(t)), px = al ? x + off : x, pz = al ? z : z + off;
+      h.cyl(px, yy, pz, 0.03, 0.32, '#c9ccd0', { seg: 6 }); h.B(px, yy + 0.32, pz, al ? 0.04 : 0.3, 0.04, al ? 0.3 : 0.04, '#c9ccd0', { r: 0.015 });
+      h.tire(al ? x + s * (L / 2 - 0.2) : x, 0, al ? z : z + s * (L / 2 - 0.2), 0.25);
+    }
+  },
+  spring(h, x, z) { // スプリング遊具（どうぶつ）
+    const n = 2 + (h.rnd() < 0.5 ? 1 : 0);
+    for (let i = 0; i < n; i++) {
+      const px = x + (i - (n - 1) / 2) * 1.3, pz = z + (h.rnd() - 0.5) * 0.6, k = Math.floor(h.rnd() * 4), yaw = h.rnd() * 6.28, fx = Math.cos(yaw), fz = Math.sin(yaw);
+      const C = [['#a8693f', '#5a3c24'], ['#f0d040', '#f08a3c'], ['#f4f4f4', '#2a3038'], ['#4fbf6a', '#2e6b34']][k];
+      h.cyl(px, 0, pz, 0.32, 0.04, '#55606b'); h.cylc(px, 0, pz, 0.12, 0.5);
+      for (let j = 0; j < 5; j++) h.ring(px, 0.09 + j * 0.08, pz, 0.12, 0.025, '#e0413a');
+      h.lump(px, 0.74, pz, 0.42, 0.26, 0.42, C[0], { seed: seed8(h), bump: 0.06, freq: 1.2, core: 0.93, pat: k === 2 ? ['bigcamo', C[0], [C[1], C[1]], 2, 1] : ['fabric', C[0], 0, 2, 1] });
+      h.ball(px + fx * 0.36, 1.04, pz + fz * 0.36, 0.22, C[0]);
+      h.ball(px + fx * 0.56, 1.0, pz + fz * 0.56, 0.09, C[1]);
+      for (const t of [-1, 1]) h.ball(px + fx * 0.32 - fz * t * 0.14, 1.24, pz + fz * 0.32 + fx * t * 0.14, 0.07, C[1]);
+      h.ball(px - fx * 0.42, 0.84, pz - fz * 0.42, 0.1, C[1]);
+      rod(h, [px + fx * 0.22 - fz * 0.22, 1.02, pz + fz * 0.22 + fx * 0.22], [px + fx * 0.22 + fz * 0.22, 1.02, pz + fz * 0.22 - fx * 0.22], 0.03, '#c9ccd0');
+    }
+  },
+  sandbox(h, x, z, pal, acc) { // 砂場：木のわく・砂・砂山・お城・バケツ・スコップ（砂の上に寝そべって砂の色に塗る）
+    const w = 4.2, d = 3.4, sand = '#e2cf9c', wd = '#b08a5a';
+    for (const s of [-1, 1]) { h.B(x, 0, z + s * (d / 2 - 0.1), w, 0.3, 0.2, wd, { r: 0.04, pat: ['grain', wd, 0, 3, 1] }); h.B(x + s * (w / 2 - 0.1), 0, z, 0.2, 0.3, d - 0.4, wd, { r: 0.04, pat: ['grain', wd, 0, 3, 1] }); }
+    h.B(x, 0, z, w - 0.4, 0.16, d - 0.4, sand, { pat: ['noise', sand, 0, 3, 3], sharp: true });
+    h.dome(x + 0.7, 0.16, z - 0.4, 1.0, 0.5, 0.8, sand, { pat: ['noise', sand, 0, 2, 2], solid: true });
+    for (const [dx, dz, r] of [[-1.0, 0.6, 0.32], [-0.5, 0.9, 0.22], [-1.3, 1.0, 0.2]]) { h.cyl(x + dx, 0.16, z + dz, r, r * 1.4, '#d9c28a', { pat: ['brick', '#d9c28a', '#c9b07a', 2, 1] }); h.cone(x + dx, 0.16 + r * 1.4, z + dz, r * 1.05, r * 0.9, '#d9c28a'); }
+    const bc = pick(h, TOY); h.lathe(x - 0.2, 0.16, z - 0.9, [[0.001, 0], [0.13, 0], [0.18, 0.26], [0.16, 0.26], [0.001, 0.2]], bc, { seg: 14 });
+    rod(h, [x + 0.5, 0.2, z + 0.9], [x + 1.1, 0.24, z + 0.7], 0.03, pick(h, TOY)); h.B(x + 1.25, 0.16, z + 0.65, 0.25, 0.03, 0.18, pick(h, TOY), { r: 0.01 });
+  },
+  playhouse(h, x, z, pal, acc) { // ままごとハウス：入口・窓・とんがり屋根・中に小さなテーブルとくま
+    const w = 2.1, d = 1.9, ht = 1.5, c = pick(h, ['#f3c6d4', '#c6e3f3', '#fff1b8', '#d4f3c6']), dir = pick(h, DIRS), al = dir[1] !== 0;
+    shell(h, x, z, w, d, ht, 0.1, c, { r: 0.03, pat: ['vstripe', c, shade(c, 0.92), 3, 2] }, dir, 0.85, 1.15);
+    h.cone(x, ht + 0.1, z, (Math.max(w, d) / 2 + 0.2) / 0.707, 0.9, pick(h, acc), { seg: 4, pat: ['hstripe', pick(h, acc), '#f4f4f4', 1, 5] });
+    for (const s of [-1, 1]) { // 横の窓と花だん
+      const wx = al ? x + s * (w / 2 + 0.01) : x, wz = al ? z : z + s * (d / 2 + 0.01);
+      h.B(wx, 0.6, wz, al ? 0.02 : 0.6, 0.5, al ? 0.6 : 0.02, '#9fd0e8', { nocol: true, rough: 0.15 });
+      h.B(al ? wx + s * 0.08 : wx, 0.5, al ? wz : wz + s * 0.08, al ? 0.16 : 0.7, 0.12, al ? 0.7 : 0.16, '#8a5a33', { r: 0.02 }); h.lump(al ? wx + s * 0.08 : wx, 0.66, al ? wz : wz + s * 0.08, al ? 0.1 : 0.32, 0.08, al ? 0.32 : 0.1, '#4fbf6a', { core: 0.9, bump: 0.3, freq: 3, seed: seed8(h), pat: ['confetti', '#4fbf6a', ['#ff6fa8', '#ffd940', '#ffffff'], 2, 1] });
+    }
+    h.B(x - dir[0] * 0.4, 0, z - dir[1] * 0.4, 0.5, 0.35, 0.5, '#f4f4f4', { r: 0.06 }); bear(h, x - dir[0] * 0.15 + (al ? 0.55 : 0), 0, z - dir[1] * 0.15 + (al ? 0 : 0.55), 0.38, '#d9b48a', Math.atan2(dir[1], dir[0]));
+  },
+  tiretun(h, x, z) { // 半分うまったタイヤのトンネル（いちばん大きいタイヤはしゃがんでくぐれる）
+    const al = h.rnd() < 0.5, n = 4 + Math.floor(h.rnd() * 3);
+    for (let i = 0; i < n; i++) { const R = 0.55 + ((i * 7) % 3) * 0.13, o = (i - (n - 1) / 2) * 0.78; h.arch(al ? x + o : x, al ? z : z + o, R, 0.2, al ? Math.PI / 2 : 0, ['noise', '#22252a', 0, 1, 1]); }
+  },
+  climb(h, x, z, pal, acc) { // ボルダリングの壁：色とりどりのホールド・下のマット（壁と同じ色に塗ってはりつく）
+    const al = h.rnd() < 0.5, sd = h.rnd() < 0.5 ? 1 : -1, L = 3.4, ht = 3.0, base = pick(h, ['#3a4a5e', '#5a6b7d', '#e8e1d2', pal[0]]);
+    h.B(x, 0, z, al ? L : 0.3, ht, al ? 0.3 : L, base, { pat: ['noise', base, 0, 3, 3], r: 0.04, sink: true });
+    for (let i = 0; i < 16; i++) { const u = (h.rnd() - 0.5) * (L - 0.4), v = 0.3 + h.rnd() * (ht - 0.5), c = pick(h, TOY), s = 0.07 + h.rnd() * 0.07; h.lump(al ? x + u : x + sd * 0.17, v, al ? z + sd * 0.17 : z + u, s * 1.3, s, s, c, { seed: seed8(h), bump: 0.3, freq: 2 }); }
+    h.B(al ? x : x + sd * 0.85, 0, al ? z + sd * 0.85 : z, al ? L : 1.3, 0.28, al ? 1.3 : L, '#2f6fb0', { r: 0.1, pat: ['fabric', '#2f6fb0', 0, 3, 1] });
+    const e = h.rnd() < 0.5 ? 1 : -1; h.B(al ? x + e * (L / 2 + 0.15) : x + sd * 0.6, 0, al ? z + sd * 0.6 : z + e * (L / 2 + 0.15), al ? 0.3 : 1.5, ht * 0.8, al ? 1.5 : 0.3, base, { pat: ['noise', base, 0, 1, 2], r: 0.04, sink: true }); // 横の壁（角になる）
+  },
+  merry(h, x, z, pal, acc) { // 回転ジャングル（円盤・まん中の柱・持ち手）
+    const c = pick(h, acc);
+    h.cyl(x, 0, z, 0.5, 0.15, '#55606b'); h.cyl(x, 0.15, z, 1.4, 0.12, c, { pat: ['diag', c, '#f4f4f4', 6, 1] }); h.cyl(x, 0.27, z, 0.08, 0.95, '#c9ccd0', { seg: 10 });
+    for (let i = 0; i < 4; i++) { const a = i * 1.5708 + 0.785, ca = Math.cos(a), sa = Math.sin(a); rod(h, [x + ca * 0.08, 1.15, z + sa * 0.08], [x + ca * 1.15, 1.0, z + sa * 1.15], 0.035, TOY[i]); h.cyl(x + ca * 1.15, 0.27, z + sa * 1.15, 0.035, 0.75, TOY[i], { seg: 8 }); }
+  },
+  bars(h, x, z, pal, acc) { // 鉄棒（3つの高さ）
+    const al = h.rnd() < 0.5, c = pick(h, acc), hs = [0.7, 0.9, 1.1], P = a => (al ? [x + a, z] : [x, z + a]);
+    for (let i = 0; i < 4; i++) { const [px, pz] = P(-1.65 + i * 1.1); h.cyl(px, 0, pz, 0.06, (hs[Math.min(i, 2)] || 1.1) + 0.1, c, { seg: 10 }); }
+    for (let i = 0; i < 3; i++) { const [px, pz] = P(-1.1 + i * 1.1); h.cyl(px, hs[i], pz, 0.03, 1.1, '#c9ccd0', { rot: al ? [0, 0, Math.PI / 2] : [Math.PI / 2, 0, 0] }); }
+  },
+  trampoline(h, x, z, pal, acc) { // トランポリン（下にもぐれる）
+    const R = 1.3, c = pick(h, acc);
+    h.torus(x, 0.55, z, R, 0.07, [Math.PI / 2, 0, 0], c);
+    h.cyl(x, 0.5, z, R - 0.05, 0.04, '#22252a', { pat: ['noise', '#22252a', 0, 2, 2] });
+    for (let i = 0; i < 6; i++) { const a = i * 1.047, ca = Math.cos(a), sa = Math.sin(a); rod(h, [x + ca * R, 0.55, z + sa * R], [x + ca * (R + 0.15), 0, z + sa * (R + 0.15)], 0.035, '#8d8f94'); }
+  },
+
+  /* ---- いろいろな形の道具・家の中の物（うしろ・すき間・下に隠れる） ---- */
+  plush(h, x, z, pal, acc) { // ぬいぐるみの山（くまの間にまぎれて、同じ色に塗る）
+    const n = 3 + Math.floor(h.rnd() * 3), cs = ['#a8693f', '#d9b48a', '#f3c6d4', '#c6e3f3', '#f4f4f4', '#8a5a33', '#f0d040'];
+    h.B(x + 0.2, 0, z - 0.2, 1.9, 0.18, 1.6, pick(h, TOY), { r: 0.08, pat: ['fabric', pick(h, TOY), 0, 2, 2] });
+    for (let i = 0; i < n; i++) { const a = h.rnd() * 6.28, d = 0.2 + h.rnd() * 0.8; bear(h, x + Math.cos(a) * d, 0.18 + (i > 3 ? 0.35 : 0), z + Math.sin(a) * d, 0.45 + h.rnd() * 0.5, pick(h, cs), h.rnd() * 6.28); }
+  },
+  kotatsu(h, x, z, pal, acc) { // こたつ：ふとん・天板・みかん・ざぶとん
+    const q = pick(h, ['#c9573f', '#3f5f8a', '#e0b040', '#6b8f4a', '#b06fd8']), wd = '#8a5a33';
+    h.B(x, 0, z, 2.1, 0.42, 1.7, q, { r: 0.16, pat: [pick(h, ['check2', 'diag', 'dots', 'hstripe', 'bigcamo']), q, shade(q, 1.3), 3, 2] });
+    h.B(x, 0.42, z, 1.6, 0.06, 1.25, wd, { r: 0.03, pat: ['grain', wd, 0, 2, 1] });
+    h.lathe(x + 0.25, 0.48, z, [[0.001, 0], [0.16, 0], [0.22, 0.1], [0.2, 0.1], [0.001, 0.04]], '#b08a5a', { seg: 12 });
+    for (let i = 0; i < 4; i++) h.ball(x + 0.25 + Math.cos(i * 1.6) * 0.1, 0.62, z + Math.sin(i * 1.6) * 0.1, 0.07, '#f08a3c', NC);
+    for (const [dx, dz] of [[0, 1.25], [0, -1.25], [1.45, 0], [-1.45, 0]]) if (h.rnd() < 0.8) { const c = pick(h, acc); h.B(x + dx, 0, z + dz, 0.7, 0.1, 0.7, c, { r: 0.04, pat: ['fabric', c, 0, 1, 1] }); }
+  },
+  coats(h, x, z, pal, acc) { // コートかけと長いコート（コートのうしろに隠れる）
+    h.cyl(x, 0, z, 0.3, 0.05, '#3a2a1c'); h.cyl(x, 0, z, 0.04, 1.9, '#3a2a1c', { seg: 8 }); h.ball(x, 1.93, z, 0.06, '#3a2a1c');
+    const n = 3 + Math.floor(h.rnd() * 2), a0 = h.rnd() * 6.28;
+    for (let i = 0; i < n; i++) {
+      const a = a0 + i / n * 6.28, ca = Math.cos(a), sa = Math.sin(a), c = pick(h, acc.concat(pal));
+      rod(h, [x, 1.62, z], [x + ca * 0.2, 1.78, z + sa * 0.2], 0.02, '#3a2a1c', NC);
+      h.B(x + ca * 0.33, 0.48, z + sa * 0.33, 0.58, 1.25, 0.2, c, { r: 0.07, rot: [0, -a - Math.PI / 2, 0], pat: h.rnd() < 0.5 ? rpat(h, pal, acc, 1, 2) : ['fabric', c, 0, 1, 2] });
+    }
+    if (h.rnd() < 0.6) h.lump(x, 1.98, z, 0.24, 0.12, 0.24, pick(h, acc), { seed: seed8(h), bump: 0.05, freq: 1 });
+  },
+  beanbag(h, x, z, pal, acc) { // ビーズクッション
+    for (let i = 0; i < 2 + Math.floor(h.rnd() * 2); i++) { const s = 0.5 + h.rnd() * 0.3, c = pick(h, acc.concat(pal)), a = h.rnd() * 6.28; h.lump(x + Math.cos(a) * i * 0.6, s * 0.45, z + Math.sin(a) * i * 0.6, s * 1.1, s * 0.55, s, c, { seed: seed8(h), bump: 0.1, freq: 1.4, core: 0.93, ry: h.rnd() * 6, pat: ['fabric', c, 0, 2, 2] }); }
+  },
+  ladderK(h, x, z) { // 脚立（A字。ふみ台つき）
+    const al = h.rnd() < 0.5, H = 1.8, sp = 0.5, k = 0.13, c = pick(h, ['#c9ccd0', '#f0d040', '#e0413a']);
+    for (const s of [-1, 1]) for (const t of [-1, 1]) { const px = al ? x + t * 0.28 : x + s * sp / 2, pz = al ? z + s * sp / 2 : z + t * 0.28; h.B(px, 0, pz, 0.06, H, 0.06, c, { r: 0.015, rot: al ? [-s * k, 0, 0] : [0, 0, s * k] }); }
+    for (let j = 1; j <= 4; j++) { const y = j * H / 5, o = sp / 2 + (H / 2 - y) * Math.sin(k); h.B(al ? x : x + o, y - 0.03, al ? z + o : z, al ? 0.62 : 0.14, 0.05, al ? 0.14 : 0.62, c, { r: 0.01 }); }
+    h.B(x, H - 0.06, z, al ? 0.62 : 0.32, 0.06, al ? 0.32 : 0.62, c, { r: 0.02 });
+  },
+  cleaning(h, x, z, pal, acc) { // そうじ道具：そうじ機・バケツとモップ・ほうき
+    const c = pick(h, ['#e0413a', '#2f6fb0', '#f0d040', '#4fbf6a']);
+    h.lump(x, 0.22, z, 0.38, 0.22, 0.28, c, { seed: seed8(h), bump: 0.04, freq: 1, core: 0.94 }); h.ring(x, 0.22, z, 0.3, 0.025, '#2a3038');
+    rod(h, [x + 0.3, 0.3, z], [x + 0.55, 0.55, z + 0.1], 0.04, '#2a3038'); rod(h, [x + 0.55, 0.55, z + 0.1], [x + 0.85, 0.06, z + 0.15], 0.025, '#c9ccd0'); h.B(x + 0.9, 0, z + 0.15, 0.16, 0.06, 0.36, '#2a3038', { r: 0.02 });
+    const bc = pick(h, TOY); h.lathe(x - 0.6, 0, z + 0.3, [[0.001, 0], [0.17, 0], [0.22, 0.32], [0.2, 0.32], [0.001, 0.26]], bc, { seg: 14 });
+    rod(h, [x - 0.6, 0.15, z + 0.3], [x - 0.75, 1.4, z + 0.5], 0.022, '#c9a26b'); h.lump(x - 0.6, 0.18, z + 0.3, 0.14, 0.1, 0.14, '#efe6d2', { seed: seed8(h), bump: 0.4, freq: 4, nocol: true });
+    rod(h, [x - 0.2, 0.25, z - 0.45], [x - 0.35, 1.45, z - 0.5], 0.022, '#c9a26b'); h.B(x - 0.2, 0, z - 0.45, 0.32, 0.28, 0.08, '#d9b48a', { r: 0.02, rot: [0, 0, 0.12] });
+  },
+  bike(h, x, z, pal, acc) { bikeAt(h, x, z, h.rnd() < 0.5, pick(h, acc), h.rnd() < 0.6); }, // 自転車
+  garden(h, x, z, pal, acc) { // 庭の道具：一輪車・じょうろ・植木ばち・ホース
+    const c = pick(h, ['#2f6fb0', '#3f9b6a', '#e0413a']), o = h.rnd() < 0.5 ? 1 : -1;
+    h.B(x, 0.32, z, 0.95, 0.3, 0.62, c, { r: 0.1 }); h.B(x, 0.6, z, 0.8, 0.02, 0.5, '#5a3c24', NC); // 一輪車の荷台
+    h.torus(x + 0.6, 0.22, z, 0.2, 0.05, [0, 0, 0], '#1b1d20'); for (const s of [-1, 1]) { rod(h, [x + 0.55, 0.22, z + s * 0.05], [x - 0.75, 0.62, z + s * 0.32], 0.025, '#55606b'); rod(h, [x - 0.3, 0.32, z + s * 0.25], [x - 0.35, 0, z + s * 0.28], 0.025, '#55606b'); }
+    const wc = pick(h, TOY); h.lathe(x + 0.2, 0, z + o * 0.85, [[0.001, 0], [0.17, 0], [0.17, 0.32], [0.08, 0.38], [0.001, 0.38]], wc, { seg: 14 }); rod(h, [x + 0.32, 0.12, z + o * 0.85], [x + 0.62, 0.42, z + o * 0.85], 0.025, wc); h.torus(x + 0.12, 0.42, z + o * 0.85, 0.12, 0.02, [0, 0, 0], wc, NC);
+    for (let i = 0; i < 3; i++) { const px = x - 0.6 + i * 0.5, pz = z - o * 0.85, fc = pick(h, ['#ff6fa8', '#ffd940', '#b06fd8', '#ffffff']); h.lathe(px, 0, pz, [[0.001, 0], [0.13, 0], [0.18, 0.28], [0.001, 0.28]], '#b5651d', { seg: 12 }); h.lump(px, 0.42, pz, 0.2, 0.17, 0.2, '#3b8f46', { core: 0.9, bump: 0.3, freq: 3, seed: seed8(h), pat: ['confetti', '#3b8f46', [fc, '#ffffff'], 1, 1] }); }
+    h.cyl(x - 0.9, 0, z + o * 0.5, 0.22, 0.5, '#55606b'); h.torus(x - 0.9, 0.3, z + o * 0.5, 0.24, 0.05, [0, 0, 0], '#3f9b6a', NC); // ホースまき
+  },
+  music(h, x, z, pal, acc) { // 楽器：ドラムセット・ギター・アンプ
+    const c = pick(h, ['#e0413a', '#2f6fb0', '#1b1d20', '#b06fd8']);
+    h.cyl(x, 0.32, z, 0.32, 0.4, c, { rot: [Math.PI / 2, 0, 0], pat: ['hstripe', c, '#f4f4f4', 1, 1] }); // バスドラム
+    for (const [dx, dz, r] of [[0.15, -0.1, 0.16], [-0.2, -0.1, 0.17]]) h.cyl(x + dx, 0.66, z + dz, r, 0.16, c);
+    h.cyl(x + 0.55, 0.52, z - 0.3, 0.19, 0.14, '#c9ccd0'); h.cyl(x + 0.55, 0, z - 0.3, 0.02, 0.52, '#8d8f94', { seg: 6 });
+    for (const [dx, dz, y] of [[-0.65, -0.35, 1.05], [0.75, 0.15, 1.15]]) { h.cyl(x + dx, 0, z + dz, 0.02, y, '#8d8f94', { seg: 6 }); h.cyl(x + dx, y, z + dz, 0.28, 0.015, '#d9b440', { rough: 0.25 }); }
+    stool(h, x, z - 0.75, '#2a3038');
+    const gx = x - 1.1, gc = pick(h, ['#e0413a', '#f0d040', '#d9b48a', '#2f6fb0']); // ギター（スタンドに立てる）
+    h.lump(gx, 0.3, z + 0.3, 0.26, 0.24, 0.08, gc, { seed: 2, bump: 0.02, freq: 1, core: 0.95 }); h.lump(gx, 0.6, z + 0.3, 0.2, 0.18, 0.07, gc, { seed: 3, bump: 0.02, freq: 1, core: 0.95 }); h.cyl(gx, 0.4, z + 0.31, 0.06, 0.02, '#1b1d20', { nocol: true, rot: [Math.PI / 2, 0, 0] });
+    rod(h, [gx, 0.75, z + 0.3], [gx, 1.35, z + 0.3], 0.03, '#5a3c24'); h.B(gx, 1.35, z + 0.3, 0.1, 0.16, 0.04, '#1b1d20', { r: 0.01 });
+    h.B(x + 1.2, 0, z + 0.4, 0.7, 0.75, 0.4, '#2a3038', { r: 0.05 }); h.B(x + 1.2, 0.08, z + 0.61, 0.6, 0.5, 0.01, '#4a4f57', { nocol: true, pat: ['fabric', '#4a4f57', 0, 2, 2] }); // アンプ
+  },
+  study(h, x, z, pal, acc) { // 勉強づくえ：いす・電気スタンド・地球儀・本・ランドセル
+    const fz = h.rnd() < 0.5 ? 1 : -1, c = pick(h, ['#c98f4e', '#8a5a33', '#f4f1e8']);
+    table(h, x, z, 1.6, 0.8, c); chair(h, x, z - fz * 0.75, pick(h, ['#3a5f8a', '#e0413a', '#4fbf6a']), fz);
+    h.cyl(x + 0.55, 0.76, z + fz * 0.2, 0.1, 0.03, '#2a3038'); rod(h, [x + 0.55, 0.78, z + fz * 0.2], [x + 0.45, 1.15, z + fz * 0.1], 0.02, '#2a3038'); h.cone(x + 0.35, 1.02, z + fz * 0.05, 0.12, 0.14, '#f5e9c0', { glow: 0.6, rt: 0.05 });
+    h.cyl(x - 0.5, 0.76, z + fz * 0.15, 0.08, 0.02, '#2a3038'); rod(h, [x - 0.5, 0.78, z + fz * 0.15], [x - 0.5, 0.88, z + fz * 0.15], 0.015, '#2a3038'); h.ball(x - 0.5, 1.05, z + fz * 0.15, 0.17, '#2f6fb0', { pat: ['camo', '#2f6fb0', ['#4fbf6a', '#d9b48a', '#4fbf6a'], 2, 1] });
+    for (let i = 0; i < 4; i++) h.B(x - 0.05, 0.76 + i * 0.05, z + fz * 0.15, 0.36 - i * 0.03, 0.05, 0.26, pick(h, TOY), { r: 0.01 });
+    h.lump(x, 0.62, z - fz * 0.95, 0.2, 0.22, 0.12, pick(h, ['#e0413a', '#1b1d20', '#b06fd8']), { seed: 4, bump: 0.03, freq: 1, core: 0.95 }); // ランドセル
+  },
+  toybox(h, x, z, pal, acc) { // おもちゃ箱：ふたの開いた箱にボール・ブロック・あひる
+    const c = pick(h, acc);
+    shell(h, x, z, 1.5, 1.0, 0.7, 0.08, c, { r: 0.04, pat: ['dots', c, '#f4f4f4', 2, 1] }, null, 0, 0, false);
+    h.B(x, 0, z, 1.34, 0.6, 0.84, '#f0d040', { sharp: true, pat: ['confetti', '#f0d040', TOY, 2, 1] });
+    for (let i = 0; i < 6; i++) h.ball(x - 0.5 + h.rnd(), 0.7, z - 0.25 + h.rnd() * 0.5, 0.1 + h.rnd() * 0.06, pick(h, TOY), NC);
+    brick(h, x + 0.3, 0.6, z - 0.1, 0.3, pick(h, TOY));
+    h.ball(x - 0.2, 0.72, z + 0.15, 0.13, '#f0d040'); h.ball(x - 0.2, 0.9, z + 0.2, 0.08, '#f0d040'); h.ball(x - 0.2, 0.9, z + 0.28, 0.04, '#f08a3c', NC);
+    h.B(x, 0.7, z - 0.58, 1.5, 0.6, 0.06, c, { r: 0.03, rot: [-0.35, 0, 0], pat: ['dots', c, '#f4f4f4', 2, 1] }); // 開いたふた
+  },
+  umbrella(h, x, z) { // かさ立てとかさ
+    h.lathe(x, 0, z, [[0.001, 0], [0.2, 0], [0.2, 0.5], [0.17, 0.5], [0.001, 0.45]], '#55606b', { seg: 14 });
+    for (let i = 0; i < 4; i++) { const a = i * 1.57 + 0.4, c = pick(h, TOY.concat(['#2a3038', '#f4f4f4'])), px = x + Math.cos(a) * 0.08, pz = z + Math.sin(a) * 0.08; rod(h, [px, 0.1, pz], [px + Math.cos(a) * 0.12, 1.05, pz + Math.sin(a) * 0.12], 0.018, '#2a3038'); h.cone(px + Math.cos(a) * 0.08, 0.45, pz + Math.sin(a) * 0.08, 0.07, 0.5, c, { rt: 0.025, seg: 8 }); }
+  },
+  gym(h, x, z, pal, acc) { // 体育の道具：跳び箱・マットの山・平均台・ボールかご
+    const al = h.rnd() < 0.5, wd = '#c9a26b', P = (a, b) => (al ? [x + a, z + b] : [x + b, z + a]);
+    { const [vx, vz] = P(-0.9, 0); for (let k = 0; k < 5; k++) h.B(vx, k * 0.18, vz, al ? 1.1 - k * 0.05 : 0.72 - k * 0.03, 0.18, al ? 0.72 - k * 0.03 : 1.1 - k * 0.05, wd, { r: 0.03, pat: ['grain', wd, 0, 2, 1] }); h.B(vx, 0.9, vz, al ? 0.86 : 0.58, 0.12, al ? 0.58 : 0.86, '#f4f4f4', { r: 0.06, pat: ['fabric', '#f4f4f4', 0, 1, 1] }); }
+    { const [mx, mz] = P(0.7, -0.2); for (let k = 0; k < 4; k++) h.B(mx, k * 0.12, mz, al ? 1.2 : 1.8, 0.12, al ? 1.8 : 1.2, k % 2 ? '#2f6fb0' : '#3f6fc9', { r: 0.05, pat: ['fabric', '#2f6fb0', 0, 2, 2] }); h.cyl(mx, 0.48 + 0.3, mz, 0.3, 1.2, '#3f6fc9', { rot: al ? [Math.PI / 2, 0, 0] : [0, 0, Math.PI / 2], pat: ['wave', '#3f6fc9', '#2f6fb0', 2, 1] }); } // まいたマット
+    { const [bx, bz] = P(0, 1.2); h.B(bx, 0.55, bz, al ? 3.0 : 0.12, 0.12, al ? 0.12 : 3.0, wd, { r: 0.02, pat: ['grain', wd, 0, 4, 1] }); for (const s of [-1, 1]) { const [sx, sz] = P(s * 1.3, 1.2); h.B(sx, 0, sz, al ? 0.12 : 0.5, 0.55, al ? 0.5 : 0.12, '#55606b', { r: 0.02 }); } } // 平均台
+    { const [cx, cz] = P(1.8, 0.9); h.B(cx, 0.1, cz, 0.7, 0.6, 0.7, '#c9ccd0', { r: 0.03, pat: ['vband', '#c9ccd0', '#8d8f94', 3, 2] }); for (const s of [-1, 1]) for (const t of [-1, 1]) h.wheel(cx + s * 0.28, 0.06, cz + t * 0.28, 0.06, 0.04, 'x', NC); for (let i = 0; i < 4; i++) h.ball(cx - 0.15 + (i % 2) * 0.3, 0.86, cz - 0.15 + Math.floor(i / 2) * 0.3, 0.16, pick(h, ['#f08a3c', '#f4f4f4', '#e04f4f'])); }
+  },
+  easel(h, x, z, pal, acc) { // イーゼルの大きな絵（体の前の方を入れて、絵と同じ色に塗る）・パレット・いす
+    const al = h.rnd() < 0.5, sd = h.rnd() < 0.5 ? 1 : -1, P = ARTPAL[Math.floor(h.rnd() * ARTPAL.length)], k = ART[Math.floor(h.rnd() * ART.length)];
+    h.B(x, 0.55, z, al ? 1.3 : 0.08, 1.05, al ? 0.08 : 1.3, P[0], { pat: [k, P[0], P, 1, 1], sharp: true, sink: true });
+    for (const s of [-1, 1]) rod(h, [al ? x + s * 0.5 : x + sd * 0.12, 0, al ? z + sd * 0.12 : z + s * 0.5], [al ? x + s * 0.2 : x, 1.75, al ? z : z + s * 0.2], 0.025, '#8a5a33');
+    rod(h, [al ? x : x - sd * 0.55, 0, al ? z - sd * 0.55 : z], [x, 1.6, z], 0.025, '#8a5a33');
+    h.B(x, 0.5, z, al ? 1.2 : 0.16, 0.04, al ? 0.16 : 1.2, '#8a5a33', { r: 0.01 });
+    stool(h, al ? x : x + sd * 0.9, al ? z + sd * 0.9 : z, '#55606b');
+    h.cyl(al ? x + 0.35 : x + sd * 0.9, 0.7, al ? z + sd * 0.9 : z + 0.35, 0.16, 0.01, '#e8dcc8', { nocol: true, pat: ['confetti', '#e8dcc8', P, 1, 1] }); // パレット
+  }
+});
+
+
+/* ---- 窓・大きな家・銅像 ---- */
+// 窓ガラス（中がすけて見える。体は通りぬけない。弾は通る）
+const glass = (h, x, y, z, w, ht, d) => { h.B(x, y, z, w, ht, d, '#bfe3f2', { soft: true, glass: true, sharp: true }); h.boxc(x, y, z, w, ht, d, { sharp: true }); };
+// 部屋の中の窓：出っぱった窓わく・窓台（体が入るくぼみ）・外の景色・左右のカーテン。(x,z)=壁の内側の面、(nx,nz)=部屋の内向き
+function windowIn(h, x, z, nx, nz, w = 2.4, y0 = 1.15, ht = 1.5) {
+  const al = nz !== 0, dp = 0.4, fr = '#f4f1e8', B = (a, b, y, la, hh, lb, c, o) => h.B(x + (al ? a : nx * b), y, z + (al ? nz * b : a), al ? la : lb, hh, al ? lb : la, c, o);
+  B(0, 0.012, y0, w, ht, 0.02, '#a8d8f0', { nocol: true, glow: 0.4, pat: [pick(h, ['artLand', 'artField', 'artSea']), '#a8d8f0', pick(h, ARTPAL), 1, 1] }); // 窓の外の景色
+  B(0, 0.03, y0 + ht / 2, w, 0.05, 0.03, fr, NC); B(0, 0.03, y0, 0.05, ht, 0.03, fr, NC);
+  B(0, dp / 2, y0 - 0.12, w + 0.5, 0.12, dp, fr, { r: 0.02 });
+  for (const t of [-1, 1]) B(t * (w / 2 + 0.12), dp / 2, y0 - 0.12, 0.24, ht + 0.3, dp, fr, { r: 0.02 });
+  B(0, dp / 2, y0 + ht, w + 0.5, 0.18, dp, fr, { r: 0.02 });
+  const cc = pick(h, ['#c9573f', '#7d8fb3', '#e8dcc8', '#8fbf7a', '#e0719a', '#f0d040']);
+  for (const t of [-1, 1]) B(t * (w / 2 + 0.3), dp + 0.1, y0 - 0.5, 0.4, ht + 0.95, 0.14, cc, { r: 0.06, pat: ['vband', cc, shade(cc, 0.82), 2, 1] }); // カーテン（たば）
+  B(0, dp + 0.1, y0 + ht + 0.45, w + 1.3, 0.05, 0.05, '#c9a24a', NC);
+}
+// 大きな家：中に入れる。窓（ガラス・外の窓わく・よろい戸・中のカーテン）・玄関ポーチ・部屋ごとの家具と小物・屋上
+//   dir = 正面の向き。中は リビング／ダイニングキッチン／子ども部屋／寝室 の4つ
+function bigHouse(h, x, z, dir, pal) {
+  const F = frame(h, x, z, dir), W = 16, D = 11, H = 3.2, t = 0.3, uX = F.ax === 0; // u = 横（W）、v = 奥行（D、正面が +v）
+  const B = (v, u, y, dv, hh, du, c, o) => F.B(v, u, y, dv, hh, du, c, o);
+  const G = (v, u, y, dv, hh, du) => { const [px, pz] = F.at(v, u); glass(h, px, y, pz, F.ax ? dv : du, hh, F.ax ? du : dv); };
+  const wl = pick(h, ['#e8dcc8', '#d9e7e3', '#f3e3c3', '#e7d9e8']), sid = pick(h, ['#c9573f', '#7d8fb3', '#f4f1e8', '#8fbf7a', '#e0b040']), shut = pick(h, ['#2f6fb0', '#3f9b6a', '#8a5a33', '#b8452f']);
+  const outP = (len, hh) => ['hstripe', sid, shade(sid, 0.88), Math.max(1, Math.round(len / 1.4)), Math.max(2, Math.round(hh * 2.5))]; // 外：横板
+  const inP = (len, hh) => ['dots', wl, shade(wl, 0.9), Math.max(1, Math.round(len / 1.2)), Math.max(1, Math.round(hh / 1.2))]; // 中：かべ紙
+  B(0, 0, 0, D, 0.04, W, '#c9a26b', { flat: true, nocol: true, pat: ['vstripe', '#c9a26b', '#b8935a', Math.round(W / 1.2), 1] }); // 床
+  // 外のかべ（穴をあけて窓・ドア）。outer = 外がわの向き（+1 / -1）
+  const wall = (alongU, fixed, outer, from, to, holes) => {
+    const seg = (a0, a1, y0, y1) => {
+      if (a1 - a0 < 0.02 || y1 - y0 < 0.02) return;
+      const m = (a0 + a1) / 2, len = a1 - a0, hh = y1 - y0;
+      for (const [k, off] of [[1, t / 4], [0, -t / 4]]) { // 外がわの板と中がわのかべ紙
+        const pat = k ? outP(len, hh) : inP(len, hh), c = k ? sid : wl, f = fixed + outer * off;
+        if (alongU) B(f, m, y0, t / 2, hh, len, c, { pat, r: 0.01 }); else B(m, f, y0, len, hh, t / 2, c, { pat, r: 0.01 });
+      }
+    };
+    let a = from;
+    for (const [c, w, y0, y1, kind] of holes.slice().sort((p, q) => p[0] - q[0])) {
+      seg(a, c - w / 2, 0, H); seg(c - w / 2, c + w / 2, 0, y0); seg(c - w / 2, c + w / 2, y1, H); a = c + w / 2;
+      if (kind !== 'win') continue;
+      if (alongU) G(fixed, c, y0, 0.04, y1 - y0, w); else G(c, fixed, y0, w, y1 - y0, 0.04);
+      const o = fixed + outer * (t / 2 + 0.12), ii = fixed - outer * (t / 2 + 0.14);
+      if (alongU) {
+        B(o, c, y0 - 0.12, 0.26, 0.12, w + 0.3, '#f4f1e8', { r: 0.02 }); // 外の窓台
+        for (const sgn of [-1, 1]) { B(fixed + outer * (t / 2 + 0.04), c + sgn * (w / 2 + 0.3), y0, 0.06, y1 - y0, 0.55, shut, { r: 0.01, pat: ['hstripe', shut, shade(shut, 0.8), 1, 6] }); B(ii, c + sgn * (w / 2 + 0.22), y0 - 0.05, 0.14, y1 - y0 + 0.4, 0.42, '#e8dcc8', { r: 0.05, pat: ['vband', pick(h, ['#c9573f', '#7d8fb3', '#e0719a', '#e8dcc8']), '#f4f1e8', 2, 1] }); } // よろい戸・中のカーテン
+      } else {
+        B(c, o, y0 - 0.12, w + 0.3, 0.12, 0.26, '#f4f1e8', { r: 0.02 });
+        for (const sgn of [-1, 1]) { B(c + sgn * (w / 2 + 0.3), fixed + outer * (t / 2 + 0.04), y0, 0.55, y1 - y0, 0.06, shut, { r: 0.01, pat: ['hstripe', shut, shade(shut, 0.8), 1, 6] }); B(c + sgn * (w / 2 + 0.22), ii, y0 - 0.05, 0.42, y1 - y0 + 0.4, 0.14, '#e8dcc8', { r: 0.05, pat: ['vband', pick(h, ['#c9573f', '#7d8fb3', '#e0719a', '#e8dcc8']), '#f4f1e8', 2, 1] }); }
+      }
+    }
+    seg(a, to, 0, H);
+  };
+  const win = c => [c, 1.8, 1.0, 2.4, 'win'];
+  wall(true, D / 2 - t / 2, 1, -W / 2, W / 2, [[-4, 1.5, 0, 2.3, 'door'], win(-6.6), win(-1.6), win(2.6), win(6)]); // 正面
+  wall(true, -D / 2 + t / 2, -1, -W / 2, W / 2, [win(-5.5), win(-2.2), win(2.2), win(5.8)]); // うら
+  wall(false, -W / 2 + t / 2, -1, -D / 2 + t, D / 2 - t, [win(-2.6), win(2.6)]); // 左
+  wall(false, W / 2 - t / 2, 1, -D / 2 + t, D / 2 - t, [win(-2.6), [2.6, 1.4, 0, 2.3, 'door']]); // 右（勝手口）
+  // 中のかべ（ドアの穴つき）
+  const inw = (alongU, fixed, from, to, doors) => {
+    let a = from;
+    const seg = (a0, a1, y0, y1) => { if (a1 - a0 < 0.02) return; const m = (a0 + a1) / 2; if (alongU) B(fixed, m, y0, 0.2, y1 - y0, a1 - a0, wl, { pat: inP(a1 - a0, y1 - y0), r: 0.01 }); else B(m, fixed, y0, a1 - a0, y1 - y0, 0.2, wl, { pat: inP(a1 - a0, y1 - y0), r: 0.01 }); };
+    for (const c of doors) { seg(a, c - 0.75, 0, H); seg(c - 0.75, c + 0.75, 2.3, H); a = c + 0.75; }
+    seg(a, to, 0, H);
+  };
+  inw(false, -1, -D / 2 + t, D / 2 - t, [-2.6, 2.6]); // まん中（左右を分ける）
+  inw(true, 0, -W / 2 + t, -1.1, [-4.6]); // 左：リビング（前）とキッチン（うしろ）
+  inw(true, 0.5, -0.9, W / 2 - t, [3]); // 右：子ども部屋（前）と寝室（うしろ）
+  // 天井・屋上（パラペット・ソーラーパネル・えんとつ）
+  B(0, 0, H - 0.02, D - 2 * t, 0.02, W - 2 * t, '#f4f4f4', NC);
+  B(0, 0, H, D + 0.6, 0.3, W + 0.6, '#8d8f94', { r: 0.04, pat: ['noise', '#8d8f94', 0, 4, 4] });
+  for (const s of [-1, 1]) { B(s * (D / 2 + 0.2), 0, H + 0.3, 0.2, 0.55, W + 0.6, sid, { r: 0.03 }); B(0, s * (W / 2 + 0.2), H + 0.3, D + 0.2, 0.55, 0.2, sid, { r: 0.03 }); }
+  B(-2, 4, H + 0.3, 2.4, 0.5, 3.6, '#2f4f7a', { rot: F.ax ? [0, 0, 0.3 * F.ax] : [-0.3 * F.az, 0, 0], pat: ['check2', '#2f4f7a', '#3f6fa0', 3, 2] }); // ソーラーパネル
+  B(1, -5.5, H + 0.3, 0.8, 1.4, 0.8, '#b8452f', { r: 0.03, pat: ['brick', '#b8452f', '#9a3a28', 1, 2] }); // えんとつ
+  // 天井の明かり（部屋ごと）
+  for (const [v, u] of [[2.8, -4.5], [-2.8, -4.5], [3, 3.5], [-2.5, 3.5]]) { const [px, pz] = F.at(v, u); h.ball(px, H - 0.25, pz, 0.22, '#fff4c2', { glow: 1, nocol: true }); h.cyl(px, H - 0.1, pz, 0.3, 0.08, '#f4f4f4', NC); }
+  // 玄関ポーチ：段・柱・ひさし・開いたドア
+  B(D / 2 + 0.9, -4, 0, 1.6, 0.16, 2.6, '#b9b7b0', { r: 0.03 }); B(D / 2 + 1.9, -4, 0, 0.5, 0.08, 2.0, '#b9b7b0', { r: 0.02 });
+  for (const sgn of [-1, 1]) { const [px, pz] = F.at(D / 2 + 1.5, -4 + sgn * 1.15); h.cyl(px, 0.16, pz, 0.1, 2.5, '#f4f1e8', { seg: 12 }); }
+  B(D / 2 + 0.9, -4, 2.66, 1.9, 0.14, 2.8, shut, { r: 0.04 });
+  B(D / 2 - t - 0.7, -4 - 0.72, 0, 1.4, 2.25, 0.06, '#8a5a33', { r: 0.02, pat: ['cabinet', '#8a5a33', '#c9a24a', 1, 2] }); // 開いたドア
+  { const [px, pz] = F.at(D / 2 + 1.4, -6.3); mailbox(h, px, pz); }
+  // キッチン（うしろの左）：流し台・コンロ・つり戸だな
+  B(-D / 2 + t + 0.35, -4.5, 0, 0.7, 0.95, 6, '#f4f4f4', { pat: ['cabinet', '#f4f4f4', '#9aa1a8', 5, 1] }); B(-D / 2 + t + 0.35, -4.5, 0.95, 0.75, 0.06, 6.05, '#3a3a3a');
+  // 寝室（うしろの右）：ベッド
+  { const [px, pz] = F.at(-2.6, 5.3); bed(h, px, pz, pick(h, ['#5b76b8', '#e0719a', '#8fbf7a'])); }
+  // 部屋ごとに家具・小物を置く（ドアの前はあけておく）
+  const holds = [[D / 2 - 1.1, -4], [2.6, W / 2 - 1.1], [-2.6, -1], [2.6, -1], [0, -4.6], [0.5, 3]].map(([v, u]) => { const [px, pz] = F.at(v, u); return h.hold(px, pz, 2.0, 2.0); }); // ドアの前
+  const rect = (v0, v1, u0, u1) => { const a = F.at(v0, u0), b = F.at(v1, u1); return [Math.min(a[0], b[0]), Math.max(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[1], b[1])]; };
+  const A = TOY;
+  scatter(h, ['sofaK', 'tvset', 'lampset', 'tallplant', 'plush', 'clock', 'aquarium', 'coats', 'umbrella', 'beanbag'], ...rect(0.3, D / 2 - t - 0.3, -W / 2 + t + 0.3, -1.3), pal, A, 30); // リビング
+  scatter(h, ['dining', 'fridgeK', 'cleaning', 'tallplant', 'crates'], ...rect(-D / 2 + t + 0.9, -0.3, -W / 2 + t + 0.3, -1.3), pal, A, 30); // ダイニングキッチン
+  scatter(h, ['dolls', 'toybox', 'robot', 'dino', 'plush', 'study', 'hina', 'trampoline'], ...rect(0.8, D / 2 - t - 0.3, -0.7, W / 2 - t - 0.3), pal, A, 30); // 子ども部屋
+  scatter(h, ['dresser', 'pcdesk', 'closet', 'lampset', 'dolls', 'clock', 'tallplant'], ...rect(-D / 2 + t + 0.3, 0.3, -0.7, W / 2 - t - 0.3), pal, A, 30); // 寝室
+  holds.forEach(c => h.release(c));
+  // 庭：木のさく・花だん・車・自転車
+  for (const sgn of [-1, 1]) { const [px, pz] = F.at(D / 2 + 3.2, sgn * 5.5); KIT.planter(h, px, pz, pal); }
+  { const [px, pz] = F.at(0, -W / 2 - 3.2); car(h, px, pz, pick(h, CARC), !uX); }
+  { const [px, pz] = F.at(-D / 2 - 1.2, -3); bikeAt(h, px, pz, uX, pick(h, TOY), true); }
+}
+// 銅像：台の上の人の像（手をあげる・考える・胸像）や動物の像。となりに何ものっていない台があることも（台に乗って、像と同じ色にぬってポーズ！）
+function statueFig(h, x, y, z, kind, c, yaw) {
+  const fx = Math.cos(yaw), fz = Math.sin(yaw), rx = -fz, rz = fx, o = { rough: 0.35, pat: ['noise', c, 0, 1, 1] };
+  if (kind === 'bust') { h.lump(x, y + 0.35, z, 0.5, 0.35, 0.3, c, { ...o, seed: 5, bump: 0.05, freq: 1, ry: -yaw }); h.ball(x, y + 0.95, z, 0.3, c, o); h.lump(x - fx * 0.05, y + 1.08, z - fz * 0.05, 0.31, 0.2, 0.31, shade(c, 0.9), { ...o, seed: 2, bump: 0.15, freq: 3 }); return; }
+  if (kind === 'animal') { // すわった犬
+    h.lump(x, y + 0.45, z, 0.32, 0.45, 0.32, c, { ...o, seed: 3, bump: 0.05, freq: 1 }); h.ball(x + fx * 0.15, y + 1.05, z + fz * 0.15, 0.24, c, o); h.ball(x + fx * 0.38, y + 1.0, z + fz * 0.38, 0.1, c, o);
+    for (const t of [-1, 1]) { h.ball(x + rx * t * 0.16 + fx * 0.1, y + 1.27, z + rz * t * 0.16 + fz * 0.1, 0.08, c, o); h.cyl(x + rx * t * 0.14 + fx * 0.2, y, z + rz * t * 0.14 + fz * 0.2, 0.07, 0.5, c, { ...o, seg: 8 }); }
+    rod(h, [x - fx * 0.3, y + 0.15, z - fz * 0.3], [x - fx * 0.5 + rx * 0.2, y + 0.1, z - fz * 0.5 + rz * 0.2], 0.05, c, o); return;
+  }
+  // 人：あし・コート・頭・ぼうし・うで
+  for (const t of [-1, 1]) h.cyl(x + rx * t * 0.13, y, z + rz * t * 0.13, 0.1, 0.75, c, { ...o, seg: 10 });
+  h.lathe(x, y + 0.6, z, [[0.001, 0], [0.34, 0], [0.3, 0.5], [0.26, 0.85], [0.18, 0.95], [0.001, 0.95]], c, { ...o, seg: 16 });
+  h.ball(x, y + 1.72, z, 0.2, c, o); h.cyl(x, y + 1.6, z, 0.08, 0.1, c, { ...o, seg: 8 });
+  if (kind === 'hero') { // 片手をあげる
+    rod(h, [x + rx * 0.3, y + 1.45, z + rz * 0.3], [x + rx * 0.45 + fx * 0.1, y + 2.15, z + rz * 0.45 + fz * 0.1], 0.08, c, o); h.ball(x + rx * 0.47 + fx * 0.1, y + 2.22, z + rz * 0.47 + fz * 0.1, 0.09, c, o);
+    rod(h, [x - rx * 0.3, y + 1.45, z - rz * 0.3], [x - rx * 0.36 + fx * 0.05, y + 0.85, z - rz * 0.36 + fz * 0.05], 0.08, c, o);
+    h.cyl(x, y + 1.88, z, 0.24, 0.04, c, { ...o, seg: 16 }); h.cyl(x, y + 1.9, z, 0.15, 0.18, c, { ...o, seg: 12 }); // ぼうし
+  } else { // 考える（あごに手）
+    rod(h, [x + rx * 0.3, y + 1.45, z + rz * 0.3], [x + rx * 0.2 + fx * 0.25, y + 1.15, z + rz * 0.2 + fz * 0.25], 0.08, c, o); rod(h, [x + rx * 0.2 + fx * 0.25, y + 1.15, z + rz * 0.2 + fz * 0.25], [x + fx * 0.18, y + 1.58, z + fz * 0.18], 0.07, c, o);
+    rod(h, [x - rx * 0.3, y + 1.45, z - rz * 0.3], [x - rx * 0.32 + fx * 0.15, y + 0.95, z - rz * 0.32 + fz * 0.15], 0.08, c, o); h.lathe(x - rx * 0.33 + fx * 0.2, y + 0.75, z - rz * 0.33 + fz * 0.2, [[0.001, 0], [0.12, 0], [0.13, 0.25], [0.001, 0.25]], c, { ...o, seg: 10 }); // 本
+  }
+}
+function pedestal(h, x, z, s, stone) {
+  h.B(x, 0, z, 1.9 * s, 0.3, 1.9 * s, shade(stone, 0.9), { r: 0.04, pat: ['noise', stone, 0, 1, 1] });
+  h.B(x, 0.3, z, 1.4 * s, 1.25, 1.4 * s, stone, { r: 0.03, pat: ['noise', stone, 0, 1, 1] });
+  h.B(x, 1.55, z, 1.6 * s, 0.15, 1.6 * s, shade(stone, 0.9), { r: 0.04 });
+  return 1.7;
+}
+/* ---- 部屋の中の人形・家具、外の小物（フェンス・車・自販機・電柱・工事中の柵など） ---- */
+const CARC = ['#e9edf0', '#1b1d20', '#b8262b', '#2f6fb0', '#9aa1a8', '#f0d040', '#3f9b6a', '#7b5ea7', '#c9573f'];
+Object.assign(KIT, {
+  dolls(h, x, z, pal, acc) { // 人形たち（ドレスの人形・くま・人形の家）
+    const n = 3 + Math.floor(h.rnd() * 3), cs = ['#e0719a', '#b06fd8', '#59b6d8', '#f0d040', '#e04f4f', '#4fbf6a'];
+    for (let i = 0; i < n; i++) { const a = i / n * 6.28 + h.rnd() * 0.5, d = 0.5 + h.rnd() * 0.5, s = 0.6 + h.rnd() * 0.6; if (h.rnd() < 0.7) doll(h, x + Math.cos(a) * d, 0, z + Math.sin(a) * d, s, pick(h, cs), a + Math.PI); else bear(h, x + Math.cos(a) * d, 0, z + Math.sin(a) * d, s * 0.7, pick(h, ['#a8693f', '#d9b48a', '#f3c6d4']), a + Math.PI); }
+    const c = pick(h, ['#f3c6d4', '#fff1b8', '#c6e3f3']); // 人形の家
+    h.B(x, 0, z, 0.9, 0.7, 0.5, c, { r: 0.03, pat: ['cabinet', c, '#e0719a', 2, 2] }); h.cone(x, 0.7, z, 0.62, 0.4, '#e0719a', { seg: 4 });
+  },
+  robot(h, x, z, pal, acc) { // おもちゃのロボット（大きい。となりに立って同じ色に）
+    const c = pick(h, ['#c9ccd0', '#2f6fb0', '#e0413a', '#f0d040']), c2 = pick(h, TOY), s = 1 + h.rnd() * 0.4, fz = h.rnd() < 0.5 ? 1 : -1;
+    for (const t of [-1, 1]) { h.B(x + t * 0.18 * s, 0, z, 0.24 * s, 0.5 * s, 0.3 * s, c2, { r: 0.04 }); h.B(x + t * 0.45 * s, 0.6 * s, z, 0.18 * s, 0.55 * s, 0.2 * s, c, { r: 0.05 }); h.ball(x + t * 0.45 * s, 0.55 * s, z, 0.11 * s, c2); }
+    h.B(x, 0.5 * s, z, 0.7 * s, 0.65 * s, 0.45 * s, c, { r: 0.08, pat: ['check2', c, shade(c, 0.85), 2, 2] });
+    h.B(x, 0.6 * s, z + fz * 0.23 * s, 0.35 * s, 0.25 * s, 0.02, '#2a3038', { nocol: true, pat: ['confetti', '#2a3038', ['#5fe0a0', '#ff3ab8', '#ffd940'], 1, 1], glow: 0.6 });
+    h.B(x, 1.17 * s, z, 0.45 * s, 0.38 * s, 0.4 * s, c, { r: 0.08 });
+    for (const t of [-1, 1]) h.ball(x + t * 0.1 * s, 1.38 * s, z + fz * 0.2 * s, 0.05 * s, '#5fe0ff', { glow: 1, nocol: true });
+    h.cyl(x, 1.55 * s, z, 0.02 * s, 0.25 * s, '#55606b', { seg: 6 }); h.ball(x, 1.82 * s, z, 0.06 * s, '#e0413a', { glow: 0.8 });
+  },
+  dino(h, x, z, pal, acc) { // 恐竜のおもちゃ（首・しっぽ・せなかのとげ）
+    const c = pick(h, ['#4fbf6a', '#3f8f4a', '#b06fd8', '#f08a3c']), al = h.rnd() < 0.5, d = h.rnd() < 0.5 ? 1 : -1, P = (a, y, b = 0) => (al ? [x + a * d, y, z + b] : [x + b, y, z + a * d]);
+    h.lump(...P(0, 0.75), al ? 0.75 : 0.42, 0.42, al ? 0.42 : 0.75, c, { seed: seed8(h), bump: 0.06, freq: 1.2, core: 0.93, pat: ['bigcamo', c, [shade(c, 0.8), shade(c, 1.15)], 2, 1] });
+    rod(h, P(0.55, 0.95), P(0.95, 1.6), 0.18, c); h.lump(...P(1.1, 1.7), al ? 0.32 : 0.2, 0.2, al ? 0.2 : 0.32, c, { seed: 3, bump: 0.05, freq: 1 });
+    rod(h, P(-0.6, 0.75), P(-1.6, 0.3), 0.17, c); rod(h, P(-1.6, 0.3), P(-2.1, 0.2), 0.09, c);
+    for (const sa of [-0.3, 0.35]) for (const sb of [-0.25, 0.25]) { const [lx, ly, lz] = P(sa, 0, sb); h.cyl(lx, 0, lz, 0.12, 0.45, shade(c, 0.9), { seg: 10 }); }
+    for (let i = 0; i < 5; i++) { const [sx, sy, sz] = P(0.5 - i * 0.3, 1.12 - Math.abs(i - 1) * 0.05); h.cone(sx, sy, sz, 0.1, 0.22, '#f0d040', { seg: 4, nocol: true }); }
+  },
+  hina(h, x, z, pal, acc) { // ひな人形（赤いだんの上に小さな人形・ぼんぼり）。赤い布と同じ色に塗る
+    const al = h.rnd() < 0.5, fz = h.rnd() < 0.5 ? 1 : -1, W = 2.4;
+    for (let k = 0; k < 5; k++) { const dd = (2 - k) * 0.35 * fz; h.B(al ? x : x + dd, 0, al ? z + dd : z, al ? W : 0.4 + (4 - k) * 0.0, (k + 1) * 0.3, al ? 0.4 : W, '#c9302a', { r: 0.02, pat: ['fabric', '#c9302a', 0, 3, 1], sink: true }); }
+    for (let k = 0; k < 5; k++) for (let i = 0; i < [2, 3, 5, 2, 2][k]; i++) {
+      const n = [2, 3, 5, 2, 2][k], u = (i - (n - 1) / 2) * (W / (n + 0.5)), dd = (k - 2) * 0.35 * fz, px = al ? x + u : x + dd, pz = al ? z + dd : z + u, y = (5 - k) * 0.3 - 0.3 + 0.3, c = pick(h, ['#e04f4f', '#2f6fb0', '#f0d040', '#4fbf6a', '#b06fd8', '#f4f4f4']);
+      h.cone(px, y, pz, 0.11, 0.22, c, { rt: 0.04, seg: 10, pat: ['dots', c, '#f0d040', 2, 1] }); h.ball(px, y + 0.27, pz, 0.06, '#f4f4f4');
+    }
+    for (const t of [-1, 1]) { const px = al ? x + t * (W / 2 + 0.25) : x - 0.5 * fz, pz = al ? z - 0.5 * fz : z + t * (W / 2 + 0.25); h.cyl(px, 0, pz, 0.03, 0.7, '#2a3038', { seg: 6 }); h.lathe(px, 0.7, pz, [[0.001, 0], [0.12, 0.02], [0.14, 0.2], [0.1, 0.32], [0.001, 0.32]], '#fff4c2', { glow: 0.6, seg: 10 }); }
+  },
+  dresser(h, x, z, pal, acc) { // タンス（引き出し・取っ手）と上の小物
+    const al = h.rnd() < 0.5, c = pick(h, ['#8a5a33', '#c98f4e', '#f3f1ec', '#6b4a2b']), ht = 1.1 + h.rnd() * 0.6;
+    h.B(x, 0, z, al ? 1.6 : 0.6, ht, al ? 0.6 : 1.6, c, { r: 0.03, pat: ['cabinet', c, '#c9a24a', 2, Math.round(ht / 0.3)] });
+    h.lathe(x + (al ? 0.5 : 0), ht, z + (al ? 0 : 0.5), [[0.001, 0], [0.08, 0], [0.12, 0.15], [0.05, 0.32], [0.07, 0.36], [0.001, 0.36]], pick(h, ['#59b6d8', '#e0719a', '#f4f4f4']), { seg: 12 });
+    h.lump(x + (al ? 0.5 : 0), ht + 0.42, z + (al ? 0 : 0.5), 0.14, 0.1, 0.14, pick(h, ['#ff6fa8', '#ffd940']), { seed: 2, bump: 0.3, freq: 3, nocol: true });
+    h.B(x - (al ? 0.4 : 0), ht, z - (al ? 0 : 0.4), al ? 0.3 : 0.05, 0.38, al ? 0.05 : 0.3, '#c9a24a', { r: 0.01, rot: al ? [-0.15, 0, 0] : [0, 0, 0.15] }); // 写真立て
+    doll(h, x - (al ? 0.05 : 0), ht, z - (al ? 0 : 0.05), 0.35, pick(h, ['#e0719a', '#59b6d8']), al ? Math.PI / 2 : 0);
+  },
+  dining(h, x, z, pal, acc) { // 食卓といす4つ・お皿
+    const c = pick(h, ['#c98f4e', '#8a5a33', '#f3f1ec']), cc = pick(h, acc);
+    table(h, x, z, 1.8, 1.1, c);
+    for (const t of [-1, 1]) { chair(h, x - 0.45, z + t * 0.85, cc, -t); chair(h, x + 0.45, z + t * 0.85, cc, -t); }
+    for (const t of [-1, 1]) for (const u of [-0.45, 0.45]) h.cyl(x + u, 0.76, z + t * 0.3, 0.14, 0.02, '#f4f4f4', { nocol: true });
+    h.lathe(x, 0.76, z, [[0.001, 0], [0.08, 0], [0.12, 0.2], [0.04, 0.3], [0.001, 0.3]], '#59b6d8', { seg: 12 }); // 花びん
+  },
+  fridgeK(h, x, z, pal, acc) { // 冷蔵庫（とびらの線・取っ手・マグネット）と電子レンジのたな
+    const fz = h.rnd() < 0.5 ? 1 : -1, c = pick(h, ['#e9edf0', '#c9d1d6', '#e0413a', '#f3f1ec']), zf = z + fz * 0.41;
+    h.B(x, 0, z, 0.9, 1.9, 0.8, c, { r: 0.06 }); h.B(x, 1.25, zf, 0.86, 0.02, 0.02, shade(c, 0.75), NC);
+    h.B(x + 0.36, 1.35, zf + fz * 0.02, 0.04, 0.4, 0.04, '#9aa1a8', NC); h.B(x + 0.36, 0.6, zf + fz * 0.02, 0.04, 0.4, 0.04, '#9aa1a8', NC);
+    for (let i = 0; i < 4; i++) h.B(x - 0.2 + (i % 2) * 0.22, 1.45 + Math.floor(i / 2) * 0.16, zf + fz * 0.01, 0.1, 0.08, 0.02, pick(h, TOY), NC);
+    h.B(x + 1.0, 0, z, 0.8, 0.9, 0.6, '#f4f4f4', { r: 0.03, pat: ['cabinet', '#f4f4f4', '#9aa1a8', 1, 1] }); h.B(x + 1.0, 0.9, z, 0.6, 0.38, 0.45, '#2a3038', { r: 0.03 }); h.B(x + 0.95, 0.96, z + fz * 0.23, 0.38, 0.24, 0.01, '#1e2a36', NC); // 電子レンジ
+  },
+  washer(h, x, z, pal, acc) { // 洗たく機（丸いまど）・せんたくかご
+    const fz = h.rnd() < 0.5 ? 1 : -1, zf = z + fz * 0.36;
+    h.B(x, 0, z, 0.7, 0.95, 0.7, '#f4f4f4', { r: 0.06 }); h.cyl(x, 0.48, zf, 0.2, 0.02, '#1e2a36', { nocol: true, rot: [Math.PI / 2, 0, 0] }); h.torus(x, 0.48, zf, 0.22, 0.03, [0, 0, 0], '#9aa1a8', NC);
+    h.B(x - 0.15, 0.8, zf + fz * 0.005, 0.3, 0.08, 0.01, '#5fe0a0', { nocol: true, glow: 0.6 });
+    const bc = pick(h, ['#59b6d8', '#e0719a', '#f0d040']); h.lathe(x + 0.85, 0, z, [[0.001, 0], [0.25, 0], [0.3, 0.42], [0.27, 0.42], [0.001, 0.38]], bc, { seg: 14, pat: ['vband', bc, shade(bc, 0.8), 6, 1] });
+    for (let i = 0; i < 3; i++) h.lump(x + 0.8 + (i - 1) * 0.12, 0.45, z + (i % 2) * 0.1, 0.16, 0.08, 0.13, pick(h, TOY), { seed: seed8(h), bump: 0.3, freq: 2, nocol: true });
+  },
+  tvset(h, x, z, pal, acc) { // テレビ・テレビ台・ゲーム機・座いす
+    const fz = h.rnd() < 0.5 ? 1 : -1, c = pick(h, ['#2b2b2b', '#8a5a33', '#f3f1ec']);
+    h.B(x, 0, z, 2.2, 0.5, 0.5, c, { r: 0.03, pat: ['cabinet', c, '#c9ccd0', 2, 1] });
+    h.B(x, 0.5, z, 0.5, 0.06, 0.25, '#15171a'); h.B(x, 0.56, z, 0.08, 0.2, 0.06, '#15171a'); h.B(x, 0.72, z, 1.8, 1.05, 0.08, '#111418', { r: 0.03 }); h.B(x, 0.77, z + fz * 0.045, 1.7, 0.95, 0.01, '#1d3550', { nocol: true, glow: 0.3, pat: ['artLand', '#1d3550', ARTPAL[0], 1, 1] });
+    h.B(x + 0.75, 0.5, z, 0.3, 0.07, 0.2, '#f4f4f4', { r: 0.02 });
+    for (const t of [-1, 1]) { const cc = pick(h, acc); h.B(x + t * 0.6, 0, z + fz * 1.6, 0.6, 0.15, 0.6, cc, { r: 0.05, pat: ['fabric', cc, 0, 1, 1] }); h.B(x + t * 0.6, 0.12, z + fz * 1.88, 0.6, 0.5, 0.1, cc, { r: 0.05, rot: [fz * 0.25, 0, 0] }); }
+  },
+  lampset(h, x, z, pal, acc) { // フロアランプ・丸いサイドテーブル・ひとりがけソファ
+    h.cyl(x, 0, z, 0.22, 0.04, '#2a3038'); h.cyl(x, 0, z, 0.025, 1.6, '#2a3038', { seg: 6 }); h.cone(x, 1.45, z, 0.32, 0.38, '#f5e9c0', { rt: 0.18, glow: 0.7 });
+    h.lathe(x + 0.7, 0, z, [[0.001, 0], [0.18, 0], [0.04, 0.05], [0.04, 0.55], [0.3, 0.56], [0.3, 0.6], [0.001, 0.6]], '#8a5a33', { seg: 16, cols: [[0, 0.6, 0.3, 0.3]] });
+    h.lathe(x + 0.7, 0.6, z, [[0.001, 0], [0.06, 0], [0.08, 0.1], [0.04, 0.16], [0.001, 0.16]], '#f4f4f4', { seg: 10 });
+    sofa(h, x - 0.2, z + 1.1, 1.3, pick(h, acc.concat(pal)), true, -1);
+  },
+  clock(h, x, z) { // 大きな振り子時計
+    const fz = h.rnd() < 0.5 ? 1 : -1, c = pick(h, ['#6b4a2b', '#8a5a33', '#3a2a1c']), zf = z + fz * 0.21;
+    h.B(x, 0, z, 0.6, 2.1, 0.4, c, { r: 0.04, pat: ['grain', c, 0, 1, 3] }); h.B(x, 2.1, z, 0.7, 0.12, 0.46, shade(c, 0.85), { r: 0.04 });
+    h.cyl(x, 1.7, zf, 0.2, 0.02, '#f4f1e8', { nocol: true, rot: [Math.PI / 2, 0, 0] }); h.torus(x, 1.7, zf, 0.21, 0.025, [0, 0, 0], '#c9a24a', NC);
+    h.B(x, 1.7, zf + fz * 0.015, 0.02, 0.14, 0.01, '#1b1d20', NC); h.B(x + 0.05, 1.72, zf + fz * 0.016, 0.1, 0.02, 0.01, '#1b1d20', NC);
+    h.B(x, 0.35, zf, 0.4, 1.0, 0.01, '#3a4a5e', { nocol: true, rough: 0.15 }); h.cyl(x, 0.55, zf + fz * 0.01, 0.08, 0.01, '#d9b440', { nocol: true, rot: [Math.PI / 2, 0, 0] }); h.B(x, 0.62, zf + fz * 0.008, 0.015, 0.7, 0.005, '#d9b440', NC);
+  },
+  aquarium(h, x, z, pal, acc) { // 水そう（水・水草・魚の絵）と台。青い水と同じ色に塗る
+    const al = h.rnd() < 0.5, c = pick(h, ['#2a3038', '#8a5a33']);
+    h.B(x, 0, z, al ? 1.6 : 0.6, 0.75, al ? 0.6 : 1.6, c, { r: 0.03, pat: ['cabinet', c, '#c9ccd0', 2, 1] });
+    h.B(x, 0.75, z, al ? 1.5 : 0.5, 0.75, al ? 0.5 : 1.5, '#7fc4e0', { r: 0.02, glow: 0.35, rough: 0.1, sink: true, pat: ['aqua', '#7fc4e0', ['#f08a3c', '#f0d040', '#e04f4f', '#59b6d8'], 1, 1] });
+    h.B(x, 1.5, z, al ? 1.56 : 0.56, 0.06, al ? 0.56 : 1.56, '#2a3038', { r: 0.02 });
+  },
+  pcdesk(h, x, z, pal, acc) { // パソコンのつくえ：モニター・キーボード・回るいす
+    const fz = h.rnd() < 0.5 ? 1 : -1;
+    table(h, x, z, 1.5, 0.75, '#e8e1d2');
+    h.B(x, 0.76, z + fz * 0.2, 0.25, 0.03, 0.18, '#2a3038'); h.B(x, 0.79, z + fz * 0.22, 0.05, 0.25, 0.05, '#2a3038'); h.B(x, 0.95, z + fz * 0.22, 0.85, 0.5, 0.05, '#15171a', { r: 0.02 });
+    h.B(x, 0.99, z + fz * 0.19, 0.8, 0.43, 0.01, '#2f6fb0', { nocol: true, glow: 0.4, pat: ['artGrid', '#2f6fb0', ARTPAL[1], 1, 1] });
+    h.B(x, 0.76, z - fz * 0.12, 0.6, 0.03, 0.18, '#2a3038', { r: 0.01 }); h.B(x + 0.45, 0.76, z - fz * 0.1, 0.08, 0.03, 0.12, '#2a3038', { r: 0.02 });
+    h.B(x + 0.7, 0, z + fz * 0.1, 0.22, 0.5, 0.45, '#2a3038', { r: 0.02 }); h.ball(x + 0.7, 0.42, z + fz * 0.33, 0.015, '#5fe0ff', { glow: 1, nocol: true }); // パソコン本体
+    const cz = z - fz * 0.75; h.cyl(x, 0, cz, 0.3, 0.04, '#2a3038', { seg: 5 }); h.cyl(x, 0.04, cz, 0.04, 0.4, '#8d8f94', { seg: 8 }); h.B(x, 0.44, cz, 0.5, 0.08, 0.5, '#2a3038', { r: 0.04 }); h.B(x, 0.52, cz - fz * 0.23, 0.46, 0.55, 0.06, '#2a3038', { r: 0.05 });
+  },
+  tallplant(h, x, z) { // 大きな観葉植物（くきと大きな葉）
+    h.lathe(x, 0, z, [[0.001, 0], [0.24, 0], [0.32, 0.5], [0.34, 0.55], [0.001, 0.52]], pick(h, ['#f4f4f4', '#2a3038', '#b5651d']), { seg: 16 });
+    for (let i = 0; i < 7; i++) {
+      const a = i * 0.9 + h.rnd() * 0.4, hh = 0.9 + h.rnd() * 1.0, lx = x + Math.cos(a) * 0.35, lz = z + Math.sin(a) * 0.35;
+      rod(h, [x, 0.5, z], [lx, hh, lz], 0.02, '#3f7a2a', NC);
+      h.lump(lx + Math.cos(a) * 0.15, hh + 0.05, lz + Math.sin(a) * 0.15, 0.3, 0.06, 0.2, pick(h, ['#2f7d3a', '#3b8f46', '#25622d']), { seed: seed8(h), bump: 0.2, freq: 2, ry: -a, pat: ['leaf', '#2f7d3a', LEAF, 1, 1] });
+    }
+  },
+
+  /* ---- 外の小物 ---- */
+  fence(h, x, z, pal, acc) { // フェンス：木のさく／金あみ／ブロック塀（うしろや角に隠れる。L字のことも）
+    const kind = pick(h, ['wood', 'chain', 'block']), L = 4 + h.rnd() * 3, al = h.rnd() < 0.5, c = kind === 'wood' ? pick(h, ['#f4f4f4', '#b08a5a', '#8a5a33', '#d9c49a']) : kind === 'chain' ? '#b9c0c7' : pick(h, ['#b9b7b0', '#c9c2b0', '#9aa1a8']);
+    const seg = (cx, cz, sal, len) => {
+      const P = a => (sal ? [cx + a, cz] : [cx, cz + a]);
+      if (kind === 'wood') {
+        for (let a = -len / 2 + 0.1; a <= len / 2 - 0.05; a += 0.24) { const [px, pz] = P(a); h.B(px, 0, pz, sal ? 0.13 : 0.05, 1.15, sal ? 0.05 : 0.13, c, { nocol: true, r: 0.02 }); h.cone(px, 1.15, pz, 0.07, 0.1, c, { seg: 4, nocol: true }); }
+        for (const y of [0.3, 0.85]) { const [px, pz] = P(0); h.B(px + (sal ? 0 : 0.06), y, pz + (sal ? 0.06 : 0), sal ? len : 0.04, 0.1, sal ? 0.04 : len, shade(c, 0.85), NC); }
+        const [px, pz] = P(0); h.boxc(px, 0, pz, sal ? len : 0.14, 1.2, sal ? 0.14 : len, { sharp: true });
+      } else if (kind === 'chain') {
+        for (let a = -len / 2; a <= len / 2 + 0.01; a += len / Math.ceil(len / 2)) { const [px, pz] = P(a); h.cyl(px, 0, pz, 0.05, 1.8, '#8d8f94', { seg: 8 }); }
+        const [px, pz] = P(0); h.B(px, 0.05, pz, sal ? len : 0.03, 1.7, sal ? 0.03 : len, c, { pat: ['chain', c, 0, Math.round(len * 1.5), 3], sharp: true }); h.cyl(px, 1.78, pz, 0.03, len, '#8d8f94', { rot: sal ? [0, 0, Math.PI / 2] : [Math.PI / 2, 0, 0] });
+      } else {
+        const [px, pz] = P(0); h.B(px, 0, pz, sal ? len : 0.2, 1.4, sal ? 0.2 : len, c, { r: 0.02, sink: true, pat: ['blockwall', c, 0, Math.max(1, Math.round(len / 1.2)), 2] }); h.B(px, 1.4, pz, sal ? len + 0.04 : 0.26, 0.08, sal ? 0.26 : len + 0.04, shade(c, 0.85), { r: 0.02 });
+      }
+    };
+    seg(x, z, al, L);
+    if (h.rnd() < 0.45) { const e = h.rnd() < 0.5 ? 1 : -1, L2 = 2 + h.rnd() * 2, sd = h.rnd() < 0.5 ? 1 : -1; seg(al ? x + e * L / 2 : x + sd * L2 / 2, al ? z + sd * L2 / 2 : z + e * L / 2, !al, L2); }
+  },
+  carK(h, x, z, pal, acc) { // 止めてある車（車の下・うしろに隠れる）と駐車場の白線
+    const al = h.rnd() < 0.5, n = h.rnd() < 0.45 ? 2 : 1;
+    for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * 2.7; car(h, al ? x : x + o, al ? z + o : z, pick(h, CARC), al); }
+    for (let i = 0; i <= n; i++) { const o = (i - n / 2) * 2.7; h.B(al ? x : x + o, 0, al ? z + o : z, al ? 5 : 0.1, 0.02, al ? 0.1 : 5, '#f4f4f4', FL); }
+    if (h.rnd() < 0.5) { const o = (n / 2) * 2.7 + 0.4; h.B(al ? x - 2.6 : x + o, 0, al ? z + o : z - 2.6, 0.35, 0.15, 0.35, '#f0d040', { r: 0.05 }); } // 車止め
+  },
+  vendrow(h, x, z, pal, acc) { // 自動販売機のならび・空きかん入れ・ベンチ
+    const n = 2 + Math.floor(h.rnd() * 3), fz = h.rnd() < 0.5 ? 1 : -1;
+    for (let i = 0; i < n; i++) vending(h, x + (i - (n - 1) / 2) * 1.05, z, pick(h, ['#e0413a', '#2f6fb0', '#f4f4f4', '#3f9b6a', '#f0d040', '#1b1d20']), fz);
+    for (const t of [-1, 1]) if (h.rnd() < 0.7) { const bx = x + t * (n / 2 * 1.05 + 0.4); h.lathe(bx, 0, z + fz * 0.1, [[0.001, 0], [0.24, 0], [0.24, 0.85], [0.18, 0.95], [0.001, 0.95]], '#2f6fb0', { seg: 14 }); h.cyl(bx, 0.95, z + fz * 0.1, 0.07, 0.01, '#15171a', NC); }
+    if (h.rnd() < 0.5) bench(h, x, z + fz * 1.4, true, WOOD, -fz);
+  },
+  garbage(h, x, z) { // ゴミ置き場：ゴミぶくろの山・ネット・大きなゴミ箱・看板
+    const n = 5 + Math.floor(h.rnd() * 4);
+    for (let i = 0; i < n; i++) { const a = h.rnd() * 6.28, d = h.rnd() * 0.7, s = 0.32 + h.rnd() * 0.15, c = pick(h, ['#e8e8e8', '#cfe3f0', '#d9e8c9', '#2a3038']); h.lump(x + Math.cos(a) * d, i > 4 ? 0.5 : s * 0.8, z + Math.sin(a) * d, s, s * 0.9, s, c, { seed: seed8(h), bump: 0.25, freq: 2, core: 0.92, pat: ['noise', c, 0, 1, 1] }); }
+    h.B(x, 0.95, z, 1.9, 0.02, 1.7, '#2f6fb0', { nocol: true, pat: ['chain', '#4f7fe0', 0, 4, 4] });
+    const gc = pick(h, ['#3f9b6a', '#2f6fb0', '#9aa1a8']); h.B(x + 1.5, 0, z, 1.0, 1.0, 0.8, gc, { r: 0.04, pat: ['vband', gc, shade(gc, 0.85), 3, 1] }); h.B(x + 1.5, 1.0, z, 1.04, 0.06, 0.84, shade(gc, 0.8), { r: 0.02 });
+    h.cyl(x - 1.1, 0, z - 0.6, 0.04, 1.4, '#8d8f94', { seg: 6 }); h.B(x - 1.1, 1.2, z - 0.6, 0.6, 0.4, 0.03, '#f4f4f4', { pat: ['hstripe', '#f4f4f4', '#3f9b6a', 1, 3] });
+  },
+  bikerack(h, x, z, pal, acc) { // 駐輪場：ラックと自転車
+    const al = h.rnd() < 0.5, n = 2 + Math.floor(h.rnd() * 3);
+    h.cyl(x, 0.3, z, 0.03, n * 0.75 + 0.3, '#8d8f94', { rot: al ? [Math.PI / 2, 0, 0] : [0, 0, Math.PI / 2] });
+    for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * 0.75; bikeAt(h, al ? x + 0.3 : x + o, al ? z + o : z + 0.3, al, pick(h, CARC.concat(acc)), h.rnd() < 0.5); }
+  },
+  sign(h, x, z, pal, acc) { // 電柱（登れる）・広告の板・標識・カーブミラー
+    h.cyl(x, 0, z, 0.2, 7.5, '#9aa1a8', { rt: 0.15, pat: ['noise', '#9aa1a8', 0, 1, 4] });
+    h.B(x, 6.6, z, 1.6, 0.12, 0.12, '#55606b'); for (const t of [-0.6, 0.6]) h.cyl(x + t, 6.72, z, 0.04, 0.14, '#f4f4f4', { seg: 6 });
+    h.cyl(x + 0.38, 5.2, z, 0.25, 0.7, '#8d8f94'); h.B(x + 0.2, 5.4, z, 0.2, 0.08, 0.08, '#55606b');
+    const ac = pick(h, acc); h.B(x, 1.6, z + 0.22, 0.42, 1.4, 0.04, ac, { r: 0.01, sink: true, pat: ['hstripe', ac, '#f4f4f4', 1, 5] }); // 電柱の広告
+    for (let k = 0; k < 8; k++) h.B(x - 0.22, 2.6 + k * 0.4, z, 0.2, 0.04, 0.04, '#55606b', { r: 0.01 }); // 足場ボルト
+    const sx = x + 1.4; h.cyl(sx, 0, z, 0.04, 2.3, '#c9ccd0', { seg: 6 });
+    if (h.rnd() < 0.5) h.cyl(sx, 2.3, z, 0.32, 0.03, '#2f6fb0', { rot: [Math.PI / 2, 0, 0], pat: ['hstripe', '#2f6fb0', '#f4f4f4', 1, 1] });
+    else h.cyl(sx, 2.25, z, 0.38, 0.03, '#e0413a', { seg: 3, rot: [Math.PI / 2, 0, Math.PI / 2] });
+    if (h.rnd() < 0.6) { const mx = x - 1.3; h.cyl(mx, 0, z, 0.05, 2.5, '#f08a3c', { seg: 8 }); h.torus(mx, 2.7, z + 0.08, 0.32, 0.04, [0, 0, 0], '#f08a3c'); h.cyl(mx, 2.7, z + 0.08, 0.3, 0.02, '#cfe6f0', { nocol: true, rot: [Math.PI / 2, 0, 0], rough: 0.05 }); }
+  },
+  barricade(h, x, z, pal, acc) { // 工事中：しましまの柵・コーン・矢印の看板・土のう
+    const al = h.rnd() < 0.5, P = (a, b) => (al ? [x + a, z + b] : [x + b, z + a]);
+    for (let i = 0; i < 2; i++) { const a = (i - 0.5) * 1.6; { const [px, pz] = P(a, 0); h.B(px, 0.8, pz, al ? 1.4 : 0.06, 0.22, al ? 0.06 : 1.4, '#f0d040', { r: 0.02, pat: ['diag', '#f0d040', '#1b1d20', 4, 1] }); h.B(px, 0.35, pz, al ? 1.4 : 0.06, 0.16, al ? 0.06 : 1.4, '#f4f4f4', { r: 0.02, pat: ['diag', '#f4f4f4', '#e0413a', 4, 1] }); }
+      for (const t of [-1, 1]) for (const u of [-0.25, 0.25]) { const [lx, lz] = P(a + t * 0.62, u); const [tx, tz] = P(a + t * 0.62, 0); rod(h, [lx, 0, lz], [tx, 1.05, tz], 0.03, '#55606b'); }
+      const [bx, bz] = P(a + 0.62, 0); h.ball(bx, 1.15, bz, 0.07, '#ffb46b', { glow: 1.2 }); }
+    for (let i = 0; i < 3; i++) { const [px, pz] = P(-1.4 + i * 1.4, 0.9); pylon(h, px, pz); }
+    { const [px, pz] = P(2.0, 0.2); h.cyl(px, 0, pz, 0.04, 1.2, '#55606b', { seg: 6 }); h.B(px, 1.2, pz, al ? 0.8 : 0.04, 0.6, al ? 0.04 : 0.8, '#f0d040', { pat: ['zigzag', '#f0d040', '#1b1d20', 2, 1] }); }
+    for (let i = 0; i < 4; i++) { const [px, pz] = P(-0.6 + (i % 2) * 0.6, -0.9); h.lump(px, (Math.floor(i / 2)) * 0.25 + 0.14, pz, 0.32, 0.14, 0.22, '#b8a070', { seed: seed8(h), bump: 0.12, freq: 1.5, core: 0.93, pat: ['noise', '#b8a070', 0, 1, 1] }); }
+  },
+  crates(h, x, z, pal, acc) { // プラスチックのケースの山（すき間に入って、ケースと同じ色に塗る）
+    const c = pick(h, ['#f0d040', '#e0413a', '#2f6fb0', '#3f9b6a', '#f08a3c']);
+    for (let i = 0; i < 3; i++) for (let k = 0; k < 2; k++) { const ht = 2 + Math.floor(h.rnd() * 4); for (let j = 0; j < ht; j++) h.B(x + (i - 1) * 0.62, j * 0.32, z + (k - 0.5) * 0.48 + (i === 1 && k === 1 ? 0.4 : 0), 0.58, 0.31, 0.44, c, { r: 0.02, pat: ['vband', c, shade(c, 0.7), 2, 1] }); }
+  },
+  cart(h, x, z, pal, acc) { // ショッピングカート（2台かさねて）
+    const al = h.rnd() < 0.5;
+    for (let i = 0; i < 2; i++) { const o = i * 0.32, px = al ? x + o : x, pz = al ? z : z + o;
+      h.B(px, 0.45, pz, al ? 0.85 : 0.55, 0.45, al ? 0.55 : 0.85, '#c9ccd0', { r: 0.02, pat: ['chain', '#e9edf0', 0, 3, 2] });
+      rod(h, al ? [px - 0.45, 0.95, pz - 0.28] : [px - 0.28, 0.95, pz - 0.45], al ? [px - 0.45, 0.95, pz + 0.28] : [px + 0.28, 0.95, pz - 0.45], 0.03, '#e0413a');
+      for (const s of [-1, 1]) for (const t of [-1, 1]) h.wheel(px + (al ? s * 0.35 : t * 0.22), 0.06, pz + (al ? t * 0.22 : s * 0.35), 0.06, 0.04, al ? 'z' : 'x', NC);
+      h.B(px, 0.06, pz, al ? 0.8 : 0.5, 0.06, al ? 0.5 : 0.8, '#8d8f94', { r: 0.01 }); }
+  },
+  gasbottle(h, x, z) { // ガスボンベ（くさりでつないで）
+    for (let i = 0; i < 3 + Math.floor(h.rnd() * 3); i++) { const px = x + (i % 3) * 0.55 - 0.55, pz = z + Math.floor(i / 3) * 0.55, c = pick(h, ['#9aa1a8', '#2f6fb0', '#3f9b6a', '#e0413a']); h.lathe(px, 0, pz, [[0.001, 0], [0.24, 0], [0.24, 1.2], [0.14, 1.38], [0.06, 1.42], [0.001, 1.42]], c, { seg: 14 }); h.cyl(px, 1.42, pz, 0.05, 0.14, '#c9a24a', { seg: 8 }); }
+    rod(h, [x - 0.9, 0.9, z - 0.3], [x + 0.9, 0.9, z - 0.3], 0.02, '#55606b', NC);
+  },
+  standsign(h, x, z, pal, acc) { // 立て看板（A字）とのぼり旗（看板と同じ色に塗る）
+    const al = h.rnd() < 0.5, c = pick(h, acc), p = [pick(h, ['graffiti', 'dots', 'hstripe', 'check2']), c, ['#f4f4f4', '#1b1d20'], 1, 2];
+    for (const s of [-1, 1]) h.B(al ? x : x + s * 0.2, 0, al ? z + s * 0.2 : z, al ? 0.75 : 0.04, 1.15, al ? 0.04 : 0.75, c, { r: 0.02, pat: p, rot: al ? [-s * 0.17, 0, 0] : [0, 0, s * 0.17] });
+    for (let i = 0; i < 2; i++) { const fx = x + (al ? (i ? 1.0 : -1.0) : 0.6), fz = z + (al ? 0.6 : (i ? 1.0 : -1.0)), fc = pick(h, acc); h.cyl(fx, 0, fz, 0.025, 2.4, '#c9ccd0', { seg: 6 }); h.B(al ? fx + 0.3 : fx, 0.6, al ? fz : fz + 0.3, al ? 0.55 : 0.02, 1.7, al ? 0.02 : 0.55, fc, { pat: [pick(h, ['vband', 'hstripe', 'dots']), fc, '#f4f4f4', 1, 3] }); }
+  },
+  statue(h, x, z, pal, acc) { // 銅像（ブロンズ・石・大理石）。となりに空いた台があることも（台に乗ってポーズすれば銅像のふり）
+    const c = pick(h, ['#8a6a3c', '#6b5a3a', '#4f6b5a', '#c9c2b0', '#f1ede4']), stone = pick(h, ['#b9b7b0', '#d9d2c4', '#8d8f94']), kind = pick(h, ['hero', 'think', 'bust', 'animal']), yaw = pick(h, [0, 1.571, 3.1416, -1.571]);
+    const y = pedestal(h, x, z, kind === 'bust' ? 0.75 : 1, stone);
+    if (kind === 'bust') h.cyl(x, y, z, 0.25, 0.3, stone, { seg: 12 });
+    statueFig(h, x, kind === 'bust' ? y + 0.3 : y, z, kind, c, yaw);
+    h.B(x + Math.cos(yaw) * 0.71, 0.75, z + Math.sin(yaw) * 0.71, Math.abs(Math.cos(yaw)) > 0.5 ? 0.02 : 0.6, 0.35, Math.abs(Math.cos(yaw)) > 0.5 ? 0.6 : 0.02, '#c9a24a', { nocol: true, pat: ['hstripe', '#c9a24a', '#8a6a3c', 1, 4] }); // 名前の板
+    if (h.rnd() < 0.5) { const e = h.rnd() < 0.5 ? 1 : -1; pedestal(h, x + e * 2.4, z, 1, stone); } // 空いた台
+  },
+  streetset(h, x, z) { // 消火栓・ポスト・ゴミ箱・車止めのくい
+    hydrant(h, x - 0.8, z); mailbox(h, x + 0.4, z); bin(h, x + 1.3, z + 0.2, '#55606b');
+    for (let i = 0; i < 3; i++) h.cap(x - 1.6 + i * 0.7, 0, z + 0.9, 0.09, 0.65, '#f0d040', { pat: ['hstripe', '#f0d040', '#2a3038', 1, 2] });
+  }
+});
 // 大きめの小物は、まわりに広めのすき間がないと置かない
 export const KIT_R = { gallery: 2.6, hut: 2.0, bigbox: 1.5, pipe: 2.2, hlog: 2.0, closet: 1.9, tent: 2.0, ballpit: 2.3, grass: 1.8, leafpile: 1.6, dumpster: 1.7, booth: 1.4, tiresK: 1.4, mural: 2.4, arch: 2.2, blob: 1.8, rug: 2.0, cubes: 1.6, flowers: 1.8, mush: 1.7, screen: 1.9, sofaK: 1.8, junk: 1.8, bags: 1.6, sculpt: 1.6, coral: 1.9, goods: 1.9, laundry: 2.4, logs: 1.7, parasol: 1.9, hedge: 2.5, rock: 1.9,
-  nook: 2.9, blocks: 2.2, outcrop: 3.3, crevice: 3.0, stoneK: 1.9, graffiti: 2.9, stairs: 2.6, patch: 2.3, pot: 1.6, crystal: 1.4, vend: 1.3 };
+  nook: 2.9, blocks: 2.2, outcrop: 3.3, crevice: 3.0, stoneK: 1.9, graffiti: 2.9, stairs: 2.6, patch: 2.3, pot: 1.6, crystal: 1.4, vend: 1.3,
+  slideK: 2.6, jungle: 1.9, swing: 2.2, seesaw: 2.0, spring: 2.0, sandbox: 2.6, playhouse: 1.8, tiretun: 2.4, climb: 2.2, merry: 1.7, bars: 2.0, trampoline: 1.7,
+  plush: 1.5, kotatsu: 1.9, coats: 1.0, beanbag: 1.4, ladderK: 0.9, cleaning: 1.3, bike: 1.1, garden: 1.5, music: 1.8, study: 1.3, toybox: 1.1, umbrella: 0.6, gym: 2.4, easel: 1.2,
+  dolls: 1.3, robot: 1.0, dino: 1.9, hina: 1.7, dresser: 1.1, dining: 1.6, fridgeK: 1.4, washer: 1.2, tvset: 1.9, lampset: 1.6, clock: 0.6, aquarium: 1.1, pcdesk: 1.3, tallplant: 0.9,
+  fence: 2.4, carK: 2.8, vendrow: 2.0, garbage: 2.0, bikerack: 1.8, sign: 1.6, barricade: 2.4, crates: 1.2, cart: 0.9, gasbottle: 1.0, standsign: 1.4, streetset: 1.8, statue: 2.0 };
 
 // ---- 街づくり：塗って隠れる・壁にくっついて隠れるための仕掛けがいっぱいの建物 ----
 // T = { pal: 建物の色, acc: アクセント色, night, neon, facade: 外壁の模様 }
@@ -670,6 +1273,7 @@ function bld(h, T, x, z, w, d, ht, fz) { // fz = ±1：表（通り側）が向�
     h.B(x - w * 0.12, 0.3, zf + fz * 0.03, w * 0.55, 2.0, 0.06, T.night ? '#ffd98a' : '#9fd0e8', { nocol: true, glow: T.night ? 0.9 : 0.15 });
     h.B(x - w * 0.12, 0.3, zf + fz * 0.07, 0.06, 2.0, 0.04, dc, NC); h.B(x - w * 0.12, 0.22, zf + fz * 0.12, w * 0.58, 0.1, 0.2, dc, { r: 0.02 }); // 窓わく・窓の下の台
     h.B(x + w * 0.3, 0, zf + fz * 0.03, 1.1, 2.2, 0.06, '#3a3d44', NC); h.B(x + w * 0.3 + 0.38, 1.0, zf + fz * 0.08, 0.06, 0.2, 0.04, '#c9ccd0', NC);
+    for (const t of [-1, 1]) h.B(x + w * 0.3 + t * 0.78, 0, zf + fz * 0.35, 0.3, 2.35, 0.7, dc, { r: 0.04 }); // 入口の左右のかべ（入口がくぼみになる）
     h.B(x + w * 0.3, 0, zf + fz * 0.35, 1.5, 0.14, 0.7, '#b9b7b0', { r: 0.02 });
   }
   // 日よけ（乗れる・上に隠れられる）
@@ -680,9 +1284,13 @@ function bld(h, T, x, z, w, d, ht, fz) { // fz = ±1：表（通り側）が向�
   for (let y = 3.6; y < ht - 1.3; y += 2.8) {
     for (const s of [-1, 1]) if (h.rnd() < 0.8) {
       const ww = Math.min(1.4, w * 0.22);
-      h.B(x + s * w * 0.25, y, zf + fz * 0.03, ww, 1.3, 0.05, T.night ? pick(h, ['#ffd98a', '#9fd0e8', '#2a3038']) : '#9fd0e8', { nocol: true, glow: T.night ? 0.7 : 0.1 });
-      h.B(x + s * w * 0.25, y + 0.62, zf + fz * 0.06, ww, 0.05, 0.03, '#f4f4f4', NC); // 窓の桟
-      h.B(x + s * w * 0.25, y - 0.14, zf + fz * 0.17, ww + 0.25, 0.14, 0.34, '#d9d2c4', { r: 0.04 }); // 窓の下の出っぱり（足場）
+      const wx = x + s * w * 0.25, fr = T.neon ? shade(col, 1.6) : '#d9d2c4', dp = 0.42, wc = T.night ? pick(h, ['#ffd98a', '#9fd0e8', '#2a3038']) : '#9fd0e8';
+      h.B(wx, y, zf + fz * 0.03, ww, 1.3, 0.05, wc, { nocol: true, glow: T.night ? 0.7 : 0.1, pat: h.rnd() < 0.5 ? ['vband', wc, shade(wc, 0.82), 2, 1] : undefined }); // ガラス（カーテンのしま）
+      h.B(wx, y + 0.62, zf + fz * 0.06, ww, 0.05, 0.03, '#f4f4f4', NC); h.B(wx, y, zf + fz * 0.06, 0.05, 1.3, 0.03, '#f4f4f4', NC); // 窓の桟
+      // 窓わくが前に出ていて、窓のところが体の入るくぼみになる（窓台に乗って、窓と同じ色に塗る）
+      h.B(wx, y - 0.16, zf + fz * dp / 2, ww + 0.5, 0.16, dp, fr, { r: 0.03 });
+      for (const t of [-1, 1]) h.B(wx + t * (ww / 2 + 0.12), y - 0.16, zf + fz * dp / 2, 0.24, 1.64, dp, fr, { r: 0.03 });
+      h.B(wx, y + 1.3, zf + fz * dp / 2, ww + 0.5, 0.18, dp, fr, { r: 0.03 });
       if (h.rnd() < 0.3) { h.B(x + s * w * 0.25, y - 0.0, zf + fz * 0.3, ww, 0.3, 0.3, '#8a5a33', { r: 0.03 }); h.lump(x + s * w * 0.25, y + 0.42, zf + fz * 0.3, ww * 0.45, 0.22, 0.17, '#3b8f46', { ...LEAFC, seed: seed8(h), bump: 0.3, freq: 3, pat: ['confetti', '#3b8f46', ['#ff6fa8', '#ffd940', '#ffffff'], 2, 1] }); } // 窓の花だん
     }
     if (h.rnd() < 0.45) {
@@ -774,6 +1382,8 @@ function city(h, T) {
     }
   }
   car(h, -14, -1.9, pick(h, T.acc), true); car(h, 12, 1.9, pick(h, T.acc), true); car(h, 27, -1.9, pick(h, T.acc), true); car(h, -27, 1.9, pick(h, T.acc), true);
+  // 横の通りに止めてある車（車の下・あいだに隠れる）
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const zz of [9.5, 16, 22.5]) if (h.rnd() < 0.7) car(h, sx * 2.1, sz * zz, pick(h, CARC), false);
 }
 
 export const MAPS = {
@@ -811,12 +1421,14 @@ export const MAPS = {
       h.dome(5.8, 0, -5.6, 1.0, 0.75, 0.9, '#b06fd8', { pat: ['dots', '#b06fd8', '#f7f3ea', 3, 2], solid: true });
       for (const [x, z] of [[-10.2, -7.8], [10.2, -7.8], [-10.2, 7.8], [10.2, 7.8]]) lamp(h, x, z);
       plant(h, 9.8, 7.4); plant(h, 9.8, -7.4);
+      scatter(h, ['robot', 'dolls', 'tallplant'], -10, -3, -3, 7.5, ['#e8dcc8'], TOY); scatter(h, ['dino', 'vendrow', 'tallplant'], 3, 10, -4, 7.5, ['#e8dcc8'], TOY);
     }
   },
 
   /* ---------- おうち ---------- */
   house: {
-    name: 'おうち', hx: 30, hz: 22, sky: '#d5dde6', kit: ['toy', 'plantK', 'screen', 'sofaK', 'goods', 'crate', 'junk', 'laundry', 'bags', 'sculpt', 'mural', 'rug', 'cubes', 'pole', 'bigbox', 'bigbox', 'closet', 'gallery', 'tent', 'nook', 'nook', 'blocks', 'patch', 'shelfK'], pal: ['#e8dcc8', '#b98d5c', '#7d8fb3', '#8fbf7a', '#f3f1ec', '#c9573f', '#3f5f8a'], clutter: 66, spawn: [0, -11],
+    name: 'おうち', hx: 30, hz: 22, sky: '#d5dde6', kit: ['toy', 'plantK', 'screen', 'sofaK', 'goods', 'crate', 'junk', 'laundry', 'bags', 'sculpt', 'mural', 'rug', 'cubes', 'pole', 'bigbox', 'closet', 'gallery', 'tent', 'nook', 'nook', 'blocks', 'patch', 'shelfK',
+      'plush', 'plush', 'kotatsu', 'coats', 'coats', 'beanbag', 'ladderK', 'cleaning', 'bike', 'music', 'study', 'toybox', 'trampoline', 'slideK', 'playhouse', 'easel', 'garden', 'dolls', 'robot', 'dino', 'dresser', 'tallplant', 'lampset', 'pcdesk', 'clock', 'aquarium', 'tvset', 'dining'], pal: ['#e8dcc8', '#b98d5c', '#7d8fb3', '#8fbf7a', '#f3f1ec', '#c9573f', '#3f5f8a'], clutter: 84, spawn: [0, -11],
     build(h) {
       h.F(-15, -11, 30, 22, 0, ['vstripe', '#b98d5c', '#ad8253', 15, 1]);
       h.F(15, -11, 30, 22, 0, ['checker', '#ecebe4', '#a9bcc6', 15, 11]);
@@ -872,6 +1484,9 @@ export const MAPS = {
       tent(h, -6.5, 11.5, true, 1, '#f08a3c', '#f4f4f4'); // 子ども用テント（入口は部屋のまん中向き）
       h.B(-9.2, 0, 4, 0.9, 1.8, 3, '#f08a3c', { pat: ['cabinet', '#f08a3c', '#f4f4f4', 1, 3] }); h.B(9.2, 0, 4, 0.9, 1.8, 3, '#4fbf6a', { pat: ['cabinet', '#4fbf6a', '#f4f4f4', 1, 3] });
       KIT.nook(h, 7.6, 9.4, TOY, ['#f4f4f4', '#2a3038'], { al: false, sd: -1, L: 3.4 }); // 子ども部屋のくぼみの壁
+      // 外のかべの窓（窓わくが部屋の中に出ていて、窓台のくぼみに体が入る。カーテンつき）
+      for (const x of [-22, -12.5]) windowIn(h, x, -22, 0, 1); windowIn(h, -21.5, 22, 0, -1); windowIn(h, -4.3, 22, 0, -1, 1.8); windowIn(h, 19, 22, 0, -1);
+      windowIn(h, 30, 14, -1, 0); windowIn(h, -30, 13, 1, 0, 2.0);
       // 浴室・物置
       pit(h, 27, 18, 3.2, 5, 0.75, 0.25, '#ffffff', { r: 0.12 }, 0.62, 0.36, ['wave', '#7fc4e0', '#b8e2f0', 3, 4]); // 湯ぶね（お湯に体の下の方が沈む）
       h.cyl(27, 0.75, 20.3, 0.04, 0.5, '#c9ccd0', { seg: 8 }); h.B(27, 1.2, 20.45, 0.4, 0.04, 0.1, '#c9ccd0', NC);
@@ -879,29 +1494,42 @@ export const MAPS = {
       h.lathe(15.5, 0, 20.5, [[0.001, 0], [0.3, 0], [0.45, 0.4], [0.45, 0.7], [0.001, 0.7]], '#d8c9a3', { pat: ['vband', '#d8c9a3', '#c4b48c', 6, 1] }); h.cyl(22, 0, 13, 0.4, 0.5, '#5fa8d8');
       for (let i = 0; i < 9; i++) { const x = 12.5 + (i % 3) * 1.25, z = 2 + Math.floor(i / 3) * 1.25; carton(h, x, 0, z, 1.1, 1, 1.1, CARD[i % 4]); if (i % 2) carton(h, x, 1, z, 0.9, 0.8, 0.9, CARD[(i + 1) % 4]); }
       h.B(20, 0, 5, 2.2, 0.9, 0.8, '#f4f4f4', { pat: ['cabinet', '#f4f4f4', '#9aa1a8', 2, 1] }); h.B(23, 0, 21, 4, 0.04, 1.6, '#5fa8d8', { flat: true, nocol: true });
+      // 部屋ごとに家具・遊具・道具をそろえる（うしろ・下・すき間に隠れる）
+      const HP = this.pal, HA = TOY;
+      scatter(h, ['kotatsu', 'plush', 'beanbag', 'coats', 'music', 'umbrella', 'toybox', 'easel'], -28, -2, -20, -2, HP, HA); // リビング
+      scatter(h, ['cleaning', 'umbrella', 'ladderK', 'beanbag', 'study', 'coats'], 2, 28, -20, -2, HP, HA); // キッチン
+      scatter(h, ['study', 'plush', 'coats', 'beanbag', 'kotatsu', 'music'], -28, -12, 2, 20, HP, HA); // 寝室
+      scatter(h, ['slideK', 'trampoline', 'playhouse', 'plush', 'toybox', 'jungle', 'spring'], -8.5, 8.5, 2, 20, HP, HA); // 子ども部屋
+      scatter(h, ['bike', 'bike', 'ladderK', 'garden', 'cleaning', 'music', 'toybox'], 12, 28, 2, 20, HP, HA); // 物置・浴室
+      // 人形・家具をもっと
+      scatter(h, ['tvset', 'lampset', 'tallplant', 'clock', 'aquarium', 'dolls', 'dresser', 'tallplant'], -28, -2, -20, -2, HP, HA);
+      scatter(h, ['fridgeK', 'dining', 'tallplant', 'crates', 'aquarium', 'clock'], 2, 28, -20, -2, HP, HA);
+      scatter(h, ['dresser', 'pcdesk', 'lampset', 'dolls', 'tallplant', 'clock', 'dresser'], -28, -12, 2, 20, HP, HA);
+      scatter(h, ['dolls', 'robot', 'dino', 'hina', 'dolls', 'robot'], -8.5, 8.5, 2, 20, HP, HA);
+      scatter(h, ['washer', 'crates', 'tallplant', 'robot', 'dresser'], 12, 28, 2, 20, HP, HA);
     }
   },
 
   /* ---------- 公園 ---------- */
   park: {
-    name: '公園', hx: 36, hz: 28, sky: '#8fc8f0', dark: 0.95, floorTex: 'grass', kit: ['bush', 'hedge', 'rock', 'rock', 'planter', 'mush', 'sculpt', 'coral', 'logs', 'parasol', 'junk', 'laundry', 'flowers', 'mural', 'arch', 'pipe', 'hlog', 'grass', 'leafpile', 'tent', 'hut', 'outcrop', 'outcrop', 'crevice', 'nook', 'blocks', 'patch', 'stairs'], pal: ['#6fae5a', '#8d8f94', '#8a5a33', '#2e6b34', '#d8c9a3'], clutter: 92, spawn: [0, -6],
+    name: '公園', hx: 36, hz: 28, sky: '#8fc8f0', dark: 0.95, floorTex: 'grass', kit: ['statue', 'statue', 'bush', 'hedge', 'rock', 'rock', 'planter', 'mush', 'sculpt', 'coral', 'logs', 'parasol', 'junk', 'laundry', 'flowers', 'mural', 'arch', 'pipe', 'hlog', 'grass', 'leafpile', 'tent', 'hut', 'outcrop', 'outcrop', 'crevice', 'nook', 'blocks', 'patch', 'stairs',
+      'slideK', 'jungle', 'swing', 'seesaw', 'spring', 'sandbox', 'tiretun', 'merry', 'climb', 'bars', 'playhouse', 'bike', 'garden', 'trampoline', 'fence', 'fence', 'carK', 'vendrow', 'bikerack', 'sign', 'streetset', 'garbage'], pal: ['#6fae5a', '#8d8f94', '#8a5a33', '#2e6b34', '#d8c9a3'], clutter: 96, spawn: [0, -6],
     build(h) {
       h.F(0, 0, 72, 56, '#6fae5a');
       h.outer(6, '#3c6e3a');
       h.B(0, 0, 0, 72, 0.03, 3.4, '#d8c9a3', FL); h.B(0, 0, 0, 3.4, 0.03, 56, '#d8c9a3', FL);
       h.cyl(0, 0, 0, 5.2, 0.035, '#d8c9a3', FL);
+      bigHouse(h, 15, 19, [0, -1], this.pal); // 大きな家（中に入れる）
+      for (const sx of [-1, 1]) { pedestal(h, sx * 6.5, -4.5, 1, '#d9d2c4'); statueFig(h, sx * 6.5, 1.7, -4.5, sx < 0 ? 'hero' : 'think', '#8a6a3c', sx < 0 ? 0 : 3.1416); } // 噴水の前の銅像
+      pedestal(h, 0, -7.2, 1, '#d9d2c4'); // 何ものっていない台（ここに乗って銅像のふり）
       h.cyl(0, 0, 0, 3.2, 0.55, '#b9c0c7', { pat: ['brick', '#b9c0c7', '#9aa1a8', 10, 1] }); h.ring(0, 0.55, 0, 3.15, 0.08, '#d9dde0'); h.cyl(0, 0.55, 0, 2.8, 0.04, '#5fa8d8', NC); h.cyl(0, 0, 0, 0.5, 2.2, '#aab2ba'); h.cyl(0, 1.6, 0, 1.1, 0.12, '#aab2ba', { rt: 0.9 });
       // 池（まわりは角ばった石）
       h.cyl(22, 0, -15, 6.5, 0.04, '#4f95c9', FL);
       for (let i = 0; i < 9; i++) { const a = i * 0.7; stone(h, 22 + Math.cos(a) * 7, -15 + Math.sin(a) * 7, 0.6 + h.rnd() * 0.45, i % 2 ? '#8d8f94' : '#9a9ca0', 0, 0.55); }
       // 遊具：すべり台・ジャングルジム・ブランコ
-      h.F(-22, 15, 18, 16, '#e2cf9c', null, 1);
-      h.B(-28, 0, 10, 1.4, 2.1, 1.4, '#e04f4f', { r: 0.1 }); for (let k = 0; k < 5; k++) h.B(-28.85, k * 0.42, 10, 0.3, 0.06, 1.2, '#f4f4f4'); // 段
-      h.B(-26.2, 0, 10, 2.2, 1.4, 1.1, '#f0d040', { r: 0.1 }); h.B(-24.2, 0, 10, 1.8, 0.7, 1.1, '#f0d040', { r: 0.1 }); for (const s of [-1, 1]) h.B(-25.4, 0.7, 10 + s * 0.6, 4.2, 0.2, 0.08, '#f08a3c', { r: 0.03 }); // すべり台のへり
-      for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) h.B(-18 + i * 1.25, 0, 18 + j * 1.25, 1.1, 0.9 + ((i + j) % 3) * 0.7, 1.1, TOY[(i * 3 + j) % 6], { r: 0.08 });
-      h.B(-28, 0, 20, 0.2, 2.6, 0.2, '#4f7fe0'); h.B(-23.6, 0, 20, 0.2, 2.6, 0.2, '#4f7fe0'); h.B(-25.8, 2.6, 20, 4.6, 0.2, 0.2, '#4f7fe0');
-      for (const x of [-27, -24.6]) { h.B(x, 0.5, 20, 0.7, 0.08, 0.4, '#e04f4f'); for (const s of [-1, 1]) h.B(x + s * 0.32, 0.58, 20, 0.02, 2.0, 0.02, '#c9ccd0', NC); } // ブランコ（くさり）
-      h.B(-21, 0, 12, 4, 0.5, 0.4, '#4fbf6a', { r: 0.1 }); h.cyl(-16, 0, 11, 1.2, 0.45, '#b06fd8'); h.B(-15, 0, 24, 3, 0.35, 3, '#8a5a33', { pat: ['grain', '#8a5a33', 0, 3, 3] });
+      h.F(-22, 15, 18, 16, '#e2cf9c', null, 1); // 遊具の広場：すべり台・ジャングルジム・ブランコ・シーソー・スプリング・砂場・タイヤ・ボルダリング・回転遊具・鉄棒・ままごとハウス
+      scatter(h, ['slideK', 'jungle', 'swing', 'sandbox', 'seesaw', 'climb', 'spring', 'tiretun', 'merry', 'playhouse', 'bars', 'trampoline', 'spring'], -30.5, -13.5, 7.5, 22.5, this.pal, TOY, 60);
+      for (const [x, z] of [[-31, 7], [-13, 7], [-31, 23], [-13, 23]]) lamp(h, x, z, 3);
       // 生け垣の迷路（でこぼこの葉っぱの壁。中にはもぐれない）
       for (let k = 0; k < 5; k++) h.B(-23 + (k % 2 ? 3 : -3), 0, -24 + k * 4, 16, 1.9, 0.9, '#2e6b34', { r: 0.25, pat: ['leaf', '#2e6b34', LEAF, 12, 2] });
       h.B(-33, 0, -16, 0.9, 1.9, 16, '#2e6b34', { r: 0.25, pat: ['leaf', '#2e6b34', LEAF, 12, 2] }); h.B(-13, 0, -14, 0.9, 1.9, 12, '#2e6b34', { r: 0.25, pat: ['leaf', '#2e6b34', LEAF, 9, 2] });
@@ -911,28 +1539,32 @@ export const MAPS = {
         const x = -33 + h.rnd() * 66, z = -25 + h.rnd() * 50;
         if (Math.abs(x) < 4 || Math.abs(z) < 4 || Math.hypot(x, z) < 8) continue;
         if (x < -11 && z < -4) continue; if (x < -11 && z > 6) continue; if (Math.hypot(x - 22, z + 15) < 9) continue; if (x > 18 && z > 12) continue;
+        if (!h.free(x, z, 2.2)) continue; // 家・銅像にかさならない
         tree(h, x, z, 0.8 + h.rnd() * 0.5); n++;
       }
-      for (let i = 0; i < 16; i++) { const x = -33 + h.rnd() * 66, z = -25 + h.rnd() * 50; if (Math.abs(x) < 3 || Math.abs(z) < 3 || (x < -11 && z < -4)) continue; const s = 0.6 + h.rnd() * 0.45, c = i % 2 ? '#3b8f46' : '#2f7d3a'; h.lump(x, s * 0.75, z, s * 1.3, s, s * 1.1, c, { ...LEAFC, seed: seed8(h), bump: 0.2, freq: 3, ry: h.rnd() * 6, pat: ['leaf', c, LEAF, 2, 2] }); }
+      for (let i = 0; i < 16; i++) { const x = -33 + h.rnd() * 66, z = -25 + h.rnd() * 50; if (Math.abs(x) < 3 || Math.abs(z) < 3 || (x < -11 && z < -4) || !h.free(x, z, 1.4)) continue; const s = 0.6 + h.rnd() * 0.45, c = i % 2 ? '#3b8f46' : '#2f7d3a'; h.lump(x, s * 0.75, z, s * 1.3, s, s * 1.1, c, { ...LEAFC, seed: seed8(h), bump: 0.2, freq: 3, ry: h.rnd() * 6, pat: ['leaf', c, LEAF, 2, 2] }); }
       // ベンチ・花だん
       for (const x of [-28, -18, -9, 9, 18, 28]) bench(h, x, 2.7, true, WOOD, 1);
       for (const z of [-20, -11, 11, 20]) bench(h, -2.8, z, false, WOOD, -1);
       [[8, -8, '#e0719a'], [-8, -8, '#f0d040'], [8, 8, '#e04f4f'], [-8, 8, '#b06fd8']].forEach(f => { h.B(f[0], 0, f[1], 4, 0.4, 4, '#6b4a2b', { r: 0.06, pat: ['brick', '#6b4a2b', '#5a3c24', 4, 1] }); h.B(f[0], 0.4, f[1], 3.6, 0.25, 3.6, f[2], { pat: ['confetti', f[2], ['#ffffff', '#ffd940', '#3b8f46'], 3, 3] }); });
       // 小屋とピクニック
       h.B(27, 0, 21, 7, 3.2, 6, '#9b6b43', { pat: ['vstripe', '#9b6b43', '#8a5a33', 6, 2] }); h.B(27, 3.2, 21, 7.8, 0.4, 6.8, '#5a3c28'); h.B(27, 0, 17.98, 1.2, 2.2, 0.04, '#5a3c28', NC); h.B(25, 1.2, 17.98, 1.2, 0.9, 0.04, '#9fd0e8', NC);
-      for (const p of [[13, 14], [18, 20], [12, 23]]) { table(h, p[0], p[1], 2.4, 1.2, '#b08a5a'); h.B(p[0], 0, p[1] - 1.1, 2.4, 0.42, 0.4, '#b08a5a', { pat: ['grain', '#b08a5a', 0, 2, 1] }); h.B(p[0], 0, p[1] + 1.1, 2.4, 0.42, 0.4, '#b08a5a', { pat: ['grain', '#b08a5a', 0, 2, 1] }); }
+      for (const p of [[16, 10.5], [21, 10.5]]) { table(h, p[0], p[1], 2.4, 1.2, '#b08a5a'); h.B(p[0], 0, p[1] - 1.1, 2.4, 0.42, 0.4, '#b08a5a', { pat: ['grain', '#b08a5a', 0, 2, 1] }); h.B(p[0], 0, p[1] + 1.1, 2.4, 0.42, 0.4, '#b08a5a', { pat: ['grain', '#b08a5a', 0, 2, 1] }); }
       h.B(31, 0, -2, 4, 3, 4.5, '#d9d2c4', { pat: ['brick', '#d9d2c4', '#c4bcaa', 4, 3] }); vending(h, 27.6, -3, '#e04f4f', -1); vending(h, 27.6, -1.6, '#4f7fe0', -1);
       bin(h, 5, 5, '#55606b'); bin(h, -5, -5, '#55606b'); bin(h, 21, 3, '#3f9b6a');
       for (const p of [[6, -20], [-6, 20], [30, 8], [-30, 3]]) lamp(h, p[0], p[1], 3.4);
       // 岩場（地層の岩・すき間）
       const PP = ['#8d8f94', '#a39a8a', '#7a7c80', '#b5ab98'];
       KIT.outcrop(h, -17, -3, PP, []); KIT.outcrop(h, 3, -15, PP, []); KIT.crevice(h, 13, -23, PP);
+      // 駐車場・自販機・フェンス・電柱など外の小物
+      scatter(h, ['carK', 'carK', 'carK', 'carK', 'vendrow', 'vendrow', 'vendrow', 'garbage', 'bikerack', 'sign', 'sign', 'fence', 'fence', 'fence', 'fence', 'fence', 'fence', 'streetset', 'standsign', 'crates', 'fence', 'carK'], -34, 34, -26, 26, this.pal, ['#e04f4f', '#4f7fe0', '#f0d040', '#4fbf6a'], 60);
     }
   },
 
   /* ---------- 学校 ---------- */
   school: {
-    name: '学校', hx: 34, hz: 26, sky: '#d5dde6', kit: ['goods', 'crate', 'screen', 'toy', 'stool', 'plantK', 'junk', 'bags', 'sculpt', 'laundry', 'mural', 'rug', 'pole', 'bigbox', 'closet', 'gallery', 'gallery', 'nook', 'nook', 'blocks', 'patch', 'stairs', 'shelfK'], pal: ['#f2efe6', '#c9a26b', '#d7b47c', '#5f87b8', '#b85f5f', '#cfe0d3'], clutter: 66, spawn: [0, 0],
+    name: '学校', hx: 34, hz: 26, sky: '#d5dde6', kit: ['statue', 'goods', 'crate', 'screen', 'toy', 'stool', 'plantK', 'junk', 'bags', 'sculpt', 'laundry', 'mural', 'rug', 'pole', 'bigbox', 'closet', 'gallery', 'nook', 'nook', 'blocks', 'patch', 'stairs', 'shelfK',
+      'easel', 'study', 'cleaning', 'toybox', 'coats', 'plush', 'gym', 'music', 'beanbag', 'ladderK', 'aquarium', 'pcdesk', 'clock', 'robot', 'dino', 'tallplant', 'dresser'], pal: ['#f2efe6', '#c9a26b', '#d7b47c', '#5f87b8', '#b85f5f', '#cfe0d3'], clutter: 78, spawn: [0, 0],
     build(h) {
       h.F(0, 0, 68, 6, '#d9d4c7');
       h.F(0, -14.5, 68, 23, 0, ['vstripe', '#c9a26b', '#bf9860', 34, 1]);
@@ -976,12 +1608,18 @@ export const MAPS = {
       h.B(8, 0, 23.5, 3, 0.25, 2, '#3f6fc9', { r: 0.06 }); h.B(8.3, 0.25, 23.5, 3, 0.25, 2, '#3f6fc9', { r: 0.06 }); h.B(12, 0, 24, 3, 0.25, 2, '#3f9b6a', { r: 0.06 });
       h.B(30, 0, 23, 2.4, 1.2, 2.4, '#c0c6cc', { pat: ['vband', '#c0c6cc', '#a8afb6', 3, 1] }); for (let i = 0; i < 5; i++) h.ball(20 + i * 1.1, 0.35, 24.5, 0.35, i % 2 ? '#f08a3c' : '#e04f4f', { pat: ['hstripe', i % 2 ? '#f08a3c' : '#e04f4f', '#2a3038', 1, 4] });
       h.B(24, 0, 8, 1.6, 1.1, 0.5, '#f0d040', { r: 0.05 }); h.B(27, 0, 8, 1.6, 1.1, 0.5, '#f0d040', { r: 0.05 }); h.B(-2, 0, 8, 3, 1, 1.4, '#5a3c28', { r: 0.05, pat: ['cabinet', '#5a3c28', '#d9d2c4', 2, 1] });
+      const SP = this.pal;
+      scatter(h, ['gym', 'gym', 'bars', 'trampoline', 'climb', 'jungle', 'gym'], -5, 31, 8.5, 22.5, SP, TOY); // 体育館：跳び箱・マット・平均台・鉄棒・トランポリン
+      scatter(h, ['easel', 'easel', 'easel', 'easel', 'easel'], -33, -9.5, 4, 22, SP, TOY); // 図工室：イーゼルの絵
+      scatter(h, ['cleaning', 'umbrella', 'coats', 'cleaning', 'umbrella'], -33, 33, -25.5, -5, SP, TOY); // 教室：そうじ道具・かさ立て・コートかけ
+      scatter(h, ['aquarium', 'clock', 'pcdesk', 'tallplant', 'aquarium', 'pcdesk', 'clock'], -33, 33, -25.5, -5, SP, TOY); // 教室の水そう・時計・パソコン
+      scatter(h, ['robot', 'dino', 'dolls', 'tallplant'], -33, -9.5, 4, 22, SP, TOY); // 図工室の作品
     }
   },
 
   /* ---------- 倉庫 ---------- */
   warehouse: {
-    name: '倉庫', hx: 36, hz: 26, sky: '#39424d', dark: 0.62, floorTex: 'concrete', kit: ['crate', 'barrel', 'tiresK', 'junk', 'bags', 'bags', 'logs', 'goods', 'screen', 'mural', 'pole', 'bigbox', 'bigbox', 'dumpster', 'pipe', 'hut', 'graffiti', 'graffiti', 'nook', 'blocks', 'stairs'], acc: ['#b8452f', '#2f6fb0', '#3f9b6a', '#d98a2b', '#e0c030', '#f4f4f4'], pal: ['#8a8d91', '#70757b', '#2f6fb0', '#d98a2b', '#b8452f', '#3d5f93'], clutter: 100, spawn: [3, 1],
+    name: '倉庫', hx: 36, hz: 26, sky: '#39424d', dark: 0.62, floorTex: 'concrete', kit: ['crate', 'barrel', 'tiresK', 'junk', 'bags', 'bags', 'logs', 'goods', 'screen', 'mural', 'pole', 'bigbox', 'bigbox', 'dumpster', 'pipe', 'hut', 'graffiti', 'graffiti', 'nook', 'blocks', 'stairs', 'ladderK', 'cleaning', 'bike', 'garden', 'gym', 'crates', 'gasbottle', 'cart', 'barricade', 'fence'], acc: ['#b8452f', '#2f6fb0', '#3f9b6a', '#d98a2b', '#e0c030', '#f4f4f4'], pal: ['#8a8d91', '#70757b', '#2f6fb0', '#d98a2b', '#b8452f', '#3d5f93'], clutter: 100, spawn: [3, 1],
     build(h) {
       h.F(0, 0, 72, 52, '#8a8d91');
       h.outer(7, '#70757b');
@@ -1025,22 +1663,24 @@ export const MAPS = {
       h.B(28, 0.5, 4, 8, 2.8, 2.6, '#e9edf0', { r: 0.06, pat: ['corrugate', '#e9edf0', 0, 4, 1] }); h.B(33.2, 0.5, 4, 2.2, 2, 2.4, '#b8452f', { r: 0.2 }); h.B(34.31, 1.6, 4, 0.04, 0.7, 1.9, '#1e2a36', { nocol: true, rough: 0.12 }); h.B(34.4, 0.5, 4, 0.2, 0.4, 2.4, '#2a3038', { r: 0.06 });
       for (const dx of [-3, 0, 4.6]) for (const dz of [-1.2, 1.2]) h.wheel(28 + dx, 0.45, 4 + dz, 0.45, 0.3, 'z');
       h.B(-12, 0, 2, 2.4, 1.2, 1.4, '#3f9b6a', { pat: ['corrugate', '#3f9b6a', 0, 1, 1] }); h.B(8, 0, 24.8, 5, 1, 1, '#55606b', { pat: ['cabinet', '#55606b', '#c9ccd0', 4, 1] });
+      scatter(h, ['crates', 'crates', 'gasbottle', 'cart', 'barricade', 'fence', 'fence', 'carK', 'vendrow', 'crates', 'gasbottle'], -34, 34, -24, 24, this.pal, this.acc, 50);
     }
   },
 
   /* ---------- 夜の商店街（模様の外壁・日よけ・ベランダ・看板・屋上・中庭の街） ---------- */
   town: {
-    name: '夜の商店街', hx: 36, hz: 28, sky: '#0b1024', night: true, dark: 0.5, floorTex: 'asphalt', kit: ['crate', 'barrel', 'planter', 'vend', 'junk', 'bags', 'sculpt', 'parasol', 'goods', 'laundry', 'hedge', 'mural', 'pole', 'booth', 'dumpster', 'gallery', 'hut', 'bigbox', 'graffiti', 'nook', 'blocks'], pal: ['#b9b7b0', '#4a4d52', '#d9b08c', '#c97b63', '#9fb7c4', '#8a5a33'], clutter: 40, spawn: [12, 0],
+    name: '夜の商店街', hx: 36, hz: 28, sky: '#0b1024', night: true, dark: 0.5, floorTex: 'asphalt', kit: ['statue', 'crate', 'barrel', 'planter', 'vend', 'junk', 'bags', 'sculpt', 'parasol', 'goods', 'laundry', 'hedge', 'mural', 'pole', 'booth', 'dumpster', 'gallery', 'hut', 'bigbox', 'graffiti', 'nook', 'blocks', 'bike', 'garden', 'music', 'vendrow', 'bikerack', 'garbage', 'sign', 'standsign', 'crates', 'streetset', 'carK'], pal: ['#b9b7b0', '#4a4d52', '#d9b08c', '#c97b63', '#9fb7c4', '#8a5a33'], clutter: 40, spawn: [12, 0],
     build(h) {
       h.F(0, 0, 72, 56, '#4a4d52');
       h.outer(9, '#8d8f94');
       city(h, { pal: ['#d9b08c', '#c97b63', '#e8dcc8', '#9fb7c4', '#b5c99a', '#d8a7b1', '#c9c2b0', '#a7b8d8', '#e0c48c', '#b89c84'], acc: ['#e04f4f', '#3f9b6a', '#2f6fb0', '#f08a3c', '#b06fd8', '#f0d040'], night: true, neon: false, facade: ['brick', 'vband', 'hstripe', 'check2', 'dots', 'wave', 'diag', 'bigcamo'], hmin: 5, hmax: 9 });
+      scatter(h, ['carK', 'carK', 'vendrow', 'garbage', 'bikerack', 'sign', 'sign', 'barricade', 'crates', 'standsign', 'streetset', 'fence', 'cart', 'vendrow', 'bikerack'], -34, 34, -26, 26, this.pal, ['#e04f4f', '#3f9b6a', '#2f6fb0', '#f08a3c', '#b06fd8', '#f0d040'], 60); // 路地・中庭の小物
       h.ball(-60, 50, -70, 5, '#fff6d8', { glow: 1.6, nolight: true });
     }
   },
   /* ---------- ガソリンスタンド（まんたんステーションより） ---------- */
   station: {
-    name: 'ガソリンスタンド', hx: 34, hz: 26, sky: '#a9d4ee', floorTex: 'asphalt', kit: ['crate', 'barrel', 'tiresK', 'junk', 'bags', 'pylonK', 'vend', 'sculpt', 'parasol', 'goods', 'screen', 'mural', 'dumpster', 'booth', 'bigbox', 'hut', 'pipe', 'graffiti', 'graffiti', 'nook', 'blocks', 'patch'], pal: ['#5a5d62', '#e0413a', '#f4f4f4', '#eee9df', '#b9c0c7', '#2f6fb0'], clutter: 84, spawn: [0, 13],
+    name: 'ガソリンスタンド', hx: 34, hz: 26, sky: '#a9d4ee', floorTex: 'asphalt', kit: ['statue', 'crate', 'barrel', 'tiresK', 'junk', 'bags', 'pylonK', 'vend', 'sculpt', 'parasol', 'goods', 'screen', 'mural', 'dumpster', 'booth', 'bigbox', 'hut', 'pipe', 'graffiti', 'graffiti', 'nook', 'blocks', 'patch', 'bike', 'cleaning', 'ladderK', 'garden', 'carK', 'vendrow', 'crates', 'gasbottle', 'standsign', 'cart', 'fence', 'barricade'], pal: ['#5a5d62', '#e0413a', '#f4f4f4', '#eee9df', '#b9c0c7', '#2f6fb0'], clutter: 84, spawn: [0, 13],
     build(h) {
       h.F(0, 0, 68, 52, '#5a5d62'); h.outer(7, '#b9c0c7');
       h.F(0, 21, 68, 10, '#44474c', ['img:road', '#44474c', 0.2, 8, 1.2], 1);
@@ -1080,12 +1720,13 @@ export const MAPS = {
       car(h, -18, 20, '#3f9b6a', true); car(h, 14, 23, '#7b5ea7', true);
       for (let x = -32; x <= 32; x += 4) h.B(x, 0.02, 21, 2, 0.02, 0.25, '#ffffff', FL);
       for (let i = 0; i < 5; i++) pylon(h, 15 + i * 1.2, 11);
+      scatter(h, ['carK', 'carK', 'carK', 'vendrow', 'crates', 'gasbottle', 'barricade', 'fence', 'fence', 'sign', 'standsign', 'cart', 'bikerack', 'garbage', 'streetset'], -32, 32, -25, 25, this.pal, ['#e0413a', '#2f6fb0', '#f0d040', '#3f9b6a'], 50);
     }
   },
 
   /* ---------- サーキット（レースマスター「マスター・サーキット」より） ---------- */
   circuit: {
-    name: 'サーキット', hx: 38, hz: 28, sky: '#a8d6f5', floorTex: 'grass', kit: ['tiresK', 'pylonK', 'bush', 'hedge', 'rock', 'junk', 'sculpt', 'coral', 'logs', 'parasol', 'flowers', 'mush', 'mural', 'arch', 'tent', 'tent', 'pipe', 'grass', 'leafpile', 'hut', 'hlog', 'outcrop', 'crevice', 'blocks', 'blocks', 'nook', 'patch'], pal: ['#5fa84f', '#45474e', '#e0413a', '#ffffff', '#b8bcc6', '#8d8f94'], clutter: 84, spawn: [0, 0],
+    name: 'サーキット', hx: 38, hz: 28, sky: '#a8d6f5', floorTex: 'grass', kit: ['statue', 'tiresK', 'pylonK', 'bush', 'hedge', 'rock', 'junk', 'sculpt', 'coral', 'logs', 'parasol', 'flowers', 'mush', 'mural', 'arch', 'tent', 'tent', 'pipe', 'grass', 'leafpile', 'hut', 'hlog', 'outcrop', 'crevice', 'blocks', 'blocks', 'nook', 'patch', 'slideK', 'swing', 'jungle', 'spring', 'tiretun', 'merry', 'sandbox', 'bike', 'trampoline', 'climb', 'fence', 'carK', 'vendrow', 'barricade', 'crates', 'standsign'], pal: ['#5fa84f', '#45474e', '#e0413a', '#ffffff', '#b8bcc6', '#8d8f94'], clutter: 84, spawn: [0, 0],
     build(h) {
       h.F(0, 0, 76, 56, '#5fa84f'); h.outer(7, '#3c6e3a');
       const RD = '#45474e';
@@ -1132,12 +1773,13 @@ export const MAPS = {
       h.ball(60, 55, 40, 6, '#fff4c2', { glow: 2, nolight: true });
       const CP = ['#8d8f94', '#a39a8a', '#b8bcc6', '#7a7c80'];
       KIT.outcrop(h, -33, 17, CP, []); KIT.outcrop(h, 31, -3, CP, []); KIT.crevice(h, -25, -9, CP);
+      scatter(h, ['carK', 'carK', 'carK', 'vendrow', 'fence', 'fence', 'barricade', 'crates', 'sign', 'standsign', 'gasbottle', 'bikerack'], -36, 36, -26, 26, this.pal, TOY, 50);
     }
   },
 
   /* ---------- 古代の砂漠（レースマスター「古代の砂漠」より） ---------- */
   desert: {
-    name: '古代の砂漠', hx: 38, hz: 28, sky: '#f2cc8f', kit: ['rock', 'rock', 'pot', 'pillar', 'bags', 'coral', 'sculpt', 'junk', 'logs', 'mural', 'tent', 'tent', 'hut', 'pipe', 'outcrop', 'outcrop', 'outcrop', 'crevice', 'crevice', 'nook', 'nook', 'blocks', 'stairs'], acc: ['#b8452f', '#2f6fb0', '#f0d040', '#efe2c4', '#8a5a33', '#3fa0c9'], pal: ['#d6ab66', '#c9a36a', '#b8905a', '#ddb672', '#c98a5a', '#e0c08c'], clutter: 96, spawn: [0, 4],
+    name: '古代の砂漠', hx: 38, hz: 28, sky: '#f2cc8f', kit: ['statue', 'statue', 'rock', 'rock', 'pot', 'pillar', 'bags', 'coral', 'sculpt', 'junk', 'logs', 'mural', 'tent', 'tent', 'hut', 'pipe', 'outcrop', 'outcrop', 'outcrop', 'crevice', 'crevice', 'nook', 'nook', 'blocks', 'stairs'], acc: ['#b8452f', '#2f6fb0', '#f0d040', '#efe2c4', '#8a5a33', '#3fa0c9'], pal: ['#d6ab66', '#c9a36a', '#b8905a', '#ddb672', '#c98a5a', '#e0c08c'], clutter: 96, spawn: [0, 4],
     build(h) {
       const S = '#d6ab66', ST = '#c9a36a', ST2 = '#b8905a';
       h.F(0, 0, 76, 56, S); h.outer(7, '#c49a5e');
@@ -1174,25 +1816,27 @@ export const MAPS = {
       // 地層の岩・岩のすき間（ひさしの下・すき間に入って、岩の帯と同じ色に塗る）
       const DP = ['#d6ab66', '#c98a5a', '#e0c08c', '#b8905a', '#a8693f'];
       KIT.outcrop(h, -23, 1, DP, []); KIT.outcrop(h, 15, -1, DP, []); KIT.outcrop(h, 33, -17, DP, []); KIT.crevice(h, -11, -17, DP);
+      scatter(h, ['crates', 'fence', 'standsign', 'fence', 'crates', 'gasbottle'], -34, 34, -24, 24, DP, this.acc, 40); // 市場の木のさく・ケース・旗
       h.ball(-70, 45, -50, 7, '#fff0c0', { glow: 2, nolight: true });
     }
   },
 
   /* ---------- ネオン街（光る模様のビルの街） ---------- */
   neon: {
-    name: 'ネオン街', hx: 36, hz: 28, sky: '#16052a', night: true, dark: 0.42, kit: ['neonBox', 'junk', 'sculpt', 'sculpt', 'bags', 'coral', 'goods', 'screen', 'mural', 'pole', 'booth', 'booth', 'dumpster', 'gallery', 'hut', 'graffiti', 'graffiti', 'nook', 'blocks'], pal: ['#1c1c2e', '#1a1430', '#221436', '#2a2440', '#3a3550'], acc: ['#ff3ab8', '#33eaff', '#ffd940', '#8a5cff', '#3dff9a'], clutter: 40, spawn: [12, 0],
+    name: 'ネオン街', hx: 36, hz: 28, sky: '#16052a', night: true, dark: 0.42, kit: ['statue', 'neonBox', 'junk', 'sculpt', 'sculpt', 'bags', 'coral', 'goods', 'screen', 'mural', 'pole', 'booth', 'booth', 'dumpster', 'gallery', 'hut', 'graffiti', 'graffiti', 'nook', 'blocks', 'bike', 'music', 'vendrow', 'bikerack', 'garbage', 'sign', 'standsign', 'crates', 'carK'], pal: ['#1c1c2e', '#1a1430', '#221436', '#2a2440', '#3a3550'], acc: ['#ff3ab8', '#33eaff', '#ffd940', '#8a5cff', '#3dff9a'], clutter: 40, spawn: [12, 0],
     build(h) {
       const NE = ['#ff3ab8', '#33eaff', '#ffd940', '#8a5cff', '#3dff9a'];
       h.F(0, 0, 72, 56, '#1c1c2e'); h.outer(12, '#14101f');
       for (let x = -34; x <= 34; x += 4) if (Math.abs(x) > 6) h.B(x, 0.02, 1.9, 2, 0.02, 0.2, NE[1], { nocol: true, flat: true, glow: 1.2 });
       city(h, { pal: ['#1a1430', '#141a36', '#221436', '#2a1d40', '#1c2440'], acc: NE, night: true, neon: true, facade: ['hstripe', 'vband', 'check2', 'zigzag', 'diag', 'dots', 'wave', 'bigcamo'], hmin: 7, hmax: 13 });
+      scatter(h, ['carK', 'carK', 'vendrow', 'garbage', 'bikerack', 'sign', 'sign', 'barricade', 'crates', 'standsign', 'streetset', 'fence', 'cart', 'vendrow', 'bikerack'], -34, 34, -26, 26, this.pal, NE, 60);
       h.ball(-60, 60, 70, 9, '#ffe6f6', { glow: 1.6, nolight: true });
     }
   },
 
   /* ---------- 火山（レースマスター「火山コア」より） ---------- */
   volcano: {
-    name: '火山', hx: 36, hz: 28, sky: '#2a0a06', night: true, dark: 0.5, kit: ['rock', 'rock', 'crystal', 'coral', 'junk', 'bags', 'sculpt', 'barrel', 'mural', 'hlog', 'pipe', 'hut', 'outcrop', 'outcrop', 'outcrop', 'crevice', 'crevice', 'nook', 'blocks'], acc: ['#ff6a14', '#ffa028', '#5a3a8a', '#7b4fb8', '#1c1513', '#ffb46b'], pal: ['#2b2422', '#3a302c', '#332a27', '#40342f', '#5a3a2a', '#6b4a3a'], clutter: 104, spawn: [0, 2],
+    name: '火山', hx: 36, hz: 28, sky: '#2a0a06', night: true, dark: 0.5, kit: ['rock', 'rock', 'crystal', 'coral', 'junk', 'bags', 'sculpt', 'barrel', 'mural', 'hlog', 'pipe', 'hut', 'outcrop', 'outcrop', 'outcrop', 'crevice', 'crevice', 'nook', 'blocks', 'climb', 'ladderK', 'barricade', 'gasbottle', 'crates', 'fence'], acc: ['#ff6a14', '#ffa028', '#5a3a8a', '#7b4fb8', '#1c1513', '#ffb46b'], pal: ['#2b2422', '#3a302c', '#332a27', '#40342f', '#5a3a2a', '#6b4a3a'], clutter: 104, spawn: [0, 2],
     build(h) {
       const RK = '#2b2422', RK2 = '#3a302c', LV = '#ff6a14';
       h.F(0, 0, 72, 56, RK); h.outer(9, '#1f1917');
@@ -1219,6 +1863,7 @@ export const MAPS = {
       // 地層の岩（黒い岩と赤茶の層）・岩のすき間
       const VP = ['#3a302c', '#5a3a2a', '#6b4a3a', '#2b2422', '#7a3a24'];
       KIT.outcrop(h, -27, -5, VP, []); KIT.outcrop(h, -1, 13, VP, []); KIT.outcrop(h, -13, -23, VP, []); KIT.crevice(h, 21, -5, VP);
+      scatter(h, ['barricade', 'gasbottle', 'crates', 'fence', 'carK', 'sign', 'barricade', 'fence'], -33, 33, -25, 25, VP, this.acc, 40); // 採掘キャンプの柵・ボンベ・車
     }
   }
 };

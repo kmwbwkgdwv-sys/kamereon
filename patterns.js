@@ -139,6 +139,25 @@ export function drawPattern(x, S, kind, c1, c2, r) {
         for (let a = 2; a < S - 4;) { const w = 5 + Math.floor(r() * 7), hh = S / 4 * (0.6 + r() * 0.32); x.fillStyle = col(Math.floor(r() * 8)); x.fillRect(a, y1 - hh, w, hh); x.fillStyle = 'rgba(255,255,255,0.35)'; x.fillRect(a + 1, y1 - hh * 0.8, w - 2, 2); a += w + 1; }
       }
       break;
+    case 'chain': // 金あみのフェンス（ひし形のあみ目）
+      x.fillStyle = shade(c1, 0.42); x.fillRect(0, 0, S, S);
+      x.strokeStyle = c1; x.lineWidth = 2.2;
+      for (let k = -8; k <= 8; k++) { x.beginPath(); x.moveTo(k * q / 2, 0); x.lineTo(k * q / 2 + S, S); x.stroke(); x.beginPath(); x.moveTo(k * q / 2, S); x.lineTo(k * q / 2 + S, 0); x.stroke(); }
+      break;
+    case 'blockwall': // ブロック塀（目地と、ところどころに花の形の穴）
+      x.fillStyle = 'rgba(0,0,0,0.28)';
+      for (let j = 0; j < 4; j++) { x.fillRect(0, j * q, S, 3); for (let i = 0; i < 2; i++) x.fillRect(i * S / 2, j * q, 3, q); }
+      for (const [a, b] of [[S * 0.25, q * 1.5], [S * 0.75, q * 3.5]]) { x.fillStyle = 'rgba(0,0,0,0.55)'; for (let k = 0; k < 4; k++) { x.beginPath(); x.arc(a + Math.cos(k * 1.571) * q * 0.16, b + Math.sin(k * 1.571) * q * 0.16, q * 0.14, 0, 6.2832); x.fill(); } }
+      speck(120, 0.04);
+      break;
+    case 'aqua': { // 水そう（水・水草・魚・あわ・じゃり）
+      const g = x.createLinearGradient(0, 0, 0, S); g.addColorStop(0, '#9fdcf0'); g.addColorStop(1, '#2f7fb0'); x.fillStyle = g; x.fillRect(0, 0, S, S);
+      x.fillStyle = '#d9c49a'; x.fillRect(0, S * 0.86, S, S * 0.14); for (let i = 0; i < 40; i++) { x.fillStyle = r() < 0.5 ? '#b8a07a' : '#efe2c4'; x.fillRect(r() * S, S * 0.86 + r() * S * 0.12, 3, 3); }
+      x.strokeStyle = '#3f9b4a'; x.lineWidth = 4; for (let i = 0; i < 6; i++) { const a = r() * S; x.beginPath(); x.moveTo(a, S * 0.88); for (let k = 1; k <= 6; k++) x.lineTo(a + Math.sin(k + i) * 6, S * 0.88 - k * S * 0.08); x.stroke(); }
+      for (let i = 0; i < 5; i++) { const a = 20 + r() * (S - 40), b = 20 + r() * S * 0.6, c = col(i); x.fillStyle = c; x.beginPath(); x.ellipse(a, b, 9, 5, 0, 0, 6.2832); x.fill(); x.beginPath(); x.moveTo(a - 8, b); x.lineTo(a - 15, b - 5); x.lineTo(a - 15, b + 5); x.closePath(); x.fill(); }
+      x.fillStyle = 'rgba(255,255,255,0.6)'; for (let i = 0; i < 10; i++) { x.beginPath(); x.arc(S * 0.8 + r() * 10, r() * S * 0.8, 2 + r() * 2, 0, 6.2832); x.fill(); }
+      break;
+    }
     default: speck(280, 0.035); // ざらつき
   }
 }

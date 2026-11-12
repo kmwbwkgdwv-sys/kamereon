@@ -117,6 +117,7 @@ body.laying #layShade{display:block}
 #onH{position:fixed;left:50%;bottom:calc(16px + var(--sb));transform:translateX(-50%);z-index:12;pointer-events:none;background:#d9342b;color:#fff;font-weight:800;padding:8px 14px;border-radius:999px;box-shadow:0 2px 10px #0006;font-size:14px}
 #btnGo{background:#2e8b63!important}#btnGo.stop{background:#b8452f!important}
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:flex;align-items:center;justify-content:center;padding:16px}
+#modal .card{max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;touch-action:pan-y} /* 横画面のスマホでも下の「閉じる」まで届くようにスクロール */
 small{color:#9fb2c2}
 #shells{position:fixed;left:50%;bottom:calc(14px + var(--sb));transform:translateX(-50%);display:flex;gap:5px;z-index:10;pointer-events:none}
 #shells i{display:block;width:10px;height:26px;border-radius:3px 3px 1px 1px;background:linear-gradient(#e0413a 0 72%,#d8b44a 72%);box-shadow:0 1px 3px #0008}
@@ -291,9 +292,9 @@ small{color:#9fb2c2}
   <label class="l">視点感度 <input id="oSens" type="range" min="0.2" max="3" step="0.1"></label>
   <label class="l">BGM音量 <input id="oBgm" type="range" min="0" max="1" step="0.05"></label>
   <label class="l">効果音の音量 <input id="oSe" type="range" min="0" max="1" step="0.05"></label>
-  <label class="l">マナーモードでも音を出す（iPhone） <input id="oLoud" type="checkbox" style="width:22px;height:22px"></label>
+  <label class="l">音の出し方 <select id="oSnd"><option value="mix">音楽アプリといっしょに（効果音だけ）</option><option value="mixbgm">音楽アプリといっしょに（BGMも）</option><option value="silent">マナーモードでも鳴らす</option></select></label>
   <button id="btnLay" class="full sec">🕹 ボタンの配置・大きさを変える</button>
-  <small>iPhone で消音スイッチがオンでも、ショットガンなどの音が鳴ります（ほかのアプリの音楽は止まります）。音楽を流しながら遊ぶときはオフにして、BGM音量を0に。<br>軽量化モード：影オフ・解像度ダウン・通信頻度ダウン（アンチエイリアスは再読み込み後に反映）</small>
+  <small>「音楽アプリといっしょに」：Spotify・ミュージックなどの音楽を止めずに、ショットガン・足音などのゲームの音が重なって聞こえます（iPhone は本体の横の消音スイッチをオフ＝着信音が鳴る状態にしてください。オンだと iOS のきまりでブラウザのゲームの音は消えます）。<br>「マナーモードでも鳴らす」：消音スイッチがオンでも鳴りますが、ほかのアプリの音楽は止まります（ブラウザではこの2つを同時にはできません）。<br>軽量化モード：影オフ・解像度ダウン・通信頻度ダウン（アンチエイリアスは再読み込み後に反映）</small>
   <button id="btnSetClose" class="full">閉じる</button>
 </div></div>
 

@@ -17,8 +17,9 @@ const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 const configured = !!firebaseConfig.apiKey && !/^YOUR/.test(firebaseConfig.apiKey);
 
 /* ---------------- 設定 ---------------- */
-const settings = { lite: false, sens: 1, bgm: 0.3, se: 0.7, bloom: !isTouch, loud: true };
+const settings = { lite: false, sens: 1, bgm: 0.3, se: 0.7, bloom: !isTouch, snd: 'mix' }; // snd: mix=音楽アプリといっしょに（効果音だけ） / mixbgm=いっしょに＋ゲームのBGM / silent=マナーモードでも鳴らす
 try { Object.assign(settings, JSON.parse(localStorage.getItem('nurikakure_set') || '{}')); } catch (e) {}
+delete settings.loud; if (!['mix', 'mixbgm', 'silent'].includes(settings.snd)) settings.snd = 'mix';
 const saveSet = () => { try { localStorage.setItem('nurikakure_set', JSON.stringify(settings)); } catch (e) {} };
 
 /* ---------------- 通信レイヤー ---------------- */
@@ -187,10 +188,11 @@ function patternTex(kind, c1, c2, rx, ry) { // 同じ模様は使い回す
 }
 // 同じ見た目の物は同じ材質を使い回す（あとで1つにまとめて軽くするため）
 function makeMat(color, opt, rough, gs = 1) {
-  const pat = opt.pat ? JSON.stringify(opt.pat) : '', key = [color, opt.rough == null ? rough : opt.rough, opt.glow || 0, gs, pat, opt.side || 0, opt.flatS ? 1 : 0].join('|');
+  const pat = opt.pat ? JSON.stringify(opt.pat) : '', key = [color, opt.rough == null ? rough : opt.rough, opt.glow || 0, gs, pat, opt.side || 0, opt.flatS ? 1 : 0, opt.glass ? 'g' : ''].join('|');
   if (!opt.soft) { const c = W.mat.get(key); if (c) return c; }
   const m = new THREE.MeshStandardMaterial({ color: opt.pat ? 0xffffff : color, roughness: opt.rough == null ? rough : opt.rough, metalness: 0, flatShading: !!opt.flatS });
   if (opt.side) m.side = opt.side;
+  if (opt.glass) { m.transparent = true; m.opacity = 0.3; m.depthWrite = false; m.roughness = 0.05; m.metalness = 0.2; } // 窓ガラス（中が見える）
   const gl = opt.glow ? (opt.glow === true ? 1.6 : opt.glow) * gs : 0;
   if (opt.pat) {
     const p = patternTex(opt.pat[0], opt.pat[1], opt.pat[2], opt.pat[3], opt.pat[4]); m.map = p.t; m.userData.pc = p.c;
@@ -211,7 +213,7 @@ function addBox(x, y, z, w, h, d, color, opt = {}) {
   const m = new THREE.Mesh(geoCache(`b${w},${h},${d},${round ? rr : 0}`, () => round ? new RoundedBoxGeometry(w, h, d, 2, rr) : new THREE.BoxGeometry(w, h, d)), makeMat(color, opt, 0.88));
   m.position.set(x, y + h / 2, z); m.castShadow = !opt.flat; m.receiveShadow = true;
   if (opt.rot) m.rotation.set(opt.rot[0], opt.rot[1], opt.rot[2]); // かたむけた箱（がらくたの山など）は見た目だけ
-  if (opt.soft) m.userData.sph = [x, y + h / 2, z, Math.max(w, h, d) / 2]; // 布・水面・ボールの海：中にいると自分からは透けて見える
+  if (opt.soft && !opt.glass) m.userData.sph = [x, y + h / 2, z, Math.max(w, h, d) / 2]; // 水面・ボールの海：中にいると自分からは透けて見える（ガラスはいつもすけている）
   place(m, opt);
   if (opt.soft) { if (opt.sinkV != null) W.cols.push(boxCol(x - w / 2, x + w / 2, z - d / 2, z + d / 2, y, y + h, { soft: true, sinkV: opt.sinkV })); return; } // 上から入ると沈んで立つ
   if (opt.nocol) return;
@@ -246,8 +248,8 @@ function rotCylCol(cx, cy, cz, r, len, rot, o = {}) {
   }
   sphereLine(cx - a.x * len / 2, cy - a.y * len / 2, cz - a.z * len / 2, a.x, a.y, a.z, len, r);
 }
-function sphereLine(x, y, z, dx, dy, dz, len, r) { // 線にそって球を並べる（枝・ななめの柱）
-  const n = Math.max(2, Math.ceil(len / (r * 1.4)) + 1);
+function sphereLine(x, y, z, dx, dy, dz, len, r) { // 線にそって球を並べる（枝・ななめの柱）。細い棒は間をあけても体は通りぬけない
+  const n = Math.max(2, Math.ceil(len / Math.max(r * 1.4, 0.2)) + 1);
   for (let i = 0; i < n; i++) { const t = i / (n - 1) * len; W.cols.push(ellCol(x + dx * t, y + dy * t, z + dz * t, r, r, r)); }
 }
 function addCyl(x, y, z, r, h, color, opt = {}) {
@@ -356,6 +358,14 @@ function addLathe(x, y, z, prof, color, opt = {}) {
   if (opt.cols) { for (const c of opt.cols) W.cols.push(cylCol(x, z, y + c[0], y + c[1], c[2], c[3])); return; }
   let r = 0, y0 = 1e9, y1 = -1e9; for (const p of prof) { r = Math.max(r, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
   W.cols.push(cylCol(x, z, y + y0, y + y1, r * 0.97, r * 0.97));
+}
+// 好きな向きの輪（自転車の車輪・たてたタイヤなど）。当たり判定は輪にそって並べた球
+function addTorus(x, y, z, R, t, rot, color, opt = {}) {
+  const m = new THREE.Mesh(geoCache(`tz${R},${t}`, () => new THREE.TorusGeometry(R, t, W.cheap ? 6 : 10, W.cheap ? 16 : 28)), makeMat(color, opt, 0.7));
+  m.position.set(x, y, z); m.rotation.set(rot[0], rot[1], rot[2]); m.castShadow = m.receiveShadow = true; place(m, opt);
+  if (opt.nocol) return;
+  _qa.setFromEuler(_eu.set(rot[0], rot[1], rot[2])); const n = Math.max(8, Math.min(20, Math.ceil(R * 6.28 / Math.max(t * 1.5, 0.2)))), r = Math.max(t, 0.05);
+  for (let i = 0; i < n; i++) { const a = i / n * 6.2832; _va.set(Math.cos(a) * R, Math.sin(a) * R, 0).applyQuaternion(_qa); W.cols.push(ellCol(x + _va.x, y + _va.y, z + _va.z, r, r, r)); }
 }
 // 輪（たるのたが・ふち）。見た目だけの細い飾り（表面から少し出るだけ）
 function addRing(x, y, z, R, t, color, opt = {}) {
@@ -474,6 +484,10 @@ function buildWorld(name) { // マップを W に組み立てる。設計図の�
     wheel: (x, y, z, r, w, ax, o) => addWheel(x * S, y * S, z * S, r * S, w * S, ax, o),
     lathe: (x, y, z, prof, col, o) => addLathe(x * S, y * S, z * S, prof.map(q => [q[0] * S, q[1] * S]), col, o && o.cols ? Object.assign({}, o, { cols: o.cols.map(c => c.map(v => v * S)) }) : o),
     ring: (x, y, z, R, t, col, o) => addRing(x * S, y * S, z * S, R * S, t * S, col, o),
+    torus: (x, y, z, R, t, rot, col, o) => addTorus(x * S, y * S, z * S, R * S, t * S, rot, col, o),
+    free: (x, z, r) => isFree(x * S, z * S, r * S, W.cols), // その場所が空いているか（物を置く前に調べる）
+    hold: (x, z, w, d) => { const c = boxCol((x - w / 2) * S, (x + w / 2) * S, (z - d / 2) * S, (z + d / 2) * S, 0, 2 * S); W.cols.push(c); return c; }, // 通り道などに物を置かないよう一時的にふさぐ
+    release: c => { const i = W.cols.indexOf(c); if (i >= 0) W.cols.splice(i, 1); },
     slab: (x, y, z, pts, ht, col, o = {}) => addSlab(x * S, y * S, z * S, pts.map(q => [q[0] * S, q[1] * S]), ht * S, col, Object.assign({}, o, { bev: o.bev == null ? 0.1 * S : o.bev * S, dome: o.dome == null ? undefined : o.dome * S })),
     obox: (x, y, z, w, ht, d, yaw, o = {}) => W.cols.push(oboxCol(x * S, z * S, w * S / 2, d * S / 2, yaw, y * S, (y + ht) * S, { nc: !!o.noclimb, sink: !!o.sink })), // 見えない回した箱
     label: (x, y, z, w, d, text, col) => addLabel(x * S, y * S, z * S, w * S, d * S, text, col),
@@ -495,11 +509,11 @@ function buildWorld(name) { // マップを W に組み立てる。設計図の�
   };
   M.build(h);
   if (M.kit) { // 隠れ場所になる小物をたくさん並べる（全員同じ配置になるよう乱数は固定）
-    const n = Math.round((M.clutter || 90) * 1.25); let made = 0, guard = 0;
+    const n = Math.round((M.clutter || 90) * 1.25), cap = Math.max(3, Math.ceil(n / M.kit.length * 2.2)), cnt = {}; let made = 0, guard = 0; // 小さい物ばかりにならないよう、1種類の数に上限
     while (made < n && guard++ < n * 14) {
       const x = (h.rnd() * 2 - 1) * (hx - 1.8), z = (h.rnd() * 2 - 1) * (hz - 1.8), k = M.kit[Math.floor(h.rnd() * M.kit.length)];
-      if (Math.hypot(x - M.spawn[0], z - M.spawn[1]) < 4.5 || !isFree(x * S, z * S, (KIT_R[k] || 1.35) * S, W.cols)) continue;
-      KIT[k](h, x, z, M.pal || ['#b9b9b9'], M.acc || ACC); made++;
+      if ((cnt[k] || 0) >= cap || Math.hypot(x - M.spawn[0], z - M.spawn[1]) < 4.5 || !isFree(x * S, z * S, (KIT_R[k] || 1.35) * S, W.cols)) continue;
+      KIT[k](h, x, z, M.pal || ['#b9b9b9'], M.acc || ACC); made++; cnt[k] = (cnt[k] || 0) + 1;
     }
   }
   if (W.scene.background && W.scene.background.isColor) W.scene.background.set(M.sky); else W.scene.background = new THREE.Color(M.sky);
@@ -772,24 +786,27 @@ let myOnH = false; // HUNTER の円に乗っているか
 
 /* ---------------- サウンド ---------------- */
 let ac = null, bgmG = null, seG = null, stepBuf = null, noiseBuf = null;
-function applyVol() { if (!ac) return; bgmG.gain.value = settings.bgm * 0.5; seG.gain.value = settings.se; }
+function applyVol() { if (!ac) return; bgmG.gain.value = bgmOn() ? settings.bgm * 0.5 : 0; seG.gain.value = settings.se; }
 function note(dest, f, t, dur, type, vol) {
   const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f;
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.02);
 }
-// iOS：「マナーモードでも音を出す」がオンなら消音スイッチに関係なく鳴らす（playback）。オフなら他のアプリの音楽と重ねて鳴らす（ambient・消音スイッチで消える）
-function applySession() { try { if (navigator.audioSession) navigator.audioSession.type = settings.loud ? 'playback' : 'ambient'; } catch (e) {} }
+// 音の出し方（iPhone）
+//   音楽アプリといっしょに（ambient）：ほかのアプリの音楽を止めずに、ゲームの音を重ねて鳴らす。iOS のきまりで、消音スイッチがオンだとゲームの音は消える
+//   マナーモードでも鳴らす（playback）：消音スイッチがオンでも鳴るが、ほかのアプリの音楽は止まる（ブラウザでは両方を同時にはできない）
+function applySession() { try { if (navigator.audioSession) navigator.audioSession.type = settings.snd === 'silent' ? 'playback' : 'ambient'; } catch (e) {} }
+const bgmOn = () => settings.snd !== 'mix' && settings.bgm > 0; // 音楽アプリといっしょの時はゲームのBGMを鳴らさない（効果音だけ）
 applySession();
 function audioInit() {
-  if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
+  if (ac) { if (ac.state !== 'running') ac.resume().catch(() => {}); return; } // 電話・ほかのアプリで止まった（interrupted）ときも、次にさわったら再開
   try {
     ac = new (window.AudioContext || window.webkitAudioContext)();
     bgmG = ac.createGain(); seG = ac.createGain(); bgmG.connect(ac.destination);
     const comp = ac.createDynamicsCompressor(); comp.threshold.value = -10; comp.knee.value = 8; comp.ratio.value = 6; seG.connect(comp); comp.connect(ac.destination); applyVol(); // 大きな音（銃声）が割れないように
     const seq = [0, 7, 12, 7, 3, 10, 15, 10, 5, 12, 17, 12, 3, 10, 14, 10]; let step = 0;
     setInterval(() => {
-      if (ac.state !== 'running' || settings.bgm <= 0 || document.hidden) return;
+      if (ac.state !== 'running' || !bgmOn() || document.hidden) return;
       const t = ac.currentTime + 0.03, s = step % 16;
       note(bgmG, 220 * Math.pow(2, seq[s] / 12), t, 0.2, 'triangle', 0.22);
       if (s % 4 === 0) note(bgmG, 55 * Math.pow(2, seq[s] / 12), t, 0.5, 'sine', 0.35);
@@ -1865,15 +1882,15 @@ document.querySelectorAll('[data-size]').forEach(b => { b.onclick = () => setBod
 setBody(me.shape, me.size);
 $('rotL').onclick = () => { me.yaw += Math.PI / 12; }; $('rotR').onclick = () => { me.yaw -= Math.PI / 12; };
 // 設定
-function openSettings() { $('oLite').checked = settings.lite; $('oBloom').checked = !!settings.bloom; $('oSens').value = settings.sens; $('oBgm').value = settings.bgm; $('oSe').value = settings.se; $('oLoud').checked = !!settings.loud; show('modal', true); if (document.pointerLockElement) document.exitPointerLock(); }
-$('oLoud').addEventListener('change', e => { settings.loud = e.target.checked; applySession(); saveSet(); audioInit(); });
+function openSettings() { $('oLite').checked = settings.lite; $('oBloom').checked = !!settings.bloom; $('oSens').value = settings.sens; $('oBgm').value = settings.bgm; $('oSe').value = settings.se; $('oSnd').value = settings.snd; show('modal', true); if (document.pointerLockElement) document.exitPointerLock(); }
+$('oSnd').addEventListener('change', e => { settings.snd = e.target.value; applySession(); applyVol(); saveSet(); audioInit(); });
 $('btnLay').onclick = () => { show('modal', false); layoutEdit(true); };
 $('btnSet1').onclick = openSettings; $('btnSet2').onclick = openSettings;
 $('btnSetClose').onclick = () => show('modal', false);
 $('oBloom').addEventListener('change', e => { settings.bloom = e.target.checked; saveSet(); });
 $('oLite').addEventListener('change', e => { settings.lite = e.target.checked; applyGfx(); saveSet(); });
 $('oSens').addEventListener('input', e => { settings.sens = Number(e.target.value); saveSet(); });
-$('oBgm').addEventListener('input', e => { settings.bgm = Number(e.target.value); audioInit(); applyVol(); saveSet(); });
+$('oBgm').addEventListener('input', e => { settings.bgm = Number(e.target.value); if (settings.bgm > 0 && settings.snd === 'mix') { settings.snd = 'mixbgm'; $('oSnd').value = 'mixbgm'; } audioInit(); applyVol(); saveSet(); }); // BGM を上げたら、BGM も鳴らす設定に
 $('oSe').addEventListener('input', e => { settings.se = Number(e.target.value); applyVol(); saveSet(); });
 
 /* ---------------- ボタンの配置・大きさ（設定から変える。端末ごとに保存） ---------------- */
