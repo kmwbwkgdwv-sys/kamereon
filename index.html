@@ -91,6 +91,10 @@ body.pc .tbtn{width:66px;height:66px;font-size:13px}body.pc #bPose{right:calc(96
 .mapcard.rnd-on .ph{font-size:30px}
 .mapcard:disabled{opacity:1}
 #bFire{bottom:calc(112px + env(safe-area-inset-bottom));background:rgba(230,80,40,.7);width:86px;height:86px}
+#count{position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:15;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:4px;text-shadow:0 3px 12px #000a}
+#count b{font-size:84px;line-height:1;color:#fff}#count span{font-size:14px;font-weight:700;background:rgba(0,0,0,.5);padding:4px 10px;border-radius:10px}
+#onH{position:fixed;left:50%;bottom:calc(16px + var(--sb));transform:translateX(-50%);z-index:12;pointer-events:none;background:#d9342b;color:#fff;font-weight:800;padding:8px 14px;border-radius:999px;box-shadow:0 2px 10px #0006;font-size:14px}
+#btnGo{background:#2e8b63!important}#btnGo.stop{background:#b8452f!important}
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:flex;align-items:center;justify-content:center;padding:16px}
 small{color:#9fb2c2}
 #shells{position:fixed;left:50%;bottom:calc(14px + var(--sb));transform:translateX(-50%);display:flex;gap:5px;z-index:10;pointer-events:none}
@@ -139,7 +143,7 @@ small{color:#9fb2c2}
     <button id="btnSet1" class="sec">⚙ 設定</button>
   </div>
   <div id="status"></div>
-  <p class="sub" style="margin-top:12px">操作: PCは WASD＋マウス / Space ジャンプ（壁の近くで長押しすると壁にくっつく。離してもくっついたまま、もう一度押すと離れる） / P ペイント / E スポイト / O ポーズをえらぶ / Q ポーズ切替 / F 分身。スマホは左スティック＋画面ドラッグ＋右下のボタン。</p>
+  <p class="sub" style="margin-top:12px">ルームに入るとロビーに出ます。歩き回ったり体を塗って待ち、ホストが「▶ ゲーム開始」を押すと10秒後にスタート。まんなかの <b>HUNTER</b> の円に乗っていると鬼になれます。<br>操作: PCは WASD＋マウス / Space ジャンプ（壁の近くで長押しすると壁にくっつく。離してもくっついたまま、もう一度押すと離れる） / P ペイント / E スポイト / O ポーズをえらぶ / Q ポーズ切替 / F 分身。スマホは左スティック＋画面ドラッグ＋右下のボタン。</p>
 </div></div>
 
 <!-- HUD -->
@@ -156,6 +160,7 @@ small{color:#9fb2c2}
   <button id="btnSwap" class="hide">役割切替</button>
   <button id="btnRoom" class="hide">🏠 ルーム設定</button>
   <button id="btnMap" class="hide">🗺 マップ</button>
+  <button id="btnGo" class="hide">▶ ゲーム開始</button>
 </div>
 <div id="tools" class="hide">
   <button id="tPaint">🎨 ペイント</button>
@@ -195,24 +200,26 @@ small{color:#9fb2c2}
   <div id="sliders"></div>
 </div>
 
-<div id="blind" class="hide"><div>カメレオンが隠れています…</div><b id="blindT"></b><div>あなたは鬼（ハンター）です</div></div>
+<!-- ゲーム開始のカウントダウン -->
+<div id="count" class="hide"><b id="countN">10</b><span id="countS"></span></div>
+<div id="onH" class="hide">🔴 HUNTER の円に乗っています（鬼の候補）</div>
 
 <!-- ロビー -->
 <div id="lobby" class="hide"><div class="card t">
-  <h2>ルーム: <span id="lRoom"></span></h2>
+  <h2>🏠 ルーム設定：<span id="lRoom"></span></h2>
   <div id="plist"></div>
   <div id="hostSet">
     <label class="l">ゲームモード <select id="sMode"><option value="fueoni">増え鬼（見つかると鬼になる）</option><option value="basic">ベーシック（鬼は増えない）</option></select></label>
     <label class="l">マップ <button id="mapCard" class="mapcard" type="button"></button></label>
     <label class="l">笛が鳴る間隔 <select id="sWhistle"><option value="30">30秒</option><option value="45">45秒</option><option value="60">60秒</option><option value="90">90秒</option><option value="120">120秒</option><option value="0">鳴らさない</option></select></label>
     <label class="l">最初の鬼の人数 <select id="sHunters"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
-    <label class="l">隠れる時間（秒） <input id="sHide" type="number" min="20" max="300" step="10"></label>
-    <label class="l">探す時間（秒） <input id="sHunt" type="number" min="30" max="900" step="10"></label>
+    <label class="l">隠れる時間 <select id="sHide"><option value="30">30秒</option><option value="60">60秒</option><option value="90">90秒</option><option value="120">120秒</option><option value="180">180秒</option><option value="300">300秒</option><option value="480">480秒</option></select></label>
+    <label class="l">見つける時間 <select id="sHunt"><option value="60">60秒</option><option value="120">120秒</option><option value="180">180秒</option><option value="300">300秒</option><option value="480">480秒</option></select></label>
     <label class="l">ショットガンの弾数 <input id="sAmmo" type="number" min="1" max="50"></label>
   </div>
   <small id="lNote"></small>
   <button id="btnStart" class="full">ゲーム開始</button>
-  <button id="btnLobbyClose" class="full sec">閉じて待合室を歩く（ペイント練習OK）</button>
+  <button id="btnLobbyClose" class="full sec">閉じてロビーを歩く（ペイント練習OK）</button>
 </div></div>
 
 <!-- 答え合わせ -->

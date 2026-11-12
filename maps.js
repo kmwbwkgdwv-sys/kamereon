@@ -57,25 +57,6 @@ const TOY = ['#e04f4f', '#4f7fe0', '#f0d040', '#4fbf6a', '#b06fd8', '#f08a3c'];
 const CARD = ['#c7a36a', '#b8935a', '#d4b483', '#a8834f'];
 const CONT = ['#b8452f', '#2f6fb0', '#3f9b6a', '#d98a2b', '#7b5ea7', '#8d8f94', '#c9b037'];
 
-// 中に入れる建物：1階は壁・入口・窓・店内の棚やカウンター、上の階は窓つき、屋上に設備。f = 入口が向く z 方向(±1)
-const shop = (h, x, z, w, d, ht, c, f, ac, night, y = 0) => {
-  const zb = z - f * (d / 2 - 0.2), zf = z + f * (d / 2 - 0.2), sw = w / 2 - 1.3, g = night ? 1.1 : 0.2;
-  h.B(x, y, zb, w, 3.2, 0.4, c); h.B(x - w / 2 + 0.2, y, z, 0.4, 3.2, d, c); h.B(x + w / 2 - 0.2, y, z, 0.4, 3.2, d, c);
-  h.B(x - w / 2 + sw / 2, y, zf, sw, 3.2, 0.4, c); h.B(x + w / 2 - sw / 2, y, zf, sw, 3.2, 0.4, c); h.B(x, y + 2.4, zf, 2.6, 0.8, 0.4, c, NC);
-  h.B(x - w / 2 + sw / 2, y + 1.0, zf + f * 0.2, sw - 0.8, 1.3, 0.08, '#9fd0e8', { nocol: true, glow: g * 0.6 }); h.B(x + w / 2 - sw / 2, y + 1.0, zf + f * 0.2, sw - 0.8, 1.3, 0.08, '#9fd0e8', { nocol: true, glow: g * 0.6 });
-  h.B(x, y + 3.2, z, w, ht - 3.2, d, c, { r: 0.18 }); h.B(x, y + ht, z, w + 0.3, 0.3, d + 0.3, '#3a3d44');
-  for (let yy = 4.3; yy < ht - 1; yy += 2.3) h.B(x, y + yy, z + f * (d / 2 + 0.02), w - 1.6, 1.2, 0.08, night ? '#ffd98a' : '#9fd0e8', { nocol: true, glow: g });
-  h.B(x, y + 2.9, z + f * (d / 2 + 0.75), w - 0.8, 0.16, 1.5, ac, NC); h.B(x, y + 3.5, z + f * (d / 2 + 0.12), Math.min(4, w - 2), 0.7, 0.14, ac, { nocol: true, glow: g * 0.8 });
-  h.B(x, y, z, w - 0.8, 0.03, d - 0.8, '#d9d2c4', { flat: true }); h.B(x, y + 3.08, z, w * 0.5, 0.06, d * 0.35, '#fff4c2', { nocol: true, glow: 1.3 });
-  // 店内
-  h.B(x, y, zb + f * 0.7, w - 2, 1.9, 0.7, '#8a5a33'); for (let i = 0; i < 3; i++) h.B(x, y + 0.4 + i * 0.55, zb + f * 0.72, w - 2.3, 0.3, 0.74, TOY[(i + Math.round(Math.abs(x))) % 6], NC);
-  h.B(x - w / 4, y, z + f * (d / 2 - 2), Math.min(2.4, w / 3), 1, 0.8, '#3f5f8a', { r: 0.16 }); h.B(x - w / 4, y + 1, z + f * (d / 2 - 2), 0.5, 0.35, 0.5, '#22262b');
-  if (d > 6) { h.B(x + w / 5, y, z - f * 0.6, 0.8, 1.4, d * 0.32, '#d9d2c4'); h.B(x + w / 5, y + 1.4, z - f * 0.6, 0.7, 0.25, d * 0.3, TOY[Math.round(Math.abs(z)) % 6], NC); }
-  h.B(x + w / 2 - 1.1, y, zb + f * 2, 1, 0.9, 1, CARD[0], { r: 0.12 }); h.B(x + w / 2 - 1.1, y + 0.9, zb + f * 2, 0.8, 0.7, 0.8, CARD[2], { r: 0.12 }); h.B(x - w / 2 + 1.1, y, zb + f * 2.2, 1, 1, 1, CARD[1], { r: 0.12 });
-  // 屋上
-  h.cyl(x - w / 4, y + ht + 0.3, z, 0.7, 1.4, '#8d8f94'); h.B(x + w / 4, y + ht + 0.3, z + 1, 1.4, 0.8, 1, '#b9c0c7', { r: 0.16 });
-};
-
 // 模様えらび（地の色はそのマップの色、模様の色はアクセント色）
 const pick = (h, a) => a[Math.floor(h.rnd() * a.length)];
 const PATK = ['dots', 'hstripe', 'vband', 'diag', 'zigzag', 'check2', 'camo', 'confetti', 'splat', 'wave', 'rainbow', 'brick'];
@@ -159,26 +140,141 @@ export const KIT = {
 // 大きめの小物は、まわりに広めのすき間がないと置かない
 export const KIT_R = { mural: 2.4, arch: 2.2, blob: 1.8, rug: 2.0, cubes: 1.6, flowers: 1.8, mush: 1.7, screen: 1.9, sofaK: 1.8 };
 
+// ---- 街づくり：塗って隠れる・壁にくっついて隠れるための仕掛けがいっぱいの建物 ----
+// T = { pal: 建物の色, acc: アクセント色, night, neon, facade: 外壁の模様 }
+function bld(h, T, x, z, w, d, ht, fz) { // fz = ±1：表（通り側）が向く z の向き
+  const col = pick(h, T.pal), acc = pick(h, T.acc), zf = z + fz * d / 2, g = T.night ? 1 : 0, mural = h.rnd() < 0.3;
+  let ac2 = pick(h, T.acc); if (ac2 === col) ac2 = '#f4f4f4';
+  const fk = pick(h, T.facade), fpat = [fk, col, T.neon ? acc : (h.rnd() < 0.5 ? '#f4f4f4' : ac2), Math.max(1, Math.round(w / 2.2)), Math.max(1, Math.round(ht / 2.2))];
+  h.B(x, 0, z, w, ht, d, col, { pat: fpat, r: 0.22, glow: T.neon ? 0.45 : 0 }); // 外壁ぜんたいが模様（スポイトで吸って塗れば溶け込める）
+  if (mural) { // 大きな壁画
+    const mp = [pick(h, ['splat', 'confetti', 'rainbow', 'camo', 'wave']), pick(h, ['#f4f4f4', col, '#2a3038']), T.acc, 3, 2];
+    h.B(x, 0.05, zf + fz * 0.03, w * 0.86, Math.min(ht - 0.6, 4.6), 0.05, '#ffffff', { nocol: true, pat: mp, glow: T.neon ? 0.6 : 0 });
+  } else { // 1階の店先
+    h.B(x - w * 0.12, 0.3, zf + fz * 0.03, w * 0.55, 2.0, 0.06, T.night ? '#ffd98a' : '#9fd0e8', { nocol: true, glow: T.night ? 0.9 : 0.15 });
+    h.B(x + w * 0.3, 0, zf + fz * 0.03, 1.1, 2.2, 0.06, '#3a3d44', NC);
+  }
+  // 日よけ（乗れる・上に隠れられる）
+  const aw = w * (0.6 + h.rnd() * 0.25);
+  h.B(x, 2.55, zf + fz * 0.8, aw, 0.16, 1.6, acc, { pat: ['vband', acc, '#f4f4f4', Math.max(2, Math.round(aw / 0.8)), 1], r: 0.06, glow: T.neon ? 0.5 : 0 });
+  // 上の階：窓・ベランダ（乗れる）・室外機（足場）
+  for (let y = 3.6; y < ht - 1.3; y += 2.8) {
+    for (const s of [-1, 1]) if (h.rnd() < 0.8) h.B(x + s * w * 0.25, y, zf + fz * 0.03, Math.min(1.4, w * 0.22), 1.3, 0.05, T.night ? pick(h, ['#ffd98a', '#9fd0e8', '#2a3038']) : '#9fd0e8', { nocol: true, glow: T.night ? 0.7 : 0.1 });
+    if (h.rnd() < 0.45) {
+      const bx = x + (h.rnd() - 0.5) * w * 0.4, bw = Math.min(3, w * 0.45);
+      h.B(bx, y - 0.35, zf + fz * 0.65, bw, 0.2, 1.3, '#d8d2c4', { r: 0.06 });
+      h.B(bx, y - 0.15, zf + fz * 1.22, bw, 0.75, 0.12, ac2, { pat: [pick(h, ['vband', 'dots', 'hstripe']), ac2, '#f4f4f4', Math.max(2, Math.round(bw / 0.7)), 1], r: 0.05 });
+    }
+    if (h.rnd() < 0.35) h.B(x + (h.rnd() - 0.5) * w * 0.7, y - 0.55, zf + fz * 0.35, 0.95, 0.65, 0.6, '#d9dde0', { r: 0.1 });
+    if (T.neon) h.B(x, y - 0.75, z, w + 0.1, 0.14, d + 0.1, pick(h, T.acc), { nocol: true, glow: 1.5 }); // ネオンの帯
+  }
+  // 横に突き出た看板（両面にくっつける）・雨どい
+  const sx = h.rnd() < 0.5 ? -1 : 1;
+  if (h.rnd() < 0.7) h.B(x + sx * (w / 2 - 0.45), 3.1, zf + fz * 0.95, 0.36, Math.min(4.6, ht - 3.4), 1.7, acc, { pat: [pick(h, ['hstripe', 'check2', 'dots', 'rainbow', 'zigzag']), acc, T.neon ? '#ffffff' : ac2, 1, 3], r: 0.1, glow: T.night ? 0.7 : 0 });
+  if (h.rnd() < 0.6) h.cyl(x - sx * (w / 2 - 0.2), 0, zf + fz * 0.18, 0.13, ht, '#8d8f94');
+  // 屋上：低い壁（かげに隠れる）・タンク・看板
+  for (const s of [-1, 1]) { h.B(x, ht, z + s * (d / 2 - 0.1), w, 0.6, 0.2, col, { r: 0.06 }); h.B(x + s * (w / 2 - 0.1), ht, z, 0.2, 0.6, d - 0.4, col, { r: 0.06 }); }
+  if (h.rnd() < 0.45) h.cyl(x - w * 0.25, ht, z - fz * d * 0.15, 0.85, 1.7, '#b9c0c7');
+  if (h.rnd() < 0.5) h.B(x + w * 0.2, ht, z, 1.2, 0.8, 1, '#d9dde0', { r: 0.12 });
+  if (h.rnd() < 0.4) { // 屋上の大きな看板
+    const bw = Math.min(5, w - 1);
+    for (const s of [-1, 1]) h.B(x + s * bw * 0.35, ht, z - fz * d * 0.2, 0.18, 1.6, 0.18, '#55606b');
+    h.B(x, ht + 1.6, z - fz * d * 0.2, bw, 2.2, 0.3, acc, { pat: [pick(h, ['splat', 'confetti', 'check2', 'wave', 'rainbow']), acc, T.acc, 3, 1], r: 0.08, glow: T.night ? 0.6 : 0 });
+  }
+}
+function row(h, T, x0, x1, z, d, fz, hmin, hmax) { // 通りぞいに建物を並べる（ところどころに路地）
+  let x = x0;
+  while (x1 - x > 4.5) {
+    const w = Math.min(x1 - x, 5 + h.rnd() * 4.5); if (x1 - x - w < 4.5) { bld(h, T, (x + x1) / 2, z, x1 - x, d, hmin + h.rnd() * (hmax - hmin), fz); break; }
+    bld(h, T, x + w / 2, z, w, d, hmin + h.rnd() * (hmax - hmin), fz); x += w;
+    if (h.rnd() < 0.45) { // 路地：木箱・ゴミ箱・パイプ
+      const gw = 1.8 + h.rnd() * 1; KIT.crate(h, x + gw / 2, z + (h.rnd() - 0.5) * d * 0.6); x += gw;
+    }
+  }
+}
+function courtyard(h, T, x0, x1, z0, z1) { // 建物のあいだの中庭
+  const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, w = x1 - x0, d = z1 - z0, k = h.rnd();
+  if (k < 0.4) { // 模様のタイル広場
+    h.F(cx, cz, w - 1, d - 1, '#ffffff', [pick(h, ['check2', 'dots', 'zigzag', 'brick']), pick(h, T.pal), pick(h, T.acc), Math.round(w / 3), Math.round(d / 3)], 1);
+    for (const s of [-1, 1]) { h.B(cx + s * w * 0.3, 0, cz, 2, 0.5, 0.6, '#8a5a33', { r: 0.12 }); h.B(cx + s * w * 0.3, 0.5, cz + 0.25, 2, 0.5, 0.12, '#8a5a33'); }
+    KIT.pole(h, cx, cz, T.pal, T.acc);
+  } else if (k < 0.7) { // 小さな公園
+    h.F(cx, cz, w - 1, d - 1, '#6fae5a', null, 1);
+    tree(h, cx - w * 0.22, cz, 0.9); KIT.bush(h, cx + w * 0.25, cz - d * 0.15); KIT.flowers(h, cx + w * 0.15, cz + d * 0.2);
+  } else { // 屋台
+    for (const s of [-1, 1]) {
+      const sx = cx + s * w * 0.22, c = pick(h, T.acc);
+      table(h, sx, cz, 2.6, 1.2, '#b08a5a', 0.95);
+      for (let i = 0; i < 3; i++) h.B(sx - 0.8 + i * 0.8, 0.95, cz, 0.6, 0.35, 0.9, pick(h, TOY), { r: 0.1 });
+      for (const t of [-1, 1]) h.B(sx + t * 1.2, 0, cz - 0.5, 0.1, 2.3, 0.1, '#55606b', NC);
+      h.B(sx, 2.3, cz, 3, 0.14, 1.6, c, { pat: ['vband', c, '#f4f4f4', 4, 1], nocol: true, glow: T.neon ? 0.5 : 0 });
+    }
+  }
+}
+function city(h, T) {
+  const hx = 36, hz = 28;
+  // 歩道
+  for (const s of [-1, 1]) h.B(0, 0, s * 5.2, 72, 0.15, 2.4, '#b9b7b0', { flat: true });
+  for (const s of [-1, 1]) for (const t of [-1, 1]) h.B(s * 4.7, 0, t * 16.2, 2.4, 0.15, 21.6, '#b9b7b0', { flat: true });
+  for (let x = -34; x <= 34; x += 4) if (Math.abs(x) > 6) h.B(x, 0, 0, 2, 0.02, 0.25, '#ffffff', FL); // 道路の線
+  // 4つの区画 × 2ブロック：通りぞいの建物・奥の建物・その間の中庭
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const [a, b] of [[6.4, 18.6], [21.4, 34.6]]) {
+    const x0 = sx > 0 ? a : -b, x1 = sx > 0 ? b : -a;
+    row(h, T, x0, x1, sz * 10.4, 7, -sz, T.hmin, T.hmax); // 通りに面した建物（大通りのほうを向く）
+    row(h, T, x0, x1, sz * 23.6, 6.4, -sz, T.hmin + 1, T.hmax + 2); // 奥の建物（中庭のほうを向く）
+    courtyard(h, T, x0, x1, sz > 0 ? 14.2 : -20.2, sz > 0 ? 20.2 : -14.2);
+    // 路地の入口（ブロックの間）に木箱
+    if (a > 10) { KIT.crate(h, sx * 20, sz * 11); KIT.barrel(h, sx * 20, sz * 17, T.pal); }
+  }
+  // まんなかの噴水広場
+  h.F(0, 0, 12, 10, '#ffffff', [pick(h, ['check2', 'brick']), '#e8dcc8', pick(h, T.acc), 6, 5], 1);
+  h.cyl(0, 0, 0, 2.8, 0.6, '#b9c0c7'); h.cyl(0, 0.6, 0, 2.5, 0.04, T.neon ? '#33eaff' : '#5fa8d8', { nocol: true, glow: T.neon ? 0.9 : 0 });
+  h.cap(0, 0, 0, 0.55, 2.2, '#ffffff', { pat: ['rainbow', '#ffffff', T.acc, 2, 3] });
+  // 大通りの小物：街灯・ベンチ・自動販売機・バス停・看板柱
+  for (let x = -32; x <= 32; x += 8) if (Math.abs(x) > 6) for (const s of [-1, 1]) {
+    const z = s * 4.6, k = Math.round(x / 8 + s * 3) % 4;
+    h.cyl(x, 0.15, z, 0.09, 4, '#444a50'); h.ball(x, 4.35, z, 0.32, T.neon ? pick(h, T.acc) : '#fff4c2', { glow: 1 });
+    if (k === 0) { h.B(x + 1.6, 0.15, z + s * 0.4, 1, 1.9, 0.8, pick(h, ['#e04f4f', '#2f6fb0', '#f4f4f4', '#3f9b6a']), { r: 0.14 }); h.B(x + 2.7, 0.15, z + s * 0.4, 1, 1.9, 0.8, pick(h, T.acc), { r: 0.14 }); }
+    else if (k === 1) { h.B(x + 2, 0.15, z, 2.2, 0.5, 0.6, '#8a5a33', { r: 0.12 }); h.B(x + 2, 0.65, z + s * 0.25, 2.2, 0.5, 0.12, '#8a5a33'); }
+    else if (k === 2) { // バス停（ポスターの壁）
+      const c = pick(h, T.acc); h.B(x + 2.2, 0.15, z + s * 0.9, 3.2, 2.4, 0.16, c, { pat: [pick(h, ['splat', 'confetti', 'wave', 'dots']), c, T.acc, 2, 1], r: 0.06, glow: T.night ? 0.4 : 0 });
+      h.B(x + 2.2, 2.55, z + s * 0.5, 3.4, 0.14, 1.2, '#55606b'); h.B(x + 2.2, 0.15, z + s * 0.5, 2.4, 0.45, 0.5, '#8a5a33', { r: 0.1 });
+    } else { // 看板柱（大きな板にくっつける）
+      const c = pick(h, T.acc); for (const t of [-1, 1]) h.cyl(x + 2 + t * 1.3, 0.15, z, 0.1, 2.4, '#55606b');
+      h.B(x + 2, 2.4, z, 3.2, 1.8, 0.25, c, { pat: [pick(h, ['check2', 'hstripe', 'rainbow', 'camo']), c, T.acc, 2, 1], r: 0.08, glow: T.night ? 0.5 : 0 });
+    }
+  }
+  car(h, -14, -1.9, pick(h, T.acc), true); car(h, 12, 1.9, pick(h, T.acc), true); car(h, 27, -1.9, pick(h, T.acc), true); car(h, -27, 1.9, pick(h, T.acc), true);
+}
+
 export const MAPS = {
-  /* ---------- 待合室 ---------- */
+  /* ---------- ロビー（ゲーム開始までみんなで歩き回る。まんなかの HUNTER の円に乗ると鬼になれる） ---------- */
   lobby: {
-    name: '待合室', hx: 9, hz: 7, sky: '#cfd8e3', spawn: [0, 2],
+    name: 'ロビー', hx: 11, hz: 8.5, sky: '#cfd8e3', spawn: [0, 5.2], hunter: [0, 0, 1.7],
     build(h) {
-      h.F(0, 0, 18, 14, 0, ['vstripe', '#b98d5c', '#ad8253', 9, 1]);
-      h.outer(6, '#efe6d6');
-      h.B(0, 0, 0, 6, 0.04, 4, '#3f7f8a', { flat: true });
-      sofaX(h, 0, -5.8, 5, '#c9573f', -1); table(h, 0, -3.5, 2.2, 1, '#6b4a2b', 0.45);
-      plant(h, -8.1, -4.6); plant(h, 8, -4.9); lamp(h, -8.2, 6.2); lamp(h, 8.2, 6.2);
-      h.B(-8.4, 0, 2, 0.9, 2.2, 4, '#8a5a33');
-      // カモフラージュ練習コーナー：模様の壁・しましま柱・水玉クッション・きのこ
-      [['dots', '#f0d040', '#e04f4f', -7.1], ['hstripe', '#4f7fe0', '#f4f4f4', -4.5], ['camo', '#6fae5a', ['#2e6b34', '#8a5a33', '#d8c9a3'], 4.5], ['splat', '#f4f4f4', TOY, 7.1]]
-        .forEach(([k, a, b, x]) => h.B(x, 0, -6.6, 2.4, 2.6, 0.35, a, { pat: [k, a, b, 2, 2], r: 0.15 }));
-      h.cap(-5.6, 0, 1.2, 0.5, 1.6, '#f08a3c', { pat: ['diag', '#f08a3c', '#ffffff', 3, 2] });
-      h.dome(5.6, 0, 1.6, 1.0, 0.75, 0.9, '#b06fd8', { pat: ['dots', '#b06fd8', '#f7f3ea', 3, 2], solid: true });
-      KIT.mush(h, -5.2, 4.2, ['#e04f4f']);
-      TOY.forEach((c, i) => h.B(8.75, 0.6 + (i % 2) * 1.3, -3 + Math.floor(i / 2) * 2.2, 0.15, 1.1, 1.8, c, NC)); // 色見本パネル
-      TOY.forEach((c, i) => h.B(5 + (i % 3) * 0.9, Math.floor(i / 3) * 0.8, 5.5, 0.8, 0.8, 0.8, c));
-      h.B(-5, 0, 5.8, 3, 0.9, 1, '#f4f4f4'); h.cyl(-2, 0, 5.8, 0.4, 0.9, '#2f6fb0');
+      h.F(0, 0, 22, 17, 0, ['check2', '#ece7dd', '#dcd5c8', 11, 8]);
+      h.outer(5, '#efe6d6');
+      // HUNTER の円（床の印。当たり判定はなく、円の中に立っているかだけを見る）
+      h.cyl(0, 0, 0, 1.86, 0.03, '#ffffff', { nocol: true, flat: true, seg: 56 });
+      h.cyl(0, 0, 0, 1.7, 0.045, '#d9342b', { nocol: true, flat: true, seg: 56, glow: 0.35 });
+      h.label(0, 0.06, 0, 2.9, 0.8, 'HUNTER', '#ffffff');
+      // 奥の壁ぞい：模様の練習パネル
+      [['dots', '#f0d040', '#e04f4f'], ['hstripe', '#4f7fe0', '#f4f4f4'], ['camo', '#6fae5a', ['#2e6b34', '#8a5a33', '#d8c9a3']], ['splat', '#f4f4f4', TOY], ['brick', '#d9b08c', '#b8452f'], ['zigzag', '#b06fd8', '#f4f4f4']]
+        .forEach(([k, a, b], i) => h.B(-8.75 + i * 3.5, 0, -8.1, 2.8, 3, 0.35, a, { pat: [k, a, b, 2, 2], r: 0.15 }));
+      // 左：くっつく練習の壁（でっぱりつき）
+      h.B(-10.7, 0, -2.5, 0.5, 4.5, 6, '#7d8fb3', { pat: ['vband', '#7d8fb3', '#f4f4f4', 4, 3], r: 0.12 });
+      for (const [z, y] of [[-4.5, 1.4], [-1.5, 2.4], [-3.5, 3.4]]) h.B(-10.2, y, z, 0.6, 0.18, 1.2, '#f4f4f4', { r: 0.06 });
+      // 左手前：ラウンジ
+      sofaZ(h, -9.6, 4.5, 3.6, '#c9573f', -1); table(h, -7.6, 4.5, 1.2, 2, '#6b4a2b', 0.45); plant(h, -9.8, 7.4);
+      // 右：色見本・小物
+      TOY.forEach((c, i) => h.B(10.75, 0.6 + (i % 2) * 1.3, -4 + Math.floor(i / 2) * 2.2, 0.15, 1.1, 1.8, c, NC));
+      KIT.cubes(h, 8.2, 2.6, ['#e8dcc8', '#7d8fb3'], TOY);
+      KIT.arch(h, 6.4, 5.9, ['#ffffff'], TOY);
+      KIT.mush(h, -5.4, 6.2, ['#e04f4f']);
+      h.cap(-5.6, 0, -4.6, 0.5, 1.6, '#f08a3c', { pat: ['diag', '#f08a3c', '#ffffff', 3, 2] });
+      h.dome(5.8, 0, -4.4, 1.0, 0.75, 0.9, '#b06fd8', { pat: ['dots', '#b06fd8', '#f7f3ea', 3, 2], solid: true });
+      for (const [x, z] of [[-10.2, -7.8], [10.2, -7.8], [-10.2, 7.8], [10.2, 7.8]]) lamp(h, x, z);
+      plant(h, 9.8, 7.4); plant(h, 9.8, -7.4);
     }
   },
 
@@ -362,42 +458,14 @@ export const MAPS = {
     }
   },
 
-  /* ---------- 商店街 ---------- */
+  /* ---------- 夜の商店街（模様の外壁・日よけ・ベランダ・看板・屋上・中庭の街） ---------- */
   town: {
-    name: '夜の商店街', hx: 36, hz: 28, sky: '#0b1024', night: true, dark: 0.42, floorTex: 'asphalt', kit: ['crate', 'barrel', 'planter', 'vend', 'screen', 'mural', 'mural', 'pole', 'cubes', 'blob'], pal: ['#b9b7b0', '#4a4d52', '#d9b08c', '#c97b63', '#9fb7c4', '#8a5a33'], clutter: 80, spawn: [0, 0],
+    name: '夜の商店街', hx: 36, hz: 28, sky: '#0b1024', night: true, dark: 0.5, floorTex: 'asphalt', kit: ['crate', 'barrel', 'planter', 'vend', 'screen', 'mural', 'pole', 'cubes', 'blob', 'bush'], pal: ['#b9b7b0', '#4a4d52', '#d9b08c', '#c97b63', '#9fb7c4', '#8a5a33'], clutter: 40, spawn: [12, 0],
     build(h) {
       h.F(0, 0, 72, 56, '#4a4d52');
       h.outer(9, '#8d8f94');
-      for (let x = -34; x <= 34; x += 4) if (Math.abs(x) > 5) h.B(x, 0, 0, 2, 0.02, 0.25, '#ffffff', FL);
-      for (let z = -26; z <= 26; z += 4) if (Math.abs(z) > 5) h.B(0, 0, z, 0.25, 0.02, 2, '#ffffff', FL);
-      for (let i = -3; i <= 3; i++) { h.B(i * 1.1, 0, -5, 0.6, 0.02, 1.6, '#ffffff', FL); h.B(i * 1.1, 0, 5, 0.6, 0.02, 1.6, '#ffffff', FL); h.B(-5, 0, i * 1.1, 1.6, 0.02, 0.6, '#ffffff', FL); h.B(5, 0, i * 1.1, 1.6, 0.02, 0.6, '#ffffff', FL); }
-      const BC = ['#d9b08c', '#c97b63', '#e8dcc8', '#9fb7c4', '#b5c99a', '#d8a7b1', '#c9c2b0', '#a7b8d8', '#e0c48c', '#b89c84', '#9ac0b0', '#d4a373'];
-      const AW = ['#e04f4f', '#3f9b6a', '#2f6fb0', '#f08a3c', '#b06fd8', '#f0d040'];
-      let q = 0;
-      for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-        h.B(sx * 20, 0, sz * 16, 32, 0.15, 24, '#b9b7b0', { flat: true });
-        [[9, 8], [19.5, 10], [30.5, 10]].forEach((b, i) => {
-          const x = sx * b[0], z = sz * 22.2, ht = 6 + Math.floor(h.rnd() * 4), fz = sz * 17.2;
-          shop(h, x, z, b[1], 10, ht, BC[(q * 3 + i) % 12], -sz, AW[(q + i) % 6], true, 0.15);
-        });
-        h.ball(sx * 9, 2.55, sz * 16.3, 0.2, '#ffb46b', { glow: 1 }); h.ball(sx * 30.5, 2.55, sz * 16.3, 0.2, '#ffb46b', { glow: 1 });
-        // 店先の小物
-        h.B(sx * 6, 0.15, sz * 16.4, 1, 1.9, 0.8, q % 2 ? '#e04f4f' : '#2f6fb0'); h.B(sx * 7.2, 0.15, sz * 16.4, 1, 1.9, 0.8, '#f4f4f4');
-        h.B(sx * 14, 0.15, sz * 6, 2.2, 0.5, 0.6, '#8a5a33'); h.B(sx * 5.6, 0.15, sz * 9, 0.5, 1.1, 0.5, '#d0342c');
-        table(h, sx * 20, sz * 13.5, 3.2, 1.4, '#b08a5a', 0.95);
-        for (let i = 0; i < 4; i++) h.B(sx * 20 - 1.2 + i * 0.8, 0.95, sz * 13.5, 0.7, 0.35, 1.1, TOY[(i + q) % 6]);
-        h.B(sx * 17, 0.15, sz * 13.8, 0.9, 0.7, 0.9, CARD[q % 4]); h.B(sx * 23, 0.15, sz * 13.6, 1, 0.9, 1, CARD[(q + 1) % 4]);
-        h.B(sx * 28, 0.15, sz * 7, 1.6, 0.6, 1.6, '#8d8f94'); tree(h, sx * 28, sz * 7, 0.8);
-        h.cyl(sx * 10, 0.15, sz * 5.5, 0.35, 0.85, '#3f9b6a'); h.cyl(sx * 33, 0.15, sz * 12, 0.35, 0.85, '#55606b');
-        h.B(sx * 31, 0.15, sz * 15.5, 2.6, 1.4, 1.4, '#2f6f5a'); h.B(sx * 25, 0.15, sz * 16.3, 0.9, 1.3, 0.2, '#f0d040');
-        h.cyl(sx * 5.2, 0.15, sz * 5.2, 0.12, 4, '#444a50'); h.ball(sx * 5.2, 4.3, sz * 5.2, 0.35, '#fff4c2', { glow: 1 });
-        h.B(sx * 12, 0.15, sz * 12, 1, 2.2, 1, '#3a7d5a'); h.B(sx * 34.5, 0.15, sz * 9, 1.2, 1.2, 3, '#b8452f');
-        for (let i = 0; i < 3; i++) h.B(sx * (15 + i * 0.5), 0.15, sz * (9.5 + i * 0.1), 0.15, 1, 1.4, ['#e04f4f', '#4f7fe0', '#f0d040'][i]);
-        q++;
-      }
-      car(h, -17, -1.9, '#b8262b', true); car(h, 13, 1.9, '#2f6fb0', true); car(h, 1.9, -15, '#f0d040', false); car(h, -1.9, 19, '#e9edf0', false);
-      h.B(25, 0.3, -1.9, 9, 2.7, 2.4, '#3f9b6a'); h.B(25, 1.4, -1.9, 8.6, 0.9, 2.45, '#cfe6f0', NC);
-      h.B(-27, 0.25, 1.9, 5.5, 1.9, 2.1, '#f4f4f4'); h.B(-23.4, 0.25, 1.9, 1.8, 1.4, 2, '#2f6fb0');
+      city(h, { pal: ['#d9b08c', '#c97b63', '#e8dcc8', '#9fb7c4', '#b5c99a', '#d8a7b1', '#c9c2b0', '#a7b8d8', '#e0c48c', '#b89c84'], acc: ['#e04f4f', '#3f9b6a', '#2f6fb0', '#f08a3c', '#b06fd8', '#f0d040'], night: true, neon: false, facade: ['brick', 'vband', 'hstripe', 'check2', 'dots', 'wave', 'diag'], hmin: 5, hmax: 9 });
+      h.ball(-60, 50, -70, 5, '#fff6d8', { glow: 1.6, nolight: true });
     }
   },
   /* ---------- ガソリンスタンド（まんたんステーションより） ---------- */
@@ -525,37 +593,14 @@ export const MAPS = {
     }
   },
 
-  /* ---------- ネオン街（レースマスター「ネオン・メトロポリス」より） ---------- */
+  /* ---------- ネオン街（光る模様のビルの街） ---------- */
   neon: {
-    name: 'ネオン街', hx: 36, hz: 28, sky: '#16052a', night: true, dark: 0.4, kit: ['neonBox', 'neonBox', 'barrel', 'screen', 'pillar', 'mural', 'mural', 'pole', 'cubes', 'blob'], acc: ['#ff3ab8', '#33eaff', '#ffd940', '#8a5cff', '#3dff9a'], pal: ['#1c1c2e', '#1a1430', '#221436', '#2a2440', '#3a3550'], clutter: 80, spawn: [0, 0],
+    name: 'ネオン街', hx: 36, hz: 28, sky: '#16052a', night: true, dark: 0.42, kit: ['neonBox', 'neonBox', 'barrel', 'screen', 'mural', 'pole', 'cubes', 'blob'], pal: ['#1c1c2e', '#1a1430', '#221436', '#2a2440', '#3a3550'], acc: ['#ff3ab8', '#33eaff', '#ffd940', '#8a5cff', '#3dff9a'], clutter: 40, spawn: [12, 0],
     build(h) {
       const NE = ['#ff3ab8', '#33eaff', '#ffd940', '#8a5cff', '#3dff9a'];
-      h.F(0, 0, 72, 56, '#1c1c2e'); h.outer(10, '#14101f');
-      for (let x = -34; x <= 34; x += 4) if (Math.abs(x) > 5) { h.B(x, 0, 0, 2, 0.02, 0.2, NE[1], { nocol: true, flat: true, glow: 1.2 }); }
-      for (let z = -26; z <= 26; z += 4) if (Math.abs(z) > 5) { h.B(0, 0, z, 0.2, 0.02, 2, NE[0], { nocol: true, flat: true, glow: 1.2 }); }
-      let q = 0;
-      for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-        // ネオン帯つきのビル
-        [[10, 18, 9, 9], [21, 21, 9, 10], [31, 18, 8, 12], [12, 8.5, 6, 5], [30, 8, 7, 5]].forEach((b, i) => {
-          const x = sx * b[0], z = sz * b[1], ht = 7 + Math.floor(h.rnd() * 7), nc = NE[(q + i) % 5];
-          if (i < 3) shop(h, x, z, b[2], b[3], ht, ['#1a1430', '#141a36', '#221436'][i % 3], -sz, nc, true); else h.B(x, 0, z, b[2], ht, b[3], ['#1a1430', '#141a36', '#221436'][i % 3], { r: 0.25 });
-          for (let y = 2.4; y < ht; y += 2.6) h.B(x, y, z, b[2] + 0.12, 0.16, b[3] + 0.12, nc, { nocol: true, glow: 1.6 });
-          h.B(x, ht, z, 0.2, 2, 0.2, '#e0263a', { nocol: true, glow: 1.5 });
-          h.B(x - sx * (b[2] / 2 + 0.06), 1.2, z, 0.1, 1.5, Math.min(3, b[3] - 2), NE[(q + i + 2) % 5], { nocol: true, glow: 1.2 });
-        });
-        // 路上のオブジェ
-        h.B(sx * 6, 0, sz * 6, 0.9, 1.9, 0.9, '#22203a', { r: 0.12 }); h.B(sx * 6, 1.0, sz * 6 - sz * 0.47, 0.6, 0.6, 0.05, NE[q % 5], { nocol: true, glow: 1.4 });
-        h.B(sx * 16.5, 0, sz * 12.5, 2.2, 0.5, 0.6, '#3a3550', { r: 0.15 }); h.B(sx * 16.5, 0.03, sz * 12.5, 3, 0.02, 1.4, NE[(q + 1) % 5], { nocol: true, flat: true, glow: 0.9 });
-        for (let i = 0; i < 3; i++) { h.cyl(sx * (25 + i * 0.9), 0, sz * 13, 0.38, 1, '#2a2440'); h.cyl(sx * (25 + i * 0.9), 1, sz * 13, 0.3, 0.05, NE[(q + i) % 5], { nocol: true, glow: 1.3 }); }
-        h.B(sx * 7, 0, sz * 13, 1.2, 1.2, 1.2, '#26223c', { r: 0.2 }); h.B(sx * 8.3, 0, sz * 13.4, 1, 0.9, 1, '#2e2946', { r: 0.2 }); h.B(sx * 7.5, 1.2, sz * 13.1, 0.9, 0.8, 0.9, '#342e50', { r: 0.2 });
-        h.cyl(sx * 5.3, 0, sz * 12, 0.1, 4.2, '#3a3550'); h.ball(sx * 5.3, 4.4, sz * 12, 0.3, q % 2 ? '#ff9ad8' : '#9af0ff', { glow: 1 });
-        h.cyl(sx * 18, 0, sz * 6, 0.6, 0.5, '#2a2440'); h.ball(sx * 18, 1.1, sz * 6, 0.6, NE[(q + 3) % 5], { glow: 0.8, nolight: true, col: true });
-        h.B(sx * 26, 0, sz * 3.2, 0.2, 3.2, 0.2, '#3a3550'); h.B(sx * 26, 3.2, sz * 3.2, 3.6, 1.6, 0.2, NE[(q + 4) % 5], { nocol: true, glow: 1.1 });
-        for (let i = 0; i < 4; i++) h.B(sx * (12 + i * 5.5), 0.02, sz * 4.6, 1.2, 0.02, 0.5, i % 2 ? '#ffb24d' : '#66ccff', { nocol: true, flat: true, glow: 1.4 });
-        q++;
-      }
-      car(h, -15, -1.9, '#ff3ab8', true); car(h, 14, 1.9, '#33eaff', true); car(h, 1.9, -17, '#8a5cff', false); car(h, -1.9, 16, '#ffd940', false);
-      for (const p of [[-15, -1.9, 4.6, 2.2], [14, 1.9, 4.6, 2.2], [1.9, -17, 2.2, 4.6], [-1.9, 16, 2.2, 4.6]]) h.B(p[0], 0.02, p[1], p[2], 0.02, p[3], '#33eaff', { nocol: true, flat: true, glow: 1.0 });
+      h.F(0, 0, 72, 56, '#1c1c2e'); h.outer(12, '#14101f');
+      for (let x = -34; x <= 34; x += 4) if (Math.abs(x) > 6) h.B(x, 0.02, 1.9, 2, 0.02, 0.2, NE[1], { nocol: true, flat: true, glow: 1.2 });
+      city(h, { pal: ['#1a1430', '#141a36', '#221436', '#2a1d40', '#1c2440'], acc: NE, night: true, neon: true, facade: ['hstripe', 'vband', 'check2', 'zigzag', 'diag', 'dots', 'wave'], hmin: 7, hmax: 13 });
       h.ball(-60, 60, 70, 9, '#ffe6f6', { glow: 1.6, nolight: true });
     }
   },

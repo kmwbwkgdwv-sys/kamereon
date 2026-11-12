@@ -11,10 +11,10 @@
         "meta": {
           ".write": "auth != null && root.child('rooms').child($room).child('players').child(auth.uid).exists()",
           "host": { ".validate": "newData.isString() && newData.parent().parent().child('players').child(newData.val()).exists()" },
-          "state": { ".validate": "newData.val() === 'lobby' || newData.val() === 'hiding' || newData.val() === 'hunting' || newData.val() === 'reveal'" },
+          "state": { ".validate": "newData.val() === 'lobby' || newData.val() === 'countdown' || newData.val() === 'hiding' || newData.val() === 'hunting' || newData.val() === 'reveal'" },
           "mode": { ".validate": "newData.val() === 'fueoni' || newData.val() === 'basic'" },
           "hunters": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 4" },
-          "hideTime": { ".validate": "newData.isNumber() && newData.val() >= 20 && newData.val() <= 300" },
+          "hideTime": { ".validate": "newData.isNumber() && newData.val() >= 20 && newData.val() <= 600" },
           "huntTime": { ".validate": "newData.isNumber() && newData.val() >= 30 && newData.val() <= 900" },
           "ammo": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 50" },
           "end": { ".validate": "newData.isNumber()" },
@@ -34,6 +34,7 @@
             ".validate": "newData.child('name').isString() && newData.child('name').val().length <= 16 && newData.child('slot').isString() && root.child('rooms').child($room).child('slots').child(newData.child('slot').val()).val() === $uid",
             "role": { ".validate": "newData.val() === 'hider' || newData.val() === 'hunter' || newData.val() === 'spectator'" },
             "ammo": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 50" },
+            "onH": { ".validate": "newData.isBoolean()" },
             "found": {
               ".write": "auth != null && root.child('rooms').child($room).child('players').child(auth.uid).exists()"
             }

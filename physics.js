@@ -143,16 +143,18 @@ export function findWall(p, R, H, cols, tol) {
     if (gap < bg) { bg = gap; best = { c, gap, nx, nz, rTop, round: c.t !== 0 && !c.sq }; }
   }
   if (!best) return null;
-  // 上にすき間なく積み重なっている物があれば、そのてっぺんまで登れる
-  let top = best.c.y1;
+  // 真上にすき間なく積み重なっている物（その物と重なっている物）があれば、そのてっぺんまで登れる
+  let top = best.c.y1, ct = best.c;
   for (let g = 0; g < 8; g++) {
-    let grow = false;
+    let nx = null;
     for (const c of cols) {
-      if (c.nc || c.terrain || c.y0 > top + 0.05 || c.y1 <= top + 0.01) continue;
+      if (c === ct || c.nc || c.terrain || c.y0 > top + 0.05 || c.y1 <= top + 0.01) continue;
+      if (c.x0 > ct.x1 + 0.1 || c.x1 < ct.x0 - 0.1 || c.z0 > ct.z1 + 0.1 || c.z1 < ct.z0 - 0.1) continue; // いまの物と重なっていない物は別の物
       if (p.x < c.x0 - tol - 0.2 || p.x > c.x1 + tol + 0.2 || p.z < c.z0 - tol - 0.2 || p.z > c.z1 + tol + 0.2) continue;
-      top = c.y1; grow = true;
+      if (!nx || c.y1 > nx.y1) nx = c;
     }
-    if (!grow) break;
+    if (!nx) break;
+    top = nx.y1; ct = nx;
   }
   best.top = top;
   return best;
@@ -210,7 +212,7 @@ export function stepBody(b, inp, dt, cols) {
       const top = p.y + b.h * 0.92, cz = ceilingAt(p, b.r, top, cols);
       if (cz && top + v * dt > cz.y0 - 0.01) {
         const out = exitDist(cz, p, n.nx, n.nz, b.r + 0.02);
-        if (out < 1.0) { p.x += n.nx * out; p.z += n.nz * out; n.gap += out; }
+        if (out < 2.7) { p.x += n.nx * out; p.z += n.nz * out; n.gap += out; }
         else v = Math.max(0, (cz.y0 - 0.01 - top) / dt);
       }
     }
