@@ -613,6 +613,32 @@ const lobbyLike = st => !st || st === 'lobby' || st === 'countdown'; // みん�
 // 隠れる時間は、このラウンドの役割が届いた隠れる側だけがゲームのマップへ（届くまではロビーで待つ）
 const placeOf = p => lobbyLike(meta.state) || (meta.state === 'hiding' && !(p && p.rd === meta.round && p.role !== 'hunter')) ? 'lobby' : 'game';
 const tp = () => placeOf(P[uid]) === 'lobby' || myRole() === 'hider'; // 三人称視点か
+/* ---- 観戦の切り替え ----
+   ベーシック：見つかった人（観戦）は、生き残りの隠れる人・鬼のだれでも観戦できる
+   増え鬼：見つかった人は鬼になる。観戦できるのはほかの鬼だけ（隠れている味方の場所は分からない）
+   鬼はどちらのモードでも、ほかの鬼だけ（隠れる人の視点は見られない） */
+let specId = '', specPitch = 0;
+function specList() {
+  if (meta.state !== 'hunting' || meta.practice) return [];
+  const role = myRole(), here = placeOf(P[uid]), any = role === 'spectator' && meta.mode === 'basic';
+  if (role !== 'spectator' && role !== 'hunter') return [];
+  return Object.keys(P).filter(id => id !== uid && POS[id] && ents[id] && placeOf(P[id]) === here && (P[id].role === 'hunter' || (any && P[id].role === 'hider' && !P[id].found)))
+    .sort((a, b) => String(P[a].slot).localeCompare(String(P[b].slot)));
+}
+const specOn = () => !!specId && specList().includes(specId);
+function specUI(force) { // 観戦ボタン（見られる人がいる時だけ）。位置が届くと増えるので、HUD の更新でも見直す
+  const sl = specList(); if (!sl.length) specId = '';
+  const txt = specId ? `👀 ${(P[specId] || {}).name || ''} ▶` : (myRole() === 'hunter' ? '👀 ほかの鬼を観戦' : '👀 観戦きりかえ'), b = $('btnSpec'), on = sl.length > 0;
+  if (b.textContent !== txt) b.textContent = txt;
+  if (on === b.classList.contains('hide')) { show('btnSpec', on); if (!force) layoutCols(); }
+}
+function nextSpec() {
+  const l = specList(); if (!l.length) { specId = ''; return; }
+  const i = l.indexOf(specId); specId = i < 0 ? l[0] : (l[i + 1] || '');
+  if (specId) { const t = POS[specId]; specPitch = t ? +t[4] || 0 : 0; if (P[specId].role === 'hider') { me.camYaw = (t ? +t[3] || 0 : 0); me.camPitch = -0.25; } }
+  toast(specId ? `👀 ${P[specId].name}（${P[specId].role === 'hunter' ? '鬼' : 'カメレオン'}）を観戦中` : (myRole() === 'hunter' ? '自分の視点にもどりました' : '自由に歩いて観戦'), 1800);
+  refreshUI();
+}
 const canTool = () => lobbyLike(meta.state) || (myRole() === 'hider' && (meta.state === 'hiding' || meta.state === 'hunting'));
 const targetMap = () => placeOf(P[uid]) === 'lobby' ? 'lobby' : (meta.cur || 'house');
 let myOnH = false; // HUNTER の円に乗っているか
@@ -850,6 +876,7 @@ function refreshUI() {
   if (!tool || !walk) closeWheel();
   show('bFire', isTouch && role === 'hunter' && st === 'hunting');
   show('rank', st === 'hunting' && !meta.practice);
+  specUI(true);
   $('btnLobby').classList.toggle('hide', meta.host !== uid);
   if (lobbyLike(st)) { renderLobby(); if (lobbyOpen && document.pointerLockElement) document.exitPointerLock(); }
   layoutCols();
@@ -898,7 +925,7 @@ function onPlayers() {
     const role = meta.mode === 'fueoni' ? 'hunter' : 'spectator';
     p.role = role; me.ammo = meta.ammo || 0;
     net.update(`${base}/players/${uid}`, { role, last: { p: posArr(), pose: me.pose.slice() }, ammo: me.ammo, score: Math.round(myScore) });
-    sfx('found'); toast(role === 'hunter' ? '見つかった！ここからは鬼の仲間だ' : '見つかった！観戦にまわります', 3500);
+    sfx('found'); toast(role === 'hunter' ? '見つかった！ここからは鬼の仲間だ（ほかの鬼の観戦もできます）' : '見つかった！観戦にまわります（👀 で誰でも観戦できます）', 3500);
   }
   for (const id in P) if (P[id].found && !knownFound.has(id)) { knownFound.add(id); if (id !== uid) { toast(`${P[id].name} が見つかった！`); sfx('found'); } }
   syncEnts(); checkRound(); syncMap();
@@ -1070,6 +1097,7 @@ const fpGun = new THREE.Group(); // 鬼の一人称視点に見える腕とシ�
   fpGun.add(b, st, arm); fpGun.visible = false; camera.add(fpGun); scene.add(camera);
 }
 function fire() {
+  if (specOn()) return; // 観戦中は撃てない
   if (!inRoom || myRole() !== 'hunter' || meta.state !== 'hunting') return;
   const now = performance.now(); if (now < nextFire) return;
   if (me.ammo <= 0) { toast('弾切れ！'); return; }
@@ -1118,6 +1146,7 @@ addEventListener('keydown', e => {
     if (e.code === 'KeyP') setPanel(panel === 'paint' ? '' : 'paint');
     if (e.code === 'KeyO') toggleWheel();
     if (e.code === 'KeyF') placeDecoy();
+    if (e.code === 'KeyV' && specList().length) nextSpec();
     if (e.code === 'KeyQ') nextPose();
     if (e.code === 'KeyE') { if (document.pointerLockElement === cv) { const h = dropAt(null); if (h) doPick(h); } else setDrop(!eyedrop); }
   }
@@ -1188,7 +1217,7 @@ function unstick() { // 体のパーツが壁や家具にめり込んでいた�
 }
 function updateMe(dt) {
   const st = meta.state, role = myRole(), third = tp();
-  const frozen = !st || (lobbyLike(st) && lobbyOpen);
+  const frozen = !st || (lobbyLike(st) && lobbyOpen) || specOn(); // 観戦中は動かない
   let ix = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x;
   let iy = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + joy.y;
   if (frozen) ix = iy = 0;
@@ -1230,7 +1259,27 @@ function fadeLeaves(a, b) { // 自分やカメラが葉っぱの中・うしろ�
     if (on !== !!m.userData.faded) { m.userData.faded = on; m.material.transparent = on; m.material.opacity = on ? 0.3 : 1; m.material.depthWrite = !on; m.material.needsUpdate = true; }
   }
 }
+function specCamera() { // 観戦中のカメラ：鬼はその鬼の目から（向きもそのまま）、隠れる人はうしろから（ドラッグで回せる）
+  const p = P[specId], e = ents[specId], t = POS[specId]; if (!p || !e || !t) return false;
+  const r = e.av.root.position;
+  if (p.role === 'hunter') {
+    specPitch += ((+t[4] || 0) - specPitch) * 0.25;
+    camera.rotation.set(specPitch, e.av.root.rotation.y, 0); camera.position.set(r.x, r.y + 1.55, r.z);
+    fadeLeaves(camera.position, camera.position);
+  } else {
+    camera.rotation.set(me.camPitch, me.camYaw, 0);
+    _t.set(r.x, r.y + Math.min(1.0, e.av.height * 0.7 + 0.2), r.z); _b.set(0, 0, 1).applyQuaternion(camera.quaternion);
+    let d = 3.2; ray.set(_t, _b); ray.near = 0; ray.far = d;
+    const h = ray.intersectObjects(hardMeshes, false)[0]; if (h) d = Math.max(0.35, h.distance - 0.15);
+    camera.position.copy(_t).addScaledVector(_b, d); fadeLeaves(_t, camera.position);
+  }
+  if (Math.abs(camera.fov - 70) > 0.01) { camera.fov = 70; camera.updateProjectionMatrix(); }
+  fpGun.visible = p.role === 'hunter'; if (fpGun.visible) fpGun.children[2].material = hunterMat(p.slot);
+  return true;
+}
 function updateCamera() {
+  if (specId && !specOn()) { specId = ''; refreshUI(); } // 観戦していた人が見つかった・いなくなった
+  if (specId && specCamera()) return;
   camera.rotation.set(me.camPitch, me.camYaw, 0);
   const pz = panel === 'paint' && tp(), fov = pz ? 70 / paintZoom : 70;
   if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
@@ -1269,6 +1318,7 @@ function updateEnts(dt) {
     else if (lobbyLike(st)) vis = true;
     else if (p.role === 'spectator') vis = false;
     else if (id === uid) vis = tp();
+    else if (id === specId && p.role === 'hunter') vis = false; // その鬼の目から見ているので体は消す
     else if (p.role === 'hunter') vis = true;
     else vis = seeH;
     e.av.root.visible = vis;
@@ -1290,9 +1340,10 @@ function updateEnts(dt) {
 let hudT = 0, posT = 0, lastPos = '';
 function updateHud(now) {
   if (now < hudT) return; hudT = now + 250;
+  if (inRoom) specUI(false);
   const st = meta.state, role = myRole();
   const left = Math.max(0, Math.ceil(((meta.end || 0) - net.now()) / 1000));
-  $('hRole').textContent = lobbyLike(st) ? '🛋 ロビー' : role === 'hunter' ? (st === 'hiding' ? '🔫 鬼（ロビーで待機）' : '🔫 鬼') : role === 'hider' ? '🦎 カメレオン' : '👀 観戦';
+  $('hRole').textContent = specOn() ? `👀 ${P[specId].name} を観戦中` : lobbyLike(st) ? '🛋 ロビー' : role === 'hunter' ? (st === 'hiding' ? '🔫 鬼（ロビーで待機）' : '🔫 鬼') : role === 'hider' ? '🦎 カメレオン' : '👀 観戦';
   $('hTimer').textContent = meta.practice ? '練習' : st === 'countdown' ? `開始 ${left}` : st === 'hiding' ? `隠れ ${left}` : st === 'hunting' ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : st === 'reveal' ? '結果' : '--';
   const alive = Object.values(P).filter(p => p.orig === 'hider' && !p.found).length;
   const dc = DEC[uid] ? [0, 1].filter(i => DEC[uid][i]).length : 0;
@@ -1493,6 +1544,7 @@ $('btnMap').onclick = () => { // 練習中にマップを変える
   openMapPick(meta.map || 'random', 'マップを変える', k => { if (!practice || !inRoom) return; meta.map = k; net.update(base + '/meta', { map: k }); startGame(); });
 };
 $('btnLeave').onclick = () => leaveRoom('');
+$('btnSpec').onclick = () => nextSpec();
 $('btnStart').onclick = () => beginCountdown();
 $('btnGo').onclick = () => { if (meta.host !== uid) return; if (meta.state === 'countdown') net.update(base + '/meta', { state: 'lobby' }); else beginCountdown(); };
 $('btnLobby').onclick = () => { if (meta.host === uid) { if (practice) leaveRoom(''); else net.update(base + '/meta', { state: 'lobby' }); } };
