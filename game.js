@@ -7,6 +7,7 @@ import { buildBody, RIG, makeHash, near, nearestVert, nearestMap } from './body.
 import { lump, knotPoint } from './shapes.js';
 import { boxCol, cylCol, ellCol, oboxCol, polyCol, pushOut, stepBody, isFree, makeGrid, nearCols } from './physics.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { fixCoplanar, boxShape } from './zfix.js';
 
 const $ = id => document.getElementById(id);
 const V3 = THREE.Vector3;
@@ -122,6 +123,29 @@ if (window.visualViewport) window.visualViewport.addEventListener('resize', resi
 for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
 document.addEventListener('touchmove', e => { if (e.touches.length > 1 || !(e.target.closest && e.target.closest('.sheet,.card'))) e.preventDefault(); }, { passive: false });
 document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
+// iPhone・Android では、ほかの指が画面にふれている間（スティックで歩きながら・視点を動かしながら）にボタンをタップしても
+// click が起きない。指がひっかかったままになった時も同じで、「歩けるのにボタンが押せない」になる。
+// そこで、ボタンは指をはなした時（pointerup）に自分で押す。あとからふつうの click が来たら、2回押しにならないように捨てる
+{
+  const act = new Set(), downs = new Map(); let synthAt = 0, synthDown = 0, lastDown = 0;
+  const btnOf = t => { const el = t && t.closest && t.closest('button'); return el && !el.disabled && !el.classList.contains('tbtn') ? el : null; }; // 丸いボタン（ジャンプなど）は押した瞬間に動く
+  addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse') return;
+    lastDown = performance.now(); const multi = act.size > 0; act.add(e.pointerId);
+    const el = btnOf(e.target); if (el) downs.set(e.pointerId, { el, x: e.clientX, y: e.clientY, multi, t: lastDown });
+  }, true);
+  const gone = e => { act.delete(e.pointerId); downs.delete(e.pointerId); };
+  addEventListener('pointercancel', gone, true);
+  for (const ev of ['touchend', 'touchcancel']) addEventListener(ev, e => { if (!e.touches || !e.touches.length) act.clear(); }, { capture: true, passive: true }); // 指が全部はなれたら、ひっかかった指も忘れる
+  addEventListener('pointerup', e => {
+    const d = downs.get(e.pointerId), multi = !!d && (d.multi || act.size > 1); gone(e);
+    if (!d || !multi || document.body.classList.contains('laying') || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 14) return; // 1本指のタップはブラウザの click にまかせる。編集中・スクロールは押さない
+    const t = document.elementFromPoint(e.clientX, e.clientY); if (!t || !d.el.contains(t) || d.el.closest('.hide')) return;
+    synthAt = performance.now(); synthDown = d.t; d.el.click();
+  }, true);
+  // 自分で押したあとに、同じタップのふつうの click が来ても（画面が変わって別のボタンに当たっても）捨てる
+  addEventListener('click', e => { if (e.isTrusted && synthAt && performance.now() - synthAt < 800 && lastDown <= synthDown) { e.stopPropagation(); e.preventDefault(); } }, true);
+}
 // ブルーム（光のにじみ）。読み込めなければ通常描画のまま
 Promise.all(['EffectComposer', 'RenderPass', 'UnrealBloomPass', 'OutputPass'].map(n => import(`three/addons/postprocessing/${n}.js`))).then(([E, Rp, U, O]) => {
   const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: 4 });
@@ -214,6 +238,7 @@ function addBox(x, y, z, w, h, d, color, opt = {}) {
   m.position.set(x, y + h / 2, z); m.castShadow = !opt.flat; m.receiveShadow = true;
   if (opt.rot) m.rotation.set(opt.rot[0], opt.rot[1], opt.rot[2]); // かたむけた箱（がらくたの山など）は見た目だけ
   if (opt.soft && !opt.glass) m.userData.sph = [x, y + h / 2, z, Math.max(w, h, d) / 2]; // 水面・ボールの海：中にいると自分からは透けて見える（ガラスはいつもすけている）
+  if (!opt.glass) m.userData.zf = { t: 'box', x, y, z, w, h, d, rot: opt.rot, rr: round ? rr : 0, key: opt.pat ? null : m.material.uuid }; // 面の重なりを直すため
   place(m, opt);
   if (opt.soft) { if (opt.sinkV != null) W.cols.push(boxCol(x - w / 2, x + w / 2, z - d / 2, z + d / 2, y, y + h, { soft: true, sinkV: opt.sinkV })); return; } // 上から入ると沈んで立つ
   if (opt.nocol) return;
@@ -257,6 +282,7 @@ function addCyl(x, y, z, r, h, color, opt = {}) {
   const m = new THREE.Mesh(geoCache(`c${rt},${r},${h},${seg}`, () => new THREE.CylinderGeometry(rt, r, h, seg)), makeMat(color, opt, 0.85));
   m.castShadow = !opt.flat; m.receiveShadow = true;
   if (opt.rot) { m.position.set(x, y, z); m.rotation.set(opt.rot[0], opt.rot[1], opt.rot[2]); } else m.position.set(x, y + h / 2, z); // 横にした円柱は y が中心
+  m.userData.zf = { t: 'cyl', x, y, z, r, rt, h, rot: opt.rot, key: opt.pat ? null : m.material.uuid };
   place(m, opt);
   if (opt.nocol) return;
   if (opt.rot) { rotCylCol(x, y, z, Math.max(r, rt), h, opt.rot, { nc: opt.noclimb }); return; }
@@ -402,6 +428,44 @@ function addSlab(x, y, z, pts, ht, color, opt = {}) {
   const k = (1 + top) / 2 * 0.99; // 横の面のまん中あたりの大きさ（すそ広がりでも、見た目とのずれは少し）
   W.cols.push(polyCol(pts.map(p => [x + p[0] * k, z + p[1] * k]), y, y + ht, { sink: opt.sink }));
 }
+// 屋根：底が w×d（世界の x・z）、高さ ht、むねの長さ rl（0 = 四角すい、底の長さと同じ = 切妻）。opt.al = むねが z の向き
+//   当たり判定は、屋根の形にそって小さくなる箱を重ねた段（段の高さは乗りこえられる高さより低いので、屋根の上を歩いて登れる）
+function addRoof(x, y, z, w, d, ht, rl, color, opt = {}) {
+  const al = !!opt.al, L = al ? d : w, Dp = al ? w : d; // L = むねの向きの長さ、Dp = それと直角の長さ
+  rl = Math.max(0, Math.min(L, rl));
+  const key = 'roof' + [L, Dp, ht, rl].map(v => v.toFixed(3)).join(',') + (al ? 'z' : 'x');
+  let g = W.geo.get(key);
+  if (!g) {
+    const P = [], N = [], U = [];
+    const V = (a, yy, b) => (al ? [b, yy, a] : [a, yy, b]); // a = むねの向き、b = 直角
+    const tri = (A, B, C, ua, ub, uc) => {
+      const ux = B[0] - A[0], uy = B[1] - A[1], uz = B[2] - A[2], vx = C[0] - A[0], vy = C[1] - A[1], vz = C[2] - A[2];
+      let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+      const cx = (A[0] + B[0] + C[0]) / 3, cy = (A[1] + B[1] + C[1]) / 3 - ht * 0.3, cz = (A[2] + B[2] + C[2]) / 3;
+      if (nx * cx + ny * cy + nz * cz < 0) { nx = -nx; ny = -ny; nz = -nz; [B, C] = [C, B]; [ub, uc] = [uc, ub]; } // 外向きにそろえる
+      for (const [v, uv] of [[A, ua], [B, ub], [C, uc]]) { P.push(v[0], v[1], v[2]); N.push(nx, ny, nz); U.push(uv[0], uv[1]); }
+    };
+    const a = L / 2, b = Dp / 2, r = rl / 2, r0 = r / Math.max(1e-6, a);
+    for (const sb of [-1, 1]) { // むねの両がわの坂（台形）
+      const p0 = V(-a, 0, sb * b), p1 = V(a, 0, sb * b), p2 = V(r, ht, 0), p3 = V(-r, ht, 0);
+      tri(p0, p1, p2, [0, 0], [1, 0], [0.5 + r0 / 2, 1]); tri(p0, p2, p3, [0, 0], [0.5 + r0 / 2, 1], [0.5 - r0 / 2, 1]);
+    }
+    for (const sa of [-1, 1]) tri(V(sa * a, 0, -b), V(sa * a, 0, b), V(sa * r, ht, 0), [0, 0], [1, 0], [0.5, 1]); // はしの三角
+    tri(V(-a, 0, -b), V(a, 0, -b), V(a, 0, b), [0, 0], [1, 0], [1, 1]); tri(V(-a, 0, -b), V(a, 0, b), V(-a, 0, b), [0, 0], [1, 1], [0, 1]); // 底
+    g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); g.computeBoundingSphere();
+    W.geo.set(key, g);
+  }
+  const m = new THREE.Mesh(g, makeMat(color, opt, 0.85)); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; place(m, opt);
+  if (opt.nocol) return;
+  const n = Math.max(2, Math.ceil(ht / 0.24));
+  for (let i = 0; i < n; i++) {
+    const t = (i + 0.5) / n, hl = (L / 2) * (1 - t) + (rl / 2) * t, hd = (Dp / 2) * (1 - t);
+    if (hl < 0.03 || hd < 0.03) continue;
+    const hx = al ? hd : hl, hz = al ? hl : hd;
+    W.cols.push(boxCol(x - hx, x + hx, z - hz, z + hz, y + ht * i / n, y + ht * (i + 1) / n, { rr: 0 }));
+  }
+}
 function addLabel(x, y, z, w, d, text, color) { // 床に書いた文字（HUNTER など）
   const c = document.createElement('canvas'); c.width = 512; c.height = Math.max(32, Math.round(512 * d / w)); const g = c.getContext('2d');
   g.font = `900 ${Math.round(c.height * 0.78)}px system-ui,-apple-system,sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -468,6 +532,17 @@ function disposeWorld(w) {
   for (const g of w.geo.values()) g.dispose();
   w.meshes.length = 0; w.hard.length = 0; w.soft.length = 0; w.cols.length = 0; w.extras.length = 0; w.lamps = 0; w.tex.clear(); w.geo.clear(); w.mat.clear();
 }
+// 同じ平面に2つの面が重なって模様がチラつく所を探し、小さい方の面を少しだけ外へ出す（見た目だけ。当たり判定はそのまま）
+function unFight() {
+  const L = []; let ord = 0;
+  for (const m of W.meshes) { const z = m.userData.zf; if (!z) continue; z.ord = ord++; z.m = m; L.push(z); }
+  fixCoplanar(L);
+  for (const it of L) {
+    const m = it.m; delete m.userData.zf; if (!it.g) continue;
+    if (it.t === 'box') { const { c, hw } = boxShape(it); m.position.set(c[0], c[1], c[2]); m.scale.set(hw[0] * 2 / it.w, hw[1] * 2 / Math.max(1e-4, it.h), hw[2] * 2 / it.d); }
+    else { const [g0, g1] = it.g, k = (g1 - g0) / 2; _qa.setFromEuler(_eu.set(...(it.rot || [0, 0, 0]))); _va.set(0, k, 0).applyQuaternion(_qa); m.position.add(_va); m.scale.y = (it.h + g0 + g1) / it.h; }
+  }
+}
 function buildWorld(name) { // マップを W に組み立てる。設計図の座標を scale 倍して置く
   const M = MAPS[name], I = infoOf(name), S = I.S, hx = M.hx, hz = M.hz; W.info = I; W.S = S;
   const sc = o => { if (!o || (o.r == null && o.rt == null && o.sinkV == null)) return o; const c = Object.assign({}, o); if (c.r != null) c.r *= S; if (c.rt != null) c.rt *= S; if (c.sinkV != null) c.sinkV *= S; return c; };
@@ -495,6 +570,7 @@ function buildWorld(name) { // マップを W に組み立てる。設計図の�
     knot: (x, y, z, R, t, p, q, ry, col, o) => addKnot(x * S, y * S, z * S, R * S, t * S, p, q, ry, col, o),
     capc: (x, y, z, r, len, dx, dy, dz, col, o) => addCapC(x * S, y * S, z * S, r * S, len * S, dx, dy, dz, col, o),
     ell: (x, y, z, rx, ry, rz, o = {}) => W.cols.push(ellCol(x * S, y * S, z * S, rx * S, ry * S, rz * S, { half: !!o.half })), // 見えない当たり判定（山ぜんたいなど）
+    roof: (x, y, z, w, d, ht, rl, col, o) => addRoof(x * S, y * S, z * S, w * S, d * S, ht * S, rl * S, col, o),
     boxc: (x, y, z, w, ht, d, o = {}) => W.cols.push(boxCol((x - w / 2) * S, (x + w / 2) * S, (z - d / 2) * S, (z + d / 2) * S, y * S, (y + ht) * S, { rr: o.sharp ? 0 : 0.1, nc: !!o.noclimb })),
     cylc: (x, y, z, r, ht) => W.cols.push(cylCol(x * S, z * S, y * S, (y + ht) * S, r * S, r * S)), // 見えない円柱（葉っぱの中の幹など）
     ells: (x, y, z, rx, ry, rz, sinkV) => W.cols.push(ellCol(x * S, y * S, z * S, rx * S, ry * S, rz * S, { soft: true, sinkV: sinkV * S })), // 上に乗ると沈む葉っぱ（横からは入れる）
@@ -516,6 +592,7 @@ function buildWorld(name) { // マップを W に組み立てる。設計図の�
       KIT[k](h, x, z, M.pal || ['#b9b9b9'], M.acc || ACC); made++; cnt[k] = (cnt[k] || 0) + 1;
     }
   }
+  unFight();
   if (W.scene.background && W.scene.background.isColor) W.scene.background.set(M.sky); else W.scene.background = new THREE.Color(M.sky);
   W.scene.fog = new THREE.Fog(M.sky, 60 * S, 170 * S);
   if (M.night) { // 星空
@@ -855,6 +932,15 @@ function sfx(kind, pan = 0, vol = 1) {
 
 /* ---------------- UI小物 ---------------- */
 let toastT = 0;
+// ボタンの処理でエラーが起きても、ほかの操作が止まらないように。エラーは画面に小さく出す（不具合の報告用）
+let lastErr = '';
+function reportErr(err) {
+  const m = String((err && (err.message || err.reason)) || err || '').slice(0, 140); if (!m || m === lastErr) return; lastErr = m;
+  try { console.error(err); const el = $('errLine'); if (el) el.textContent = '最後のエラー：' + m; toast('⚠️ エラー：' + m, 4000); } catch (_) {}
+}
+const guard = f => e => { try { f(e); } catch (err) { reportErr(err); } safeAudio(); };
+function safeAudio() { try { audioInit(); } catch (_) {} }
+addEventListener('error', e => reportErr(e.error || e.message));
 function toast(msg, ms = 2200) { const t = $('toast'); t.textContent = msg; t.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => { t.style.opacity = 0; }, ms); }
 let laying = false, layHid = {}; // ボタン配置の編集中（そのあいだは見せる・隠すを覚えておくだけ）
 const show = (id, on) => { if (laying && id in layHid) { layHid[id] = !on; return; } $(id).classList.toggle('hide', !on); };
@@ -1082,6 +1168,7 @@ function layoutCols() {
     if (el.classList.contains('hide') || el.dataset.custom) continue; // 自分で動かした列はそのまま
     if (el.getBoundingClientRect().bottom > lim) { el.classList.add('two'); if (el.getBoundingClientRect().bottom > lim) { el.classList.remove('two'); el.classList.add('three'); } }
   }
+  { const t = $('tools'), r = t.getBoundingClientRect(); document.documentElement.style.setProperty('--sheetR', t.classList.contains('hide') || r.width < 1 ? '0px' : Math.max(0, Math.round(innerWidth - r.left + 6)) + 'px'); } // ペイントなどの下の板は、道具の列にかぶらない
   const sr = $('sys').getBoundingClientRect(), left = Math.max(64, Math.round(sr.right + 6)) + 'px'; // ランキング・答え合わせは左のボタンの右へ
   $('rank').style.left = left; $('reveal').style.left = left; $('ghostP').style.left = left;
 }
@@ -1387,12 +1474,17 @@ function doShot(o, d, seed, mine, by) { // 撃った弾の処理。見つけた�
 /* ---------------- 入力 ---------------- */
 const keys = {}; const joy = { x: 0, y: 0, id: null };
 // ジャンプ：押した瞬間にジャンプ、長押しで壁にくっつく、くっついている時にもう一度押すと離れる
-const jump = { held: false, press: false, t: 0 };
-function jumpDown() { if (jump.held) return; jump.held = true; jump.press = true; jump.t = performance.now(); }
+const jump = { held: false, press: false, t: 0, pid: null };
+function jumpDown() { if (jump.held && performance.now() - jump.t < 1500) return; jump.held = true; jump.press = true; jump.t = performance.now(); } // 押したままになっていても、次に押せば効く
 function jumpUp() { jump.held = false; }
 addEventListener('blur', () => { jumpUp(); for (const k in keys) keys[k] = false; });
 addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') { // 名前などの文字入力中はそのまま。スライダー・えらぶ欄にフォーカスが残っているだけなら外して操作できるように
+    const ty = (e.target.type || 'text').toLowerCase();
+    if (e.target.tagName === 'INPUT' && (ty === 'text' || ty === 'number' || ty === 'search')) return;
+    if (!$('modal').classList.contains('hide') || laying) return;
+    e.target.blur();
+  }
   keys[e.code] = true;
   if (!inRoom) return;
   if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) jumpDown(); }
@@ -1404,7 +1496,7 @@ addEventListener('keydown', e => {
     if (e.code === 'KeyE') { if (document.pointerLockElement === cv) { const h = dropAt(null); if (h) doPick(h); } else setDrop(!eyedrop); }
   }
   if (e.code === 'KeyV' && specList().length) nextSpec(); // 観戦の切り替え（隠れる人は鬼の画面）
-  if (e.code === 'Escape') closeWheel();
+  if (e.code === 'Escape') { closeWheel(); if (laying) layoutEdit(false); }
 });
 addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Space') { jumpUp(); if (e.target.tagName === 'BUTTON') e.preventDefault(); } });
 function look(dx, dy, k) {
@@ -1439,18 +1531,27 @@ const ptrEnd = e => { pts.delete(e.pointerId); if (pts.size < 2) pinchD = 0; if 
 cv.addEventListener('pointerup', ptrEnd); cv.addEventListener('pointercancel', ptrEnd);
 cv.addEventListener('wheel', e => { if (panel === 'paint') setZoom(paintZoom - Math.sign(e.deltaY) * 0.3); else me.dist = Math.max(1.2, Math.min(7, me.dist + Math.sign(e.deltaY) * 0.4)); }, { passive: true });
 cv.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('pointerlockchange', () => { const on = document.pointerLockElement === cv; $('lockTip').classList.toggle('hide', !on); if (on) setTimeout(() => { if (document.pointerLockElement === cv) $('lockTip').classList.add('hide'); }, 6000); }); // PC：マウスが画面に入っている間はボタンを押せないので教える
 { // スティックとボタン
   const j = $('joy'), k = $('knob');
   const mv = e => { if (e.pointerId !== joy.id) return; const r = j.getBoundingClientRect(), sc = Number(j.dataset.sc) || 1; let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2); const l = Math.hypot(dx, dy), m = 45 * sc; if (l > m) { dx *= m / l; dy *= m / l; } joy.x = dx / m; joy.y = -dy / m; k.style.transform = `translate(${dx / sc}px,${dy / sc}px)`; }; // 大きさを変えたスティックにも合わせる
   const end = e => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; k.style.transform = ''; };
-  j.addEventListener('pointerdown', e => { audioInit(); joy.id = e.pointerId; try { j.setPointerCapture(e.pointerId); } catch (_) {} mv(e); });
+  j.addEventListener('pointerdown', e => { joy.id = e.pointerId; try { j.setPointerCapture(e.pointerId); } catch (_) {} mv(e); safeAudio(); });
   j.addEventListener('pointermove', mv); j.addEventListener('pointerup', end); j.addEventListener('pointercancel', end);
   const bj = $('bJump');
-  bj.addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); try { bj.setPointerCapture(e.pointerId); } catch (_) {} jumpDown(); });
+  bj.addEventListener('pointerdown', guard(e => { e.preventDefault(); jump.pid = e.pointerId; try { bj.setPointerCapture(e.pointerId); } catch (_) {} jumpDown(); }));
   for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) bj.addEventListener(ev, jumpUp);
-  $('bPose').addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); if (performance.now() - wheelAt > 450 || $('wheel').classList.contains('hide')) toggleWheel(); });
-  $('bFire').addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); fire(); });
-  $('bSpecH').addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); nextSpec(); });
+  $('bPose').addEventListener('pointerdown', guard(e => { e.preventDefault(); if (performance.now() - wheelAt > 450 || $('wheel').classList.contains('hide')) toggleWheel(); }));
+  $('bFire').addEventListener('pointerdown', guard(e => { e.preventDefault(); fire(); }));
+  $('bSpecH').addEventListener('pointerdown', guard(e => { e.preventDefault(); nextSpec(); }));
+  // 指が画面から全部はなれたら、押したまま・つかんだままの状態を全部もどす（iPhone で指の終わりが届かなかった時の保険）
+  const allUp = e => {
+    if (e.touches && e.touches.length) return;
+    jumpUp(); if (joy.id !== null) { joy.id = null; joy.x = joy.y = 0; k.style.transform = ''; }
+    pts.clear(); pinchD = 0; lookId = null; if (paintId !== null) { paintId = null; queueSkin(); }
+  };
+  for (const ev of ['touchend', 'touchcancel']) addEventListener(ev, allUp, { capture: true, passive: true });
+  addEventListener('pointerup', e => { if (e.pointerId === jump.pid) jumpUp(); if (e.pointerId === joy.id) end(e); }, true);
 }
 function setClingUI() { // くっついている間はジャンプボタンが「はなれる」になる
   const on = !!me.cling, b = $('bJump');
@@ -1474,9 +1575,10 @@ function unstick(cols) { // 体のパーツが壁や家具にめり込んでい�
 }
 function updateMe(dt) {
   const st = meta.state, role = myRole(), third = tp();
-  if (specOn()) { // 観戦中：体はその場で止まったまま（壁にくっついていても落ちない）
-    const e = ents[uid]; if (e) { e.av.root.position.copy(me.pos); e.av.root.rotation.y = me.yaw; }
-    _lastP.copy(me.pos); return;
+  if (specOn()) { // 観戦中：体はその場で止まったまま（壁にくっついていても落ちない）。スティック・WASD で動かすと自分の画面にもどる
+    const mv = Math.hypot(joy.x, joy.y) > 0.45 || keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD || keys.ArrowUp || keys.ArrowDown || keys.ArrowLeft || keys.ArrowRight;
+    if (!mv) { const e = ents[uid]; if (e) { e.av.root.position.copy(me.pos); e.av.root.rotation.y = me.yaw; } _lastP.copy(me.pos); return; }
+    specId = ''; jump.press = false; toast('動いたので、自分の画面にもどりました', 1600); refreshUI();
   }
   const frozen = !st || (lobbyLike(st) && lobbyOpen) || specOn(); // 観戦中は動かない
   let ix = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x;
@@ -1886,7 +1988,7 @@ function openSettings() { $('oLite').checked = settings.lite; $('oBloom').checke
 $('oSnd').addEventListener('change', e => { settings.snd = e.target.value; applySession(); applyVol(); saveSet(); audioInit(); });
 $('btnLay').onclick = () => { show('modal', false); layoutEdit(true); };
 $('btnSet1').onclick = openSettings; $('btnSet2').onclick = openSettings;
-$('btnSetClose').onclick = () => show('modal', false);
+$('btnSetClose').onclick = $('btnSetX').onclick = () => show('modal', false);
 $('oBloom').addEventListener('change', e => { settings.bloom = e.target.checked; saveSet(); });
 $('oLite').addEventListener('change', e => { settings.lite = e.target.checked; applyGfx(); saveSet(); });
 $('oSens').addEventListener('input', e => { settings.sens = Number(e.target.value); saveSet(); });
@@ -1913,7 +2015,11 @@ function applyLayout() { // 保存した場所（画面に対する割合）と�
 }
 let laySel = '', layDrag = null;
 function layoutEdit(on) {
-  if (on === laying) return; laying = on;
+  if (on === laying) return;
+  try { layoutEdit0(on); } catch (err) { reportErr(err); laying = false; document.body.classList.remove('laying'); $('layBar').classList.add('hide'); for (const [id] of LAY_ITEMS) $(id).classList.remove('layed', 'sel'); refreshUI(); }
+}
+function layoutEdit0(on) {
+  laying = on;
   document.body.classList.toggle('laying', on); show('layBar', on);
   if (on) {
     if (document.pointerLockElement) document.exitPointerLock();
@@ -1935,6 +2041,7 @@ function layStore(id) { const el = $(id), r = el.getBoundingClientRect(); layout
 // 編集中は、ボタンをおしても本来の動きをしない（ドラッグで動かすだけ）
 for (const ev of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'click', 'contextmenu']) addEventListener(ev, e => {
   if (!laying || (e.target.closest && e.target.closest('#layBar'))) return;
+  if (!document.body.classList.contains('laying')) { laying = false; return; } // 念のため：画面が編集中でなければ、ボタンをふさがない
   e.stopPropagation(); if (ev !== 'pointermove') e.preventDefault();
   if (ev === 'pointerdown') {
     const el = e.target.closest && e.target.closest('[data-layid]'); if (!el) return;

@@ -9,7 +9,8 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 *{touch-action:manipulation}
 .sheet,.card,.screen,#lobby,#reveal{touch-action:pan-y}
-html,body{position:fixed;inset:0;width:100%;touch-action:none;overscroll-behavior:none;-webkit-text-size-adjust:100%;margin:0;height:100%;overflow:hidden;background:#10151c;color:#fff;font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;user-select:none;-webkit-user-select:none}
+button *{pointer-events:none} /* ボタンの中の文字が入れかわっても、指はいつもボタンそのものに当たる（iPhone で指の終わりを見失わないように） */
+html,body{-webkit-touch-callout:none;position:fixed;inset:0;width:100%;touch-action:none;overscroll-behavior:none;-webkit-text-size-adjust:100%;margin:0;height:100%;overflow:hidden;background:#10151c;color:#fff;font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;user-select:none;-webkit-user-select:none}
 #cv{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;touch-action:none;display:block}
 .hide{display:none!important}
 .screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding-left:calc(16px + var(--sl))!important;padding-right:calc(16px + var(--sr))!important;background:linear-gradient(160deg,#17324a,#1d5a45);z-index:30;padding:16px;overflow:auto}
@@ -31,7 +32,7 @@ label.l select,label.l input[type=number]{width:55%;margin:0;padding:8px}
 #hTimer{font-size:20px!important;min-width:64px;text-align:center}
 #cross{position:fixed;left:50%;top:50%;width:22px;height:22px;margin:-11px;border:2px solid #fff;border-radius:50%;z-index:9;pointer-events:none;mix-blend-mode:difference}
 #toast{position:fixed;left:50%;top:18%;transform:translateX(-50%);background:rgba(0,0,0,.75);padding:10px 16px;border-radius:12px;font-weight:700;z-index:25;pointer-events:none;transition:opacity .3s;opacity:0;text-align:center;max-width:90vw}
-#tools{position:fixed;right:calc(8px + var(--sr));top:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px;z-index:12}
+#tools{position:fixed;right:calc(8px + var(--sr));top:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px;z-index:15}
 #tools button{padding:9px 10px;font-size:13px;background:rgba(20,28,36,.85)}
 #tools button.on{background:#2e8b63}
 #tools.two,#sys.two{display:grid;grid-template-columns:auto auto;align-items:start}
@@ -39,7 +40,7 @@ label.l select,label.l input[type=number]{width:55%;margin:0;padding:8px}
 #tDrop{border-left:10px solid #b9b9b9}
 #sys{position:fixed;left:calc(8px + var(--sl));top:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px;z-index:12}
 #sys button{padding:8px 10px;font-size:13px;background:rgba(20,28,36,.85)}
-.sheet{position:fixed;left:0;right:0;bottom:0;max-height:44vh;overflow:auto;background:rgba(14,19,26,.93);border-radius:16px 16px 0 0;padding:10px 12px calc(12px + env(safe-area-inset-bottom));z-index:14;font-size:13px}
+.sheet{position:fixed;left:0;right:var(--sheetR,0px);bottom:0;max-height:44vh;overflow:auto;background:rgba(14,19,26,.93);border-radius:16px 16px 0 0;padding:10px 12px calc(12px + env(safe-area-inset-bottom));z-index:14;font-size:13px}
 .sheet .row{flex-wrap:wrap;margin-bottom:6px}.sheet button{padding:8px 10px;font-size:13px;flex:0 0 auto}
 .sheet label.l{margin:4px 0}
 #bcolor{width:52px;height:38px;border:0;padding:0;background:none;flex:0 0 52px}
@@ -114,9 +115,11 @@ body.laying #layShade{display:block}
 #layBar input[type=range]{width:130px}
 #count{position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:15;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:4px;text-shadow:0 3px 12px #000a}
 #count b{font-size:84px;line-height:1;color:#fff}#count span{font-size:14px;font-weight:700;background:rgba(0,0,0,.5);padding:4px 10px;border-radius:10px}
+#lockTip{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));transform:translateX(-50%);z-index:12;pointer-events:none;background:rgba(0,0,0,.55);color:#fff;font-size:12px;padding:5px 12px;border-radius:999px;white-space:nowrap}
 #onH{position:fixed;left:50%;bottom:calc(16px + var(--sb));transform:translateX(-50%);z-index:12;pointer-events:none;background:#d9342b;color:#fff;font-weight:800;padding:8px 14px;border-radius:999px;box-shadow:0 2px 10px #0006;font-size:14px}
 #btnGo{background:#2e8b63!important}#btnGo.stop{background:#b8452f!important}
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:flex;align-items:center;justify-content:center;padding:16px}
+#btnSetX{position:sticky;top:0;float:right;margin:-4px -4px 0 8px;width:40px;height:40px;padding:0;border-radius:50%;font-size:18px;z-index:2} /* 横画面で下までスクロールしなくても閉じられる */
 #modal .card{max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;touch-action:pan-y} /* 横画面のスマホでも下の「閉じる」まで届くようにスクロール */
 small{color:#9fb2c2}
 #shells{position:fixed;left:50%;bottom:calc(14px + var(--sb));transform:translateX(-50%);display:flex;gap:5px;z-index:10;pointer-events:none}
@@ -131,7 +134,7 @@ small{color:#9fb2c2}
   input[type=text],select,input[type=number]{padding:8px;margin:4px 0}button{padding:9px 12px}
   label.l{margin:4px 0;font-size:13px}
   #lobby .card{max-width:640px}#hostSet{display:grid;grid-template-columns:1fr 1fr;column-gap:14px}
-  .sheet{left:auto;right:0;top:0;bottom:0;width:min(330px,44vw);max-height:none;border-radius:16px 0 0 16px;padding:8px calc(10px + var(--sr)) 8px 10px}
+  .sheet{left:auto;right:var(--sheetR,0px);top:0;bottom:0;width:min(330px,44vw);max-height:none;border-radius:16px 0 0 16px;padding:8px calc(10px + var(--sr)) 8px 10px}
   #tools button,#sys button{padding:6px 8px;font-size:12px}#tools,#sys{gap:4px;top:calc(46px + env(safe-area-inset-top))}
   #reveal{max-width:300px;max-height:60vh}
   #joy{width:110px;height:110px;bottom:calc(14px + var(--sb))}#knob{left:30px;top:30px}
@@ -226,6 +229,7 @@ small{color:#9fb2c2}
 <!-- ゲーム開始のカウントダウン -->
 <div id="count" class="hide"><b id="countN">10</b><span id="countS"></span></div>
 <div id="onH" class="hide">🔴 HUNTER の円に乗っています（鬼の候補）</div>
+<div id="lockTip" class="hide">マウスは画面の中です（視点を動かす・撃つ）。ボタンを押す時は <b>Esc</b> キーでマウスを出してね</div>
 
 <!-- ロビー -->
 <div id="lobby" class="hide"><div class="card t">
@@ -250,8 +254,8 @@ small{color:#9fb2c2}
   <h2 id="rTitle"></h2>
   <small>答え合わせタイム：自由に歩いて、みんなの隠れ場所を見て回ろう</small>
   <span id="rX"></span>
-  <div id="rlist"></div>
   <button id="btnLobby" class="full">ロビーに戻る</button>
+  <div id="rlist"></div>
 </div>
 
 <!-- スマホ操作 -->
@@ -286,6 +290,7 @@ small{color:#9fb2c2}
 
 <!-- 設定 -->
 <div id="modal" class="hide"><div class="card">
+  <button id="btnSetX" aria-label="閉じる">✕</button>
   <h2>設定</h2>
   <label class="l">軽量化モード <input id="oLite" type="checkbox" style="width:22px;height:22px"></label>
   <label class="l">光のにじみ（重い端末はオフ） <input id="oBloom" type="checkbox" style="width:22px;height:22px"></label>
@@ -295,6 +300,7 @@ small{color:#9fb2c2}
   <label class="l">音の出し方 <select id="oSnd"><option value="mix">音楽アプリといっしょに（効果音だけ）</option><option value="mixbgm">音楽アプリといっしょに（BGMも）</option><option value="silent">マナーモードでも鳴らす</option></select></label>
   <button id="btnLay" class="full sec">🕹 ボタンの配置・大きさを変える</button>
   <small>「音楽アプリといっしょに」：Spotify・ミュージックなどの音楽を止めずに、ショットガン・足音などのゲームの音が重なって聞こえます（iPhone は本体の横の消音スイッチをオフ＝着信音が鳴る状態にしてください。オンだと iOS のきまりでブラウザのゲームの音は消えます）。<br>「マナーモードでも鳴らす」：消音スイッチがオンでも鳴りますが、ほかのアプリの音楽は止まります（ブラウザではこの2つを同時にはできません）。<br>軽量化モード：影オフ・解像度ダウン・通信頻度ダウン（アンチエイリアスは再読み込み後に反映）</small>
+  <small id="errLine" style="display:block;color:#ff9a9a;margin:6px 0;word-break:break-all"></small>
   <button id="btnSetClose" class="full">閉じる</button>
 </div></div>
 

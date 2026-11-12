@@ -128,6 +128,50 @@ export function drawPattern(x, S, kind, c1, c2, r) {
         for (let i = 0; i < 6; i++) { const cx = (i + 0.5) * S / 6, by = (j + 1) * S / 3 - 14, c = col(i + j * 2); x.fillStyle = c; x.fillRect(cx - 7, by - 22, 14, 22); x.fillRect(cx - 3, by - 28, 6, 6); x.fillStyle = 'rgba(255,255,255,0.4)'; x.fillRect(cx - 5, by - 18, 3, 14); x.fillStyle = '#1b1d20'; x.fillRect(cx - 6, by + 2, 12, 5); }
       }
       break;
+    case 'tatami': { // たたみ（い草のすじ・ふちの帯）。1枚に2畳（たて・よこ）
+      x.fillStyle = 'rgba(70,90,30,0.16)'; for (let i = 0; i < S; i += 5) x.fillRect(0, i, S, 2);
+      x.fillStyle = 'rgba(255,255,230,0.10)'; for (let i = 2; i < S; i += 9) x.fillRect(0, i, S, 1);
+      speck(70, 0.03); x.fillStyle = col(0); x.fillRect(0, 0, S, 9); x.fillRect(0, S / 2 - 4, S, 9); x.fillRect(0, 0, 3, S);
+      break;
+    }
+    case 'clock': { // 時計の文字ばん（目もりと針）
+      const c = S / 2; x.fillStyle = col(0);
+      for (let k = 0; k < 12; k++) { const a = k * Math.PI / 6, rr = k % 3 ? 5 : 9; x.fillRect(c + Math.cos(a) * S * 0.4 - rr, c + Math.sin(a) * S * 0.4 - rr, rr * 2, rr * 2); }
+      x.strokeStyle = col(0); x.lineCap = 'round'; x.lineWidth = S * 0.045; x.beginPath(); x.moveTo(c, c); x.lineTo(c + S * 0.2, c - S * 0.12); x.stroke();
+      x.lineWidth = S * 0.03; x.beginPath(); x.moveTo(c, c); x.lineTo(c - S * 0.05, c - S * 0.33); x.stroke();
+      break;
+    }
+    case 'rooftile': { // 屋根がわら（横にならんだかわら。段ごとにずれた継ぎ目・かげ・つや）
+      for (let j = 0; j < 4; j++) {
+        const y0 = j * q; x.fillStyle = 'rgba(0,0,0,0.28)'; x.fillRect(0, y0 + q * 0.8, S, q * 0.2);
+        x.fillStyle = 'rgba(255,255,255,0.13)'; x.fillRect(0, y0 + q * 0.08, S, q * 0.16);
+        for (let i = 0; i < 8; i++) { const cx = i * S / 8 + (j % 2 ? S / 16 : 0); x.fillStyle = col(0); wrap((a, b) => x.fillRect(a, b, 4, q * 0.8), cx, y0, 8); }
+      }
+      break;
+    }
+    case 'tile': { // タイル（目地）
+      const n = 4, t = S / n; x.fillStyle = col(0);
+      for (let i = 0; i < n; i++) { x.fillRect(0, i * t, S, 3); x.fillRect(i * t, 0, 3, S); }
+      x.fillStyle = 'rgba(255,255,255,0.18)'; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) x.fillRect(i * t + 6, j * t + 6, t * 0.35, 3);
+      break;
+    }
+    case 'shoji': { // しょうじ（白い紙と木のこうし）
+      x.fillStyle = col(0); const c = 3, rws = 4;
+      for (let i = 0; i <= c; i++) x.fillRect(i * S / c - 3, 0, 6, S);
+      for (let j = 0; j <= rws; j++) x.fillRect(0, j * S / rws - 3, S, 6);
+      x.fillStyle = 'rgba(0,0,0,0.04)'; for (let i = 0; i < 30; i++) x.fillRect(r() * S, r() * S, 10 + r() * 20, 2);
+      break;
+    }
+    case 'floorwood': { // フローリング（ずらして並んだ板）
+      const n = 6, t = S / n;
+      for (let j = 0; j < n; j++) {
+        let a = -Math.floor(r() * S * 0.5);
+        while (a < S) { const L = S * (0.35 + r() * 0.5); x.fillStyle = `rgba(${r() < 0.5 ? '0,0,0' : '255,255,255'},${(0.03 + r() * 0.06).toFixed(3)})`; x.fillRect(a, j * t, L, t); x.fillStyle = 'rgba(0,0,0,0.22)'; x.fillRect(a, j * t, 2, t); a += L; }
+        x.fillStyle = 'rgba(0,0,0,0.25)'; x.fillRect(0, j * t, S, 2);
+      }
+      x.fillStyle = 'rgba(0,0,0,0.05)'; for (let i = 0; i < 60; i++) x.fillRect(r() * S, r() * S, 12 + r() * 30, 1);
+      break;
+    }
     case 'cabinet': // 台所の戸だな（とびらと取っ手）
       x.fillStyle = 'rgba(0,0,0,0.3)'; x.fillRect(0, 0, 3, S); x.fillRect(0, S * 0.24, S, 3);
       x.fillStyle = 'rgba(255,255,255,0.18)'; x.fillRect(6, S * 0.3, S - 12, 2);

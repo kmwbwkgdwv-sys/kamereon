@@ -931,7 +931,7 @@ function windowIn(h, x, z, nx, nz, w = 2.4, y0 = 1.15, ht = 1.5) {
   B(0, dp + 0.1, y0 + ht + 0.45, w + 1.3, 0.05, 0.05, '#c9a24a', NC);
 }
 // 大きな家：中に入れる。窓（ガラス・外の窓わく・よろい戸・中のカーテン）・玄関ポーチ・部屋ごとの家具と小物・屋上
-//   dir = 正面の向き。中は リビング／ダイニングキッチン／子ども部屋／寝室 の4つ
+//   dir = 正面の向き。中は リビング（玄関）／ダイニングキッチン／子ども部屋／寝室／洗面所（勝手口）／トイレ／浴室 の7つ
 function bigHouse(h, x, z, dir, pal) {
   const F = frame(h, x, z, dir), W = 16, D = 11, H = 3.2, t = 0.3, uX = F.ax === 0; // u = 横（W）、v = 奥行（D、正面が +v）
   const B = (v, u, y, dv, hh, du, c, o) => F.B(v, u, y, dv, hh, du, c, o);
@@ -970,7 +970,7 @@ function bigHouse(h, x, z, dir, pal) {
   wall(true, D / 2 - t / 2, 1, -W / 2, W / 2, [[-4, 1.5, 0, 2.3, 'door'], win(-6.6), win(-1.6), win(2.6), win(6)]); // 正面
   wall(true, -D / 2 + t / 2, -1, -W / 2, W / 2, [win(-5.5), win(-2.2), win(2.2), win(5.8)]); // うら
   wall(false, -W / 2 + t / 2, -1, -D / 2 + t, D / 2 - t, [win(-2.6), win(2.6)]); // 左
-  wall(false, W / 2 - t / 2, 1, -D / 2 + t, D / 2 - t, [win(-2.6), [2.6, 1.4, 0, 2.3, 'door']]); // 右（勝手口）
+  wall(false, W / 2 - t / 2, 1, -D / 2 + t, D / 2 - t, [win(-3.2), [0.8, 1.4, 0, 2.3, 'door'], [4.4, 0.9, 1.3, 2.2, 'win']]); // 右（浴室の窓・勝手口・トイレの小窓）
   // 中のかべ（ドアの穴つき）
   const inw = (alongU, fixed, from, to, doors) => {
     let a = from;
@@ -980,7 +980,9 @@ function bigHouse(h, x, z, dir, pal) {
   };
   inw(false, -1, -D / 2 + t, D / 2 - t, [-2.6, 2.6]); // まん中（左右を分ける）
   inw(true, 0, -W / 2 + t, -1.1, [-4.6]); // 左：リビング（前）とキッチン（うしろ）
-  inw(true, 0.5, -0.9, W / 2 - t, [3]); // 右：子ども部屋（前）と寝室（うしろ）
+  inw(true, 0.5, -0.9, 3.9, [1.5]); // まん中：子ども部屋（前）と寝室（うしろ）
+  inw(false, 4.0, -D / 2 + t, D / 2 - t, [1.5]); // 右の列（洗面所・トイレ・浴室）とのしきり
+  inw(true, 3.6, 4.1, W / 2 - t, [5.2]); inw(true, -1.2, 4.1, W / 2 - t, [6.6]); // トイレ｜洗面所｜浴室
   // 天井・屋上（パラペット・ソーラーパネル・えんとつ）
   B(0, 0, H - 0.02, D - 2 * t, 0.02, W - 2 * t, '#f4f4f4', NC);
   B(0, 0, H, D + 0.6, 0.3, W + 0.6, '#8d8f94', { r: 0.04, pat: ['noise', '#8d8f94', 0, 4, 4] });
@@ -988,26 +990,38 @@ function bigHouse(h, x, z, dir, pal) {
   B(-2, 4, H + 0.3, 2.4, 0.5, 3.6, '#2f4f7a', { rot: F.ax ? [0, 0, 0.3 * F.ax] : [-0.3 * F.az, 0, 0], pat: ['check2', '#2f4f7a', '#3f6fa0', 3, 2] }); // ソーラーパネル
   B(1, -5.5, H + 0.3, 0.8, 1.4, 0.8, '#b8452f', { r: 0.03, pat: ['brick', '#b8452f', '#9a3a28', 1, 2] }); // えんとつ
   // 天井の明かり（部屋ごと）
-  for (const [v, u] of [[2.8, -4.5], [-2.8, -4.5], [3, 3.5], [-2.5, 3.5]]) { const [px, pz] = F.at(v, u); h.ball(px, H - 0.25, pz, 0.22, '#fff4c2', { glow: 1, nocol: true }); h.cyl(px, H - 0.1, pz, 0.3, 0.08, '#f4f4f4', NC); }
+  for (const [v, u] of [[2.6, -4.4], [-2.6, -4.4], [2.9, 1.5], [-2.4, 1.5], [1.2, 5.9], [4.4, 5.9], [-3.2, 5.9]]) { const [px, pz] = F.at(v, u); h.ball(px, H - 0.25, pz, 0.22, '#fff4c2', { glow: 1, nocol: true }); h.cyl(px, H - 0.1, pz, 0.3, 0.08, '#f4f4f4', NC); }
   // 玄関ポーチ：段・柱・ひさし・開いたドア
   B(D / 2 + 0.9, -4, 0, 1.6, 0.16, 2.6, '#b9b7b0', { r: 0.03 }); B(D / 2 + 1.9, -4, 0, 0.5, 0.08, 2.0, '#b9b7b0', { r: 0.02 });
   for (const sgn of [-1, 1]) { const [px, pz] = F.at(D / 2 + 1.5, -4 + sgn * 1.15); h.cyl(px, 0.16, pz, 0.1, 2.5, '#f4f1e8', { seg: 12 }); }
   B(D / 2 + 0.9, -4, 2.66, 1.9, 0.14, 2.8, shut, { r: 0.04 });
   B(D / 2 - t - 0.7, -4 - 0.72, 0, 1.4, 2.25, 0.06, '#8a5a33', { r: 0.02, pat: ['cabinet', '#8a5a33', '#c9a24a', 1, 2] }); // 開いたドア
   { const [px, pz] = F.at(D / 2 + 1.4, -6.3); mailbox(h, px, pz); }
-  // キッチン（うしろの左）：流し台・コンロ・つり戸だな
-  B(-D / 2 + t + 0.35, -4.5, 0, 0.7, 0.95, 6, '#f4f4f4', { pat: ['cabinet', '#f4f4f4', '#9aa1a8', 5, 1] }); B(-D / 2 + t + 0.35, -4.5, 0.95, 0.75, 0.06, 6.05, '#3a3a3a');
-  // 寝室（うしろの右）：ベッド
-  { const [px, pz] = F.at(-2.6, 5.3); bed(h, px, pz, pick(h, ['#5b76b8', '#e0719a', '#8fbf7a'])); }
-  // 部屋ごとに家具・小物を置く（ドアの前はあけておく）
-  const holds = [[D / 2 - 1.1, -4], [2.6, W / 2 - 1.1], [-2.6, -1], [2.6, -1], [0, -4.6], [0.5, 3]].map(([v, u]) => { const [px, pz] = F.at(v, u); return h.hold(px, pz, 2.0, 2.0); }); // ドアの前
-  const rect = (v0, v1, u0, u1) => { const a = F.at(v0, u0), b = F.at(v1, u1); return [Math.min(a[0], b[0]), Math.max(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[1], b[1])]; };
-  const A = TOY;
-  scatter(h, ['sofaK', 'tvset', 'lampset', 'tallplant', 'plush', 'clock', 'aquarium', 'coats', 'umbrella', 'beanbag'], ...rect(0.3, D / 2 - t - 0.3, -W / 2 + t + 0.3, -1.3), pal, A, 30); // リビング
-  scatter(h, ['dining', 'fridgeK', 'cleaning', 'tallplant', 'crates'], ...rect(-D / 2 + t + 0.9, -0.3, -W / 2 + t + 0.3, -1.3), pal, A, 30); // ダイニングキッチン
-  scatter(h, ['dolls', 'toybox', 'robot', 'dino', 'plush', 'study', 'hina', 'trampoline'], ...rect(0.8, D / 2 - t - 0.3, -0.7, W / 2 - t - 0.3), pal, A, 30); // 子ども部屋
-  scatter(h, ['dresser', 'pcdesk', 'closet', 'lampset', 'dolls', 'clock', 'tallplant'], ...rect(-D / 2 + t + 0.3, 0.3, -0.7, W / 2 - t - 0.3), pal, A, 30); // 寝室
-  holds.forEach(c => h.release(c));
+  // ---- 部屋ごとの家具（向きをそろえて壁ぞいに。ドアの前はあけておく）----
+  const Dw = (dv, du) => [F.ax * dv - F.az * du, F.az * dv + F.ax * du]; // 家の中の向き → 世界の向き
+  const put = (fn, v, u, dv, du, ...a) => { const [px, pz] = F.at(v, u); return fn(h, px, pz, Dw(dv, du), ...a); };
+  const at = (v, u) => F.at(v, u), A = TOY, cc = pick(h, ['#3f5f8a', '#7a2f2f', '#5a7a4a', '#8a6a9a']);
+  // リビング（玄関から入る）：テレビ・ソファ・テーブル・本だな・くつ箱
+  put(tvF, 2.4, -7.4, 0, 1, 2.6); put(sofaF, 2.4, -2.6, 0, -1, 2.6, cc); { const [px, pz] = at(2.4, -5.0); const [w, d] = lie(Dw(0, 1), 1.0, 1.6); table(h, px, pz, w, d, '#6b4a2b', 0.42); }
+  { const [px, pz] = at(2.4, -4.8); const [w, d] = lie(Dw(0, 1), 3.2, 3.4); h.F(px, pz, w, d, 0, ['diag', '#a8443f', '#d9a441', 2, 2], true); }
+  put(shoeboxF, 4.95, -6.4, -1, 0, 1.4, 0.9); put(chestF, 0.45, -6.6, 1, 0, 1.6, 0.85, '#8a5a33');
+  { const [px, pz] = at(0.6, -2.0); KIT.tallplant(h, px, pz, pal, A); } { const [px, pz] = at(4.6, -1.7); KIT.plush(h, px, pz, pal, A); }
+  // ダイニングキッチン：流し台とコンロ・冷蔵庫・食卓・食器だな
+  put(counterF, -4.85, -4.6, 1, 0, 4.6, { sink: -1.2, stove: 1.2 }); put(fridgeF, -4.8, -1.6, 1, 0);
+  { const [px, pz] = at(-2.2, -4.8); const [w, d] = lie(Dw(1, 0), 1.0, 1.7); table(h, px, pz, w, d, '#c98f4e'); for (const s2 of [-1, 1]) { const [cx, cz] = at(-2.2 + s2 * 0.75, -4.8), [fx, fz] = Dw(-s2, 0); chair(h, cx, cz, '#8a5a33', fz, fx); } }
+  put(cupboardF, -2.2, -7.45, 0, 1, 1.8, '#b08a5a'); { const [px, pz] = at(-0.7, -7.2); bin(h, px, pz, '#55606b'); }
+  // 子ども部屋：2段ベッド・つくえ・おもちゃ箱
+  put(bunkF, 4.45, 0.4, 0, 1, pick(h, TOY)); put(deskF, 3.9, 3.45, 0, -1, '#f3f1ec', 'study'); { const [px, pz] = at(1.5, 0.0); KIT.toybox(h, px, pz, pal, A); }
+  { const [px, pz] = at(2.6, 1.6); const [w, d] = lie(Dw(0, 1), 2.0, 2.0); h.F(px, pz, w, d, 0, ['dots', '#f3c6d4', '#ffffff', 2, 2], true); bear(h, px, 0, pz, 0.45, '#d9b48a', 0); }
+  // 寝室：ベッド・ナイトテーブル・たんす・洋服だんす（中に入れる）
+  put(bedF, -3.4, 1.2, 1, 0, pick(h, ['#5b76b8', '#e0719a', '#8fbf7a']), 2.0, 3.0); put(nightF, -4.75, -0.4, 1, 0, '#8a5a33'); put(nightF, -4.75, 2.8, 1, 0, '#8a5a33');
+  { const [px, pz] = at(-0.9, 3.35); closet(h, px, pz, Dw(0, -1), '#8a5a33', pal, A); }
+  // 洗面所（勝手口から入れる）：洗たく機・洗面台・せんたくかご
+  put(washerF, 2.8, 7.35, 0, -1, true); put(vanityF, -0.85, 4.8, 1, 0, 1.2); { const [px, pz] = at(2.9, 4.6); h.lathe(px, 0, pz, [[0.001, 0], [0.24, 0], [0.28, 0.45], [0.001, 0.45]], '#d8c9a3', { pat: ['vband', '#d8c9a3', '#c4b48c', 6, 1] }); }
+  // トイレ・浴室（お湯に体の下の方が沈む）
+  put(toiletF, 4.45, 7.25, 0, -1);
+  { const [px, pz] = at(-4.2, 5.9); const [w, d] = lie(Dw(1, 0), 1.5, 3.2); pit(h, px, pz, w, d, 0.7, 0.2, '#ffffff', { r: 0.1 }, 0.58, 0.34, ['wave', '#7fc4e0', '#b8e2f0', 2, 3]); }
+  { const [px, pz] = at(-2.0, 7.5); h.cyl(px, 0, pz, 0.03, 2.1, '#c9ccd0', { seg: 8 }); h.ball(px, 2.05, pz, 0.12, '#c9ccd0', NC); const [qx, qz] = at(-2.0, 6.3); h.cyl(qx, 0, qz, 0.2, 0.38, '#f4f4f4', { seg: 14 }); }
   // 庭：木のさく・花だん・車・自転車
   for (const sgn of [-1, 1]) { const [px, pz] = F.at(D / 2 + 3.2, sgn * 5.5); KIT.planter(h, px, pz, pal); }
   { const [px, pz] = F.at(0, -W / 2 - 3.2); car(h, px, pz, pick(h, CARC), !uX); }
@@ -1281,7 +1295,7 @@ function bld(h, T, x, z, w, d, ht, fz) { // fz = ±1：表（通り側）が向�
   h.B(x, 2.55, zf + fz * 0.8, aw, 0.16, 1.6, acc, { pat: ['vband', acc, '#f4f4f4', Math.max(2, Math.round(aw / 0.8)), 1], r: 0.06, glow: T.neon ? 0.5 : 0 });
   h.B(x, 2.32, zf + fz * 1.58, aw, 0.24, 0.04, acc, { pat: ['zigzag', acc, '#f4f4f4', Math.max(2, Math.round(aw / 0.8)), 1] }); // 日よけのたれ
   // 上の階：窓・ベランダ（乗れる）・室外機（足場）
-  for (let y = 3.6; y < ht - 1.3; y += 2.8) {
+  for (let y = mural ? 5.3 : 3.6; y < ht - 1.3; y += 2.8) {
     for (const s of [-1, 1]) if (h.rnd() < 0.8) {
       const ww = Math.min(1.4, w * 0.22);
       const wx = x + s * w * 0.25, fr = T.neon ? shade(col, 1.6) : '#d9d2c4', dp = 0.42, wc = T.night ? pick(h, ['#ffd98a', '#9fd0e8', '#2a3038']) : '#9fd0e8';
@@ -1305,14 +1319,41 @@ function bld(h, T, x, z, w, d, ht, fz) { // fz = ±1：表（通り側）が向�
   const sx = h.rnd() < 0.5 ? -1 : 1;
   if (h.rnd() < 0.7) { const sh = Math.min(4.6, ht - 3.4); h.B(x + sx * (w / 2 - 0.45), 3.1, zf + fz * 0.95, 0.36, sh, 1.7, acc, { pat: [pick(h, ['hstripe', 'check2', 'dots', 'rainbow', 'zigzag']), acc, T.neon ? '#ffffff' : ac2, 1, 3], r: 0.1, glow: T.night ? 0.7 : 0, sink: true }); h.B(x + sx * (w / 2 - 0.45), 3.1 + sh, zf + fz * 0.4, 0.08, 0.08, 0.8, '#55606b'); }
   if (h.rnd() < 0.6) { h.cyl(x - sx * (w / 2 - 0.2), 0, zf + fz * 0.18, 0.13, ht, '#8d8f94'); for (let y = 2; y < ht; y += 2.5) h.B(x - sx * (w / 2 - 0.2), y, zf + fz * 0.09, 0.1, 0.08, 0.2, '#6d7076', NC); }
-  // 屋上：低い壁（かげに隠れる）・タンク・看板
-  for (const s of [-1, 1]) { h.B(x, ht, z + s * (d / 2 - 0.1), w, 0.6, 0.2, col, { r: 0.06 }); h.B(x + s * (w / 2 - 0.1), ht, z, 0.2, 0.6, d - 0.4, col, { r: 0.06 }); }
-  if (h.rnd() < 0.45) { const tx = x - w * 0.25, tz = z - fz * d * 0.15; h.cyl(tx, ht + 0.3, tz, 0.85, 1.7, '#b9c0c7', { pat: ['hstripe', '#b9c0c7', '#a3aab2', 1, 3] }); for (const s of [-1, 1]) for (const t of [-1, 1]) h.cyl(tx + s * 0.5, ht, tz + t * 0.5, 0.05, 0.3, '#55606b', { seg: 6 }); }
-  if (h.rnd() < 0.5) h.B(x + w * 0.2, ht, z, 1.2, 0.8, 1, '#d9dde0', { r: 0.12 });
-  if (h.rnd() < 0.4) { // 屋上の大きな看板
-    const bw = Math.min(5, w - 1);
-    for (const s of [-1, 1]) h.B(x + s * bw * 0.35, ht, z - fz * d * 0.2, 0.18, 1.6, 0.18, '#55606b');
-    h.B(x, ht + 1.6, z - fz * d * 0.2, bw, 2.2, 0.3, acc, { pat: [pick(h, ['splat', 'confetti', 'check2', 'wave', 'rainbow']), acc, T.acc, 3, 1], r: 0.08, glow: T.night ? 0.6 : 0, sink: true });
+  // 屋上・屋根：建物ごとにちがう形（平らな屋上／切妻／寄棟／ドーム／連続した三角屋根／とんがり屋根の塔／給水塔）
+  const parapet = () => { for (const s of [-1, 1]) { h.B(x, ht, z + s * (d / 2 - 0.1), w, 0.6, 0.2, col, { r: 0.06 }); h.B(x + s * (w / 2 - 0.1), ht, z, 0.2, 0.6, d - 0.4, col, { r: 0.06 }); } };
+  const rc = T.neon ? pick(h, ['#2a2f4a', '#3a2440', '#1f3a4a']) : pick(h, ['#8a3a2a', '#3f5f8a', '#4a5a4a', '#6b4a3a', '#2f3a4a', '#9a6a3a', '#5a6a7a']);
+  const rp = n => ['rooftile', rc, shade(rc, 0.68), Math.max(2, Math.round(n / 1.4)), 3], rs = h.rnd(), eave = () => h.B(x, ht, z, w + 0.6, 0.16, d + 0.6, dc, { r: 0.04 });
+  if (rs < 0.28) { // 平らな屋上：低い壁・タンク・室外機・看板
+    parapet();
+    if (h.rnd() < 0.45) { const tx = x - w * 0.25, tz = z - fz * d * 0.15; h.cyl(tx, ht + 0.3, tz, 0.85, 1.7, '#b9c0c7', { pat: ['hstripe', '#b9c0c7', '#a3aab2', 1, 3] }); for (const s of [-1, 1]) for (const t of [-1, 1]) h.cyl(tx + s * 0.5, ht, tz + t * 0.5, 0.05, 0.3, '#55606b', { seg: 6 }); }
+    if (h.rnd() < 0.5) h.B(x + w * 0.2, ht, z, 1.2, 0.8, 1, '#d9dde0', { r: 0.12 });
+    if (h.rnd() < 0.4) { // 屋上の大きな看板
+      const bw = Math.min(5, w - 1);
+      for (const s of [-1, 1]) h.B(x + s * bw * 0.35, ht, z - fz * d * 0.2, 0.18, 1.6, 0.18, '#55606b');
+      h.B(x, ht + 1.6, z - fz * d * 0.2, bw, 2.2, 0.3, acc, { pat: [pick(h, ['splat', 'confetti', 'check2', 'wave', 'rainbow']), acc, T.acc, 3, 1], r: 0.08, glow: T.night ? 0.6 : 0, sink: true });
+    }
+  } else if (rs < 0.46) { // 切妻（むねは通りと平行）・えんとつ
+    eave(); const rh = Math.min(3.2, d * 0.45); h.roof(x, ht + 0.16, z, w + 0.5, d + 0.5, rh, w + 0.5, rc, { pat: rp(w) });
+    if (h.rnd() < 0.6) h.B(x + w * 0.28, ht, z - fz * d * 0.18, 0.7, rh + 0.9, 0.7, '#b8452f', { r: 0.03, pat: ['brick', '#b8452f', '#9a3a28', 1, 3] });
+  } else if (rs < 0.6) { // 寄棟（四方に坂）・天窓
+    eave(); const rh = Math.min(2.6, Math.min(w, d) * 0.4); h.roof(x, ht + 0.16, z, w + 0.5, d + 0.5, rh, Math.max(0, w - d), rc, { pat: rp(w) });
+    if (h.rnd() < 0.5) h.B(x - w * 0.15, ht + rh * 0.35, z + fz * d * 0.18, 0.9, 0.5, 0.7, '#9fd0e8', { r: 0.05, nocol: true, glow: T.night ? 0.6 : 0.1 });
+  } else if (rs < 0.72) { // ドームの屋根（まるい。上に登れる）と、てっぺんの飾り
+    parapet(); const r = Math.min(w, d) * 0.36, dc2 = T.neon ? pick(h, T.acc) : pick(h, ['#3f8f8a', '#c9a24a', '#e8dcc8', '#7d8fb3']);
+    h.cyl(x, ht, z, r * 1.05, 0.6, col, { seg: 20 }); h.dome(x, ht + 0.6, z, r, r * 0.85, r, dc2, { solid: true, pat: ['vband', dc2, shade(dc2, 0.82), 8, 1], glow: T.neon ? 0.3 : 0 });
+    h.cyl(x, ht + 0.6 + r * 0.85, z, 0.06, 1.2, '#c9a24a', { seg: 6 }); h.ball(x, ht + 1.85 + r * 0.85, z, 0.16, '#c9a24a', NC);
+  } else if (rs < 0.84) { // 三角屋根がならぶ（工場や駅のような、むねが通りと直角）
+    eave(); const n = Math.max(2, Math.round(w / 3)), sw = (w + 0.5) / n;
+    for (let i = 0; i < n; i++) h.roof(x - (w + 0.5) / 2 + (i + 0.5) * sw, ht + 0.16, z, sw, d + 0.5, Math.min(1.8, sw * 0.6), d + 0.5, rc, { al: true, pat: rp(d) });
+  } else if (rs < 0.93) { // 角にとんがり屋根の塔（時計つき）
+    parapet(); const tx = x - (h.rnd() < 0.5 ? -1 : 1) * (w / 2 - 1.4), tz = z + fz * (d / 2 - 1.4), th = 2.6;
+    h.B(tx, ht, tz, 2.4, th, 2.4, col, { r: 0.06, pat: fpat }); h.B(tx, ht + th, tz, 2.7, 0.2, 2.7, dc, { r: 0.04 });
+    h.roof(tx, ht + th + 0.2, tz, 2.8, 2.8, 2.6, 0, rc, { pat: rp(3) });
+    h.cyl(tx, ht + th * 0.6, tz + fz * 1.2, 0.6, 0.08, '#f4f4f4', { rot: [Math.PI / 2, 0, 0], nocol: true, pat: ['clock', '#f4f4f4', '#2a3038', 1, 1] });
+  } else { // 給水塔：脚の上の丸いタンクととんがり屋根
+    parapet(); const tx = x + w * 0.2, tz = z - fz * d * 0.12;
+    for (const s of [-1, 1]) for (const t of [-1, 1]) rod(h, [tx + s * 0.75, ht, tz + t * 0.75], [tx + s * 0.6, ht + 2.2, tz + t * 0.6], 0.07, '#55606b');
+    h.B(tx, ht + 2.2, tz, 1.9, 0.12, 1.9, '#55606b'); h.cyl(tx, ht + 2.32, tz, 0.95, 1.8, '#8a5a33', { pat: ['vband', '#8a5a33', '#6b4a2b', 12, 1] }); h.cone(tx, ht + 4.12, tz, 1.1, 1.0, rc);
   }
 }
 function row(h, T, x0, x1, z, d, fz, hmin, hmax) { // 通りぞいに建物を並べる（ところどころに路地）
@@ -1386,6 +1427,359 @@ function city(h, T) {
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const zz of [9.5, 16, 22.5]) if (h.rnd() < 0.7) car(h, sx * 2.1, sz * zz, pick(h, CARC), false);
 }
 
+/* ======== 部屋づくり：家具を壁ぞいに、向きをそろえて置く ========
+   dir = 家具の正面の向き（[1,0] / [-1,0] / [0,1] / [0,-1]）。frame の a = 正面への向き、b = 横 */
+const lie = (dir, a, b) => (dir[0] ? [a, b] : [b, a]); // 正面方向 a・横 b の大きさ → x・z の大きさ
+// 部屋の壁：両がわで別の壁紙。ax = 'x' なら z = c の線上に x = a0〜a1。doors = [[中心, 幅, open], ...]（open = わくなしの大きな入口）
+//   sA = 小さい側（z / x が小さい側）の [色, [模様, 模様の色, 体が入るか]]、sB = 大きい側
+function wallR(h, ax, c, a0, a1, doors, sA, sB, ht = WALL) {
+  const X = ax === 'x';
+  const box = (m, L, off, y0, y1, s) => {
+    if (L < 0.04 || y1 - y0 < 0.04) return;
+    const [col, pt] = s, o = { r: 0.02 };
+    if (pt) { o.pat = [pt[0], col, pt[1], Math.max(1, Math.round(L / 1.6)), Math.max(1, Math.round((y1 - y0) / 1.6))]; if (pt[2]) o.sink = true; }
+    h.B(X ? m : c + off, y0, X ? c + off : m, X ? L : 0.2, y1 - y0, X ? 0.2 : L, col, o);
+  };
+  const seg = (p, q, y0, y1) => { box((p + q) / 2, q - p, -0.1, y0, y1, sA); box((p + q) / 2, q - p, 0.1, y0, y1, sB); };
+  let a = a0;
+  for (const [dc, dw, open] of doors.slice().sort((u, v) => u[0] - v[0])) {
+    seg(a, dc - dw / 2, 0, ht); a = dc + dw / 2;
+    if (open) continue;
+    seg(dc - dw / 2, dc + dw / 2, 2.6, ht); // ドアの上のかべ
+    const fc = '#f4f1e8';
+    for (const s of [-1, 1]) h.B(X ? dc + s * (dw / 2 + 0.06) : c, 0, X ? c : dc + s * (dw / 2 + 0.06), X ? 0.12 : 0.5, 2.68, X ? 0.5 : 0.12, fc, { r: 0.02 }); // ドアわく
+    h.B(X ? dc : c, 2.6, X ? c : dc, X ? dw + 0.24 : 0.5, 0.12, X ? 0.5 : dw + 0.24, fc, { r: 0.02 });
+  }
+  seg(a, a1, 0, ht);
+}
+// 部屋の中へ90度ひらいたドア（ドアのうしろ＝ドアと壁のあいだに隠れられる）。(hx,hz) = ちょうつがい、inDir = 部屋の中への向き、w = ドアの幅
+function doorOpen(h, hx, hz, inDir, w, c = '#c9a26b') {
+  const cx = hx + inDir[0] * (w / 2 + 0.05), cz = hz + inDir[1] * (w / 2 + 0.05);
+  h.B(cx, 0.02, cz, inDir[0] ? w : 0.07, 2.5, inDir[0] ? 0.07 : w, c, { r: 0.02, pat: ['cabinet', c, shade(c, 0.7), 1, 2] });
+  h.ball(cx + inDir[0] * (w / 2 - 0.2) + (inDir[0] ? 0 : 0.07), 1.1, cz + inDir[1] * (w / 2 - 0.2) + (inDir[1] ? 0 : 0.07), 0.06, '#c9a24a', NC);
+}
+// ベッド（dir = 頭から足への向き。頭は壁ぎわ）。下には少しすき間
+function bedF(h, x, z, dir, c, W = 2, L = 3, wd = '#6b4a2b') {
+  const F = frame(h, x, z, dir), B = F.B;
+  for (const sa of [-1, 1]) for (const sb of [-1, 1]) B(sa * (L / 2 - 0.08), sb * (W / 2 - 0.08), 0, 0.12, 0.32, 0.12, wd, { r: 0.02 });
+  B(0, 0, 0.3, L, 0.14, W, wd, { r: 0.03, pat: ['grain', wd, 0, 2, 2] });
+  B(0, 0, 0.44, L - 0.14, 0.24, W - 0.1, '#efe9df', { r: 0.1, pat: ['fabric', '#efe9df', 0, 3, 3] });
+  B(0.3, 0, 0.64, L - 0.74, 0.1, W + 0.04, c, { r: 0.05, pat: ['fabric', c, 0, 3, 3] });
+  B(L / 2 - 0.02, 0, 0.42, 0.06, 0.3, W + 0.04, c, { r: 0.03 });
+  const np = W > 1.7 ? 2 : 1;
+  for (let i = 0; i < np; i++) { const [px, pz] = F.at(-L / 2 + 0.45, np > 1 ? (i - 0.5) * W / 2 : 0), [rx, rz] = lie(dir, 0.24, Math.min(0.42, W / 2 - 0.12)); h.lump(px, 0.79, pz, rx, 0.11, rz, '#ffffff', { seed: seed8(h), bump: 0.12, freq: 1.3, pat: ['fabric', '#ffffff', 0, 2, 1] }); }
+  B(-L / 2 - 0.06, 0, 0, 0.12, 1.25, W + 0.12, wd, { r: 0.04, pat: ['grain', wd, 0, 2, 1] });
+  B(L / 2 + 0.05, 0, 0, 0.1, 0.64, W + 0.1, wd, { r: 0.03 });
+}
+function nightF(h, x, z, dir, c) { // ナイトテーブルと電気スタンド
+  frame(h, x, z, dir).B(0, 0, 0, 0.5, 0.6, 0.55, c, { r: 0.03, pat: ['cabinet', c, shade(c, 0.6), 1, 2] });
+  h.cyl(x, 0.6, z, 0.1, 0.04, '#c9a24a'); h.cyl(x, 0.64, z, 0.02, 0.3, '#c9a24a', { seg: 6 }); h.cone(x, 0.9, z, 0.2, 0.24, '#f5e9c0', { rt: 0.12, glow: 0.5 });
+}
+function chestF(h, x, z, dir, w, ht, c, top = true) { // たんす・チェスト（引き出し）と上の小物
+  const F = frame(h, x, z, dir);
+  F.B(0, 0, 0, 0.55, ht, w, c, { r: 0.03, pat: ['cabinet', c, shade(c, 0.55), Math.max(1, Math.round(w / 0.7)), Math.max(2, Math.round(ht / 0.32))] });
+  if (!top) return;
+  const [vx, vz] = F.at(0, -w / 4); h.lathe(vx, ht, vz, [[0.001, 0], [0.09, 0], [0.12, 0.15], [0.06, 0.3], [0.08, 0.36], [0.001, 0.36]], pick(h, TOY), { seg: 12 });
+  F.B(-0.12, w / 4, ht, 0.05, 0.3, 0.24, '#c9a24a', { r: 0.01, nocol: true });
+  F.B(0.02, w / 4 - 0.35, ht, 0.26, 0.12, 0.3, pick(h, TOY), { r: 0.03 });
+}
+// つくえ（dir = いすのある側）。kind：'study' スタンドと本／'pc' モニター／'make' 鏡（ドレッサー）
+function deskF(h, x, z, dir, c, kind = 'study') {
+  const F = frame(h, x, z, dir), w = 1.5, d = 0.7, ac = shade(c, 0.85);
+  F.B(0, 0, 0.7, d, 0.06, w, c, { r: 0.02, pat: ['grain', c, 0, 2, 1] });
+  F.B(0, w / 2 - 0.23, 0, d - 0.04, 0.7, 0.42, ac, { r: 0.02, pat: ['cabinet', ac, shade(ac, 0.6), 1, 3] });
+  F.B(0, -w / 2 + 0.04, 0, d - 0.04, 0.7, 0.05, ac, { r: 0.01 });
+  F.B(-d / 2 + 0.04, -0.22, 0.25, 0.04, 0.4, w - 0.55, ac, { r: 0.01 });
+  { const [cx, cz] = F.at(0.72, -0.15); chair(h, cx, cz, kind === 'pc' ? '#2a3038' : kind === 'make' ? '#e8dcc8' : c, -dir[1], -dir[0]); }
+  if (kind === 'pc') {
+    F.B(-0.16, 0, 0.76, 0.22, 0.04, 0.3, '#2a3038'); F.B(-0.18, 0, 0.8, 0.06, 0.24, 0.08, '#2a3038', NC);
+    F.B(-0.2, 0, 1.0, 0.05, 0.42, 0.78, '#15171a', { r: 0.02 }); F.B(-0.17, 0, 1.03, 0.02, 0.36, 0.7, '#2a5f9a', { nocol: true, glow: 0.35 });
+    F.B(0.12, -0.05, 0.76, 0.17, 0.025, 0.5, '#3a3d44', NC);
+  } else if (kind === 'make') {
+    F.B(-0.3, 0, 0.76, 0.06, 1.0, 0.8, '#c9a24a', { r: 0.03 }); F.B(-0.26, 0, 0.82, 0.02, 0.88, 0.68, '#cfe6f2', { nocol: true, glow: 0.12 });
+    for (let i = 0; i < 4; i++) { const [px, pz] = F.at(0.05, -0.55 + i * 0.12); h.cyl(px, 0.76, pz, 0.04, 0.12 + (i % 2) * 0.06, pick(h, TOY), { seg: 8, nocol: true }); }
+  } else {
+    const [px, pz] = F.at(-0.15, w / 2 - 0.3); h.cyl(px, 0.76, pz, 0.08, 0.03, '#2a3038'); h.cyl(px, 0.79, pz, 0.015, 0.45, '#2a3038', { seg: 6 }); h.cone(px, 1.2, pz, 0.14, 0.14, '#f5e9c0', { rt: 0.06, glow: 0.5 });
+    for (let i = 0; i < 3; i++) F.B(-0.2, -0.45 + i * 0.09, 0.76, 0.22, 0.28, 0.07, pick(h, TOY), NC);
+  }
+}
+const sofaF = (h, x, z, dir, L, c) => sofa(h, x, z, L, c, dir[1] !== 0, -(dir[1] || dir[0])); // 背もたれは壁の側
+function tvF(h, x, z, dir, w = 3.2) { // テレビ台・テレビ・スピーカー・ゲーム機
+  const F = frame(h, x, z, dir);
+  F.B(0, 0, 0, 0.6, 0.5, w, '#2b2b2b', { r: 0.04, pat: ['cabinet', '#2b2b2b', '#c9ccd0', Math.max(1, Math.round(w / 0.9)), 1] });
+  F.B(-0.05, 0, 0.5, 0.3, 0.05, 0.5, '#15171a'); F.B(-0.05, 0, 0.55, 0.08, 0.2, 0.1, '#15171a');
+  const sw = w * 0.72, sh = sw * 0.56;
+  F.B(-0.05, 0, 0.72, 0.08, sh, sw, '#111418', { r: 0.03 });
+  F.B(0.0, 0, 0.76, 0.02, sh - 0.08, sw - 0.08, '#1d3550', { nocol: true, glow: 0.3, pat: [pick(h, ['artSea', 'artField', 'artLand']), '#1d3550', pick(h, ARTPAL), 1, 1] });
+  for (const s of [-1, 1]) { const [px, pz] = F.at(0, s * (w / 2 - 0.22)); h.cyl(px, 0.5, pz, 0.13, 0.75, '#2a3038', { seg: 12 }); }
+  F.B(0.12, w * 0.22, 0.5, 0.25, 0.06, 0.35, '#f4f4f4', { r: 0.02, nocol: true });
+}
+// 台所のカウンター：下の戸だな・天板・流し・コンロ・換気扇・つり戸だな。o.sink / o.stove = 横の位置
+function counterF(h, x, z, dir, len, o = {}) {
+  const F = frame(h, x, z, dir), c = o.c || '#f4f4f4';
+  F.B(0, 0, 0, 0.65, 0.9, len, c, { r: 0.02, pat: ['cabinet', c, '#9aa1a8', Math.max(1, Math.round(len / 0.6)), 1] });
+  F.B(0.02, 0, 0.9, 0.7, 0.05, len + 0.02, o.top || '#3a3a3a', { r: 0.01 });
+  if (o.sink != null) { F.B(0.05, o.sink, 0.951, 0.42, 0.02, 0.7, '#c9ccd0', NC); const [px, pz] = F.at(-0.22, o.sink); h.cyl(px, 0.95, pz, 0.03, 0.32, '#c9ccd0', { seg: 8 }); }
+  const ups = [];
+  if (o.stove != null) {
+    for (const s of [-1, 1]) { const [px, pz] = F.at(0.05, o.stove + s * 0.28); h.ring(px, 0.97, pz, 0.14, 0.022, '#2a3038'); }
+    F.B(-0.05, o.stove, 1.6, 0.55, 0.3, 0.9, '#c9ccd0', { r: 0.03 }); ups.push([-len / 2, o.stove - 0.55], [o.stove + 0.55, len / 2]);
+  } else ups.push([-len / 2, len / 2]);
+  for (const [b0, b1] of ups) if (b1 - b0 > 0.4) F.B(-0.15, (b0 + b1) / 2, 1.6, 0.35, 0.75, b1 - b0, c, { r: 0.02, pat: ['cabinet', c, '#9aa1a8', Math.max(1, Math.round((b1 - b0) / 0.6)), 1] });
+}
+function fridgeF(h, x, z, dir) { // 冷蔵庫（とびらのすき間・取っ手・マグネット）
+  const F = frame(h, x, z, dir), c = '#d5dbe0';
+  F.B(0, 0, 0, 0.75, 1.95, 0.85, c, { r: 0.06 });
+  F.B(0.38, 0, 1.25, 0.02, 0.02, 0.78, '#9aa1a8', NC);
+  for (const [y, hh] of [[0.45, 0.55], [1.4, 0.4]]) F.B(0.4, 0.32, y, 0.05, hh, 0.05, '#9aa1a8', NC);
+  for (let i = 0; i < 3; i++) F.B(0.38, -0.25 + i * 0.15, 1.5 + (i % 2) * 0.12, 0.02, 0.08, 0.08, pick(h, TOY), NC);
+}
+function cupboardF(h, x, z, dir, w, c) { // 食器だな（下は戸だな、上はガラスの中にお皿）
+  const F = frame(h, x, z, dir);
+  F.B(0, 0, 0, 0.5, 0.9, w, c, { r: 0.02, pat: ['cabinet', c, shade(c, 0.6), Math.max(1, Math.round(w / 0.6)), 1] });
+  F.B(0.02, 0, 0.9, 0.54, 0.04, w + 0.04, shade(c, 0.85));
+  F.B(-0.06, 0, 0.94, 0.38, 1.25, w, c, { r: 0.02 });
+  F.B(0.14, 0, 1.0, 0.02, 1.12, w - 0.12, '#e8f1f4', { nocol: true, pat: ['books', '#e8f1f4', ['#f4f4f4', '#e0d8c8', '#7d8fb3', '#c9573f'], Math.max(1, Math.round(w / 0.8)), 1] });
+}
+function toiletF(h, x, z, dir) { // トイレ（タンク・便器・ふた・紙）
+  const F = frame(h, x, z, dir), W = '#f4f4f4';
+  F.B(-0.32, 0, 0.42, 0.22, 0.42, 0.52, W, { r: 0.05 });
+  const [px, pz] = F.at(0.04, 0); h.lathe(px, 0, pz, [[0.001, 0], [0.15, 0], [0.13, 0.15], [0.22, 0.38], [0.24, 0.42], [0.001, 0.42]], W, { seg: 18 });
+  F.B(0.02, 0, 0.42, 0.5, 0.04, 0.44, '#e9edf0', { r: 0.03 });
+  const [rx, rz] = F.at(-0.3, 0.6); h.cyl(rx, 0.7, rz, 0.06, 0.12, '#ffffff', { seg: 10, nocol: true, rot: dir[0] ? [Math.PI / 2, 0, 0] : [0, 0, Math.PI / 2] });
+}
+function vanityF(h, x, z, dir, w) { // 洗面台（洗面ボウル・じゃ口・鏡・びん）
+  const F = frame(h, x, z, dir);
+  F.B(0, 0, 0, 0.55, 0.85, w, '#f4f4f4', { r: 0.02, pat: ['cabinet', '#f4f4f4', '#9aa1a8', Math.max(1, Math.round(w / 0.6)), 1] });
+  F.B(0.01, 0, 0.85, 0.58, 0.06, w + 0.02, '#e9edf0', { r: 0.02 });
+  const [px, pz] = F.at(0.04, 0); h.cyl(px, 0.91, pz, 0.22, 0.015, '#c9d6de', NC); const [fx, fz] = F.at(-0.2, 0); h.cyl(fx, 0.91, fz, 0.03, 0.25, '#c9ccd0', { seg: 8 });
+  F.B(-0.25, 0, 1.15, 0.05, 0.95, w * 0.85, '#c9a24a', { r: 0.02 }); F.B(-0.22, 0, 1.2, 0.02, 0.85, w * 0.85 - 0.1, '#cfe6f2', { nocol: true, glow: 0.12 });
+  for (let i = 0; i < 4; i++) { const [bx, bz] = F.at(-0.12, w / 2 - 0.2 - i * 0.14); h.cyl(bx, 0.91, bz, 0.04, 0.14 + (i % 3) * 0.05, pick(h, ['#e0719a', '#59b6d8', '#f4f4f4', '#4fbf6a']), { seg: 8, nocol: true }); }
+}
+function washerF(h, x, z, dir, stack) { // 洗たく機（丸いまど）。stack なら上にかんそう機
+  const F = frame(h, x, z, dir), rot = dir[0] ? [0, 0, Math.PI / 2] : [Math.PI / 2, 0, 0];
+  for (let k = 0; k < (stack ? 2 : 1); k++) {
+    const y = k * 0.92; F.B(0, 0, y, 0.65, 0.9, 0.65, '#f4f4f4', { r: 0.06 });
+    const [px, pz] = F.at(0.33, 0); h.cyl(px, y + 0.42, pz, 0.22, 0.03, '#9fb8c8', { rot, nocol: true }); h.cyl(px, y + 0.42, pz, 0.16, 0.036, '#5f7f9a', { rot, nocol: true });
+    F.B(0.31, 0, y + 0.76, 0.05, 0.09, 0.5, '#c9ccd0', NC);
+  }
+}
+function pianoF(h, x, z, dir, c = '#15171a') { // アップライトピアノといす
+  const F = frame(h, x, z, dir);
+  F.B(0, 0, 0, 0.6, 1.3, 1.6, c, { r: 0.03, rough: 0.2 });
+  F.B(0.42, 0, 0.68, 0.3, 0.1, 1.56, c, { r: 0.02, rough: 0.2 });
+  F.B(0.43, 0, 0.78, 0.26, 0.02, 1.44, '#f4f4f4', { nocol: true, pat: ['vband', '#f4f4f4', '#15171a', 24, 1] });
+  F.B(0.32, 0, 0.95, 0.04, 0.3, 0.5, '#f4f1e8', NC);
+  F.B(1.05, 0, 0, 0.4, 0.48, 0.9, c, { r: 0.03 });
+}
+function shoeboxF(h, x, z, dir, w, ht = 1.0, c = '#c9a26b') { // くつ箱と上の小物
+  const F = frame(h, x, z, dir);
+  F.B(0, 0, 0, 0.4, ht, w, c, { r: 0.02, pat: ['cabinet', c, shade(c, 0.6), Math.max(1, Math.round(w / 0.5)), Math.max(1, Math.round(ht / 0.5))] });
+  const [vx, vz] = F.at(0, w / 3); h.lathe(vx, ht, vz, [[0.001, 0], [0.08, 0], [0.11, 0.2], [0.05, 0.36], [0.001, 0.36]], '#3f9b6a', { seg: 12 });
+  F.B(0, -w / 4, ht, 0.25, 0.04, 0.4, '#5a3c28', NC);
+}
+function shoes(h, x, z, n) { for (let i = 0; i < n; i++) { const c = pick(h, ['#2a3038', '#e04f4f', '#f4f4f4', '#8a5a33', '#4f7fe0']), px = x + (h.rnd() - 0.5) * 1.6, pz = z + (h.rnd() - 0.5) * 1.6; for (const s of [-1, 1]) h.B(px + s * 0.09, 0.02, pz, 0.12, 0.1, 0.28, c, { r: 0.04, nocol: true }); } }
+function bunkF(h, x, z, dir, c) { // 2段ベッド（上の段の柵・はしご）。上の段に登れる
+  const F = frame(h, x, z, dir), L = 2.6, W = 1.25;
+  for (const sa of [-1, 1]) for (const sb of [-1, 1]) F.B(sa * (L / 2 - 0.05), sb * (W / 2 - 0.05), 0, 0.1, 2.15, 0.1, c, { r: 0.02 });
+  for (const y of [0.18, 1.45]) {
+    F.B(0, 0, y, L, 0.14, W, c, { r: 0.02 });
+    F.B(0, 0, y + 0.14, L - 0.12, 0.18, W - 0.12, '#efe9df', { r: 0.07, pat: ['fabric', '#efe9df', 0, 2, 1] });
+    const q = pick(h, TOY); F.B(0.25, 0, y + 0.3, L - 0.62, 0.07, W - 0.04, q, { r: 0.03, pat: ['dots', q, '#f4f4f4', 3, 2] });
+  }
+  F.B(-0.15, W / 2 - 0.05, 1.77, L - 0.75, 0.24, 0.06, c, { r: 0.02 }); F.B(0, -W / 2 + 0.05, 1.77, L - 0.1, 0.24, 0.06, c, { r: 0.02 });
+  for (const ab of [L / 2 - 0.62, L / 2 - 0.17]) F.B(ab, W / 2 + 0.05, 0, 0.05, 1.9, 0.05, c, { r: 0.01 });
+  for (let i = 0; i < 4; i++) F.B(L / 2 - 0.4, W / 2 + 0.05, 0.42 + i * 0.36, 0.45, 0.04, 0.04, c, NC);
+}
+function cribF(h, x, z, dir) { // ベビーベッド（さくの模様・メリー）
+  const F = frame(h, x, z, dir), L = 1.4, W = 0.8, c = '#f3f1ec';
+  for (const s of [-1, 1]) F.B(s * (W / 2 - 0.03), 0, 0.08, 0.06, 0.9, L, c, { r: 0.02, pat: ['vband', c, '#d9d2c4', 10, 1] });
+  for (const s of [-1, 1]) F.B(0, s * (L / 2 - 0.03), 0, W, 1.08, 0.06, c, { r: 0.02 });
+  F.B(0, 0, 0.35, W - 0.12, 0.14, L - 0.12, '#f6e1ea', { r: 0.05, pat: ['dots', '#f6e1ea', '#ffffff', 2, 1] });
+  bear(h, x, 0.49, z, 0.3, '#d9b48a', Math.atan2(dir[1], dir[0]));
+  const [mx, mz] = F.at(-W / 2 + 0.03, 0); rod(h, [mx, 1.0, mz], [mx, 1.7, mz], 0.02, '#f4f4f4', NC);
+  for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28; h.ball(mx + Math.cos(a) * 0.25, 1.45, mz + Math.sin(a) * 0.25, 0.07, TOY[i], NC); }
+}
+function oshiireF(h, x, z, dir, w) { // おしいれ：上の段にふとん。下の段はすき間に入れる。ふすまが半分しまっている
+  const F = frame(h, x, z, dir), D = 0.9, H = 2.4, c = '#e6d8b8', fr = '#8a6a4a';
+  F.B(-D / 2 + 0.04, 0, 0, 0.08, H, w, c);
+  for (const s of [-1, 1]) F.B(0, s * (w / 2 - 0.04), 0, D, H, 0.08, c);
+  F.B(0, 0, H - 0.08, D, 0.08, w, c);
+  F.B(0.02, 0, 1.15, D - 0.04, 0.08, w - 0.16, fr, { r: 0.01 });
+  for (let k = 0; k < 3; k++) { const q = pick(h, ['#f4f4f4', '#7d8fb3', '#e0719a', '#f0d040', '#8fbf7a']); F.B(-0.02, -w / 4, 1.23 + k * 0.2, 0.75, 0.2, w / 2 - 0.2, q, { r: 0.08, pat: ['fabric', q, 0, 2, 1] }); }
+  { const [px, pz] = F.at(-0.1, w / 4 + 0.1); carton(h, px, 1.23, pz, 0.6, 0.45, 0.6, CARD[0]); }
+  { const [px, pz] = F.at(-0.1, w / 2 - 0.45); carton(h, px, 0, pz, 0.55, 0.5, 0.55, CARD[2]); }
+  F.B(D / 2 + 0.03, w / 4, 0, 0.05, H - 0.1, w / 2, '#f3ead8', { r: 0.01, pat: ['artField', '#f3ead8', ARTPAL[4], 1, 1] });
+}
+function tokonomaF(h, x, z, dir, w) { // 床の間：一段高い板・かけじく・花びん・床柱
+  const F = frame(h, x, z, dir);
+  F.B(0, 0, 0, 0.9, 0.15, w, '#8a5a33', { r: 0.02, pat: ['grain', '#8a5a33', 0, 2, 1] });
+  F.B(-0.41, 0, 0.6, 0.04, 1.7, 0.75, '#f3ead8', { sharp: true, sink: true, pat: ['artNight', '#f3ead8', ARTPAL[3], 1, 1] });
+  const [px, pz] = F.at(0.05, w / 2 - 0.5); h.lathe(px, 0.15, pz, [[0.001, 0], [0.12, 0], [0.16, 0.2], [0.08, 0.42], [0.1, 0.48], [0.001, 0.48]], '#3f5f8a', { seg: 14 });
+  rod(h, [px, 0.6, pz], [px, 1.15, pz], 0.02, '#5a3c28', NC); for (let i = 0; i < 6; i++) h.ball(px + (h.rnd() - 0.5) * 0.4, 0.95 + h.rnd() * 0.3, pz + (h.rnd() - 0.5) * 0.4, 0.06, '#f3a6c4', NC);
+  const [qx, qz] = F.at(0.38, w / 2 + 0.05); h.cyl(qx, 0, qz, 0.09, 2.6, '#6b4a2b', { seg: 10 });
+}
+function shojiF(h, x, z, dir, w) { frame(h, x, z, dir).B(0.03, 0, 0, 0.06, 2.3, w, '#f4efe4', { sharp: true, sink: true, pat: ['shoji', '#f4efe4', '#8a6a4a', Math.max(1, Math.round(w / 0.9)), 2] }); } // 壁のしょうじ（体の前の方が少し入る）
+function byobuF(h, x, z, dir) { // びょうぶ（ジグザグの4枚。うしろに隠れる）
+  const F = frame(h, x, z, dir), P = pick(h, ARTPAL), k = pick(h, ['artLand', 'artFlower', 'artField']);
+  for (let i = 0; i < 4; i++) { const [px, pz] = F.at((i % 2) * 0.16, (i - 1.5) * 0.5), yaw = (i % 2 ? 0.35 : -0.35); h.B(px, 0.02, pz, dir[0] ? 0.04 : 0.54, 1.6, dir[0] ? 0.54 : 0.04, P[0], { rot: [0, yaw, 0], pat: [k, P[0], P, 1, 1] }); }
+}
+const andonF = (h, x, z) => { h.B(x, 0, z, 0.42, 0.75, 0.42, '#fff4d0', { glow: 0.45, r: 0.02, pat: ['shoji', '#fff4d0', '#8a6a4a', 1, 1] }); }; // あんどん
+// 階段：dir = のぼる向き。(x,z) = 一番下の段の手前のまん中。上におどり場。段の下はあいていて、もぐれる
+function stairsR(h, x, z, dir, n, w, rise = 0.23, run = 0.52, land = 1.9, c = '#b98d5c') {
+  const F = frame(h, x, z, dir);
+  for (let i = 0; i < n; i++) F.B((i + 0.5) * run, 0, i * rise, run + 0.02, rise, w, c, { r: 0.02, pat: ['grain', c, 0, 1, 1] });
+  F.B(n * run + land / 2, 0, (n - 1) * rise, land, rise, w, c, { r: 0.02, pat: ['grain', c, 0, 1, 2] });
+  const rc = '#6b4a2b', side = w / 2 + 0.03, A = (a, y) => { const [px, pz] = F.at(a, side); return [px, y, pz]; };
+  rod(h, A(0.1, 0.95), A(n * run, n * rise + 0.95), 0.035, rc); rod(h, A(n * run, n * rise + 0.95), A(n * run + land - 0.05, n * rise + 0.95), 0.035, rc);
+  for (const [a, y] of [[0.1, 0], [n * run, n * rise], [n * run + land - 0.05, n * rise]]) rod(h, A(a, y), A(a, y + 0.95), 0.04, rc);
+}
+// 金属のたな（物がぎっしり。たなぜんたいが当たる）
+function rackF(h, x, z, dir, len, ht = 2.0, items = 'pantry') {
+  const F = frame(h, x, z, dir), d = 0.55, mc = '#9aa1a8', [W, D] = lie(dir, d, len);
+  h.boxc(x, 0, z, W, ht, D);
+  for (const sa of [-1, 1]) for (const sb of [-1, 1]) F.B(sa * (d / 2 - 0.03), sb * (len / 2 - 0.03), 0, 0.04, ht, 0.04, mc, NC);
+  const lv = Math.max(3, Math.round(ht / 0.55)), cols = items === 'pantry' ? ['#c7a36a', '#e04f4f', '#f0d040', '#f4f4f4', '#4fbf6a', '#d98a2b'] : items === 'bath' ? ['#f4f4f4', '#59b6d8', '#e0719a', '#c6e3f3'] : ['#c7a36a', '#b8935a', '#2f6fb0', '#55606b', '#3f9b6a'];
+  for (let k = 0; k < lv; k++) {
+    const y = 0.08 + k * (ht - 0.1) / (lv - 1); F.B(0, 0, y, d, 0.03, len, mc, NC);
+    if (k === lv - 1) break;
+    const n = Math.min(8, Math.max(2, Math.round(len / 0.55))), gap = (ht - 0.1) / (lv - 1);
+    for (let i = 0; i < n; i++) { if (h.rnd() < 0.18) continue; const iw = 0.2 + h.rnd() * 0.28, ih = Math.min(gap - 0.08, 0.15 + h.rnd() * 0.3), b = -len / 2 + (i + 0.5) * len / n, c = pick(h, cols);
+      if (h.rnd() < 0.35) { const [px, pz] = F.at(0, b); h.cyl(px, y + 0.03, pz, iw * 0.4, ih, c, { seg: 10, nocol: true }); } else F.B(0, b, y + 0.03, d - 0.12, ih, iw, c, { r: 0.02, nocol: true, pat: c === '#c7a36a' || c === '#b8935a' ? ['carton', c, 0, 1, 1] : undefined }); }
+  }
+}
+function consoleF(h, x, z, dir, w) { // ろうかの細いテーブル・花びん・写真立て
+  const [W, D] = lie(dir, 0.4, w); table(h, x, z, W, D, '#8a5a33', 0.8);
+  const F = frame(h, x, z, dir), [vx, vz] = F.at(0, -w / 3);
+  h.lathe(vx, 0.8, vz, [[0.001, 0], [0.09, 0], [0.13, 0.18], [0.06, 0.38], [0.09, 0.45], [0.001, 0.45]], pick(h, ['#2f6fb0', '#c9573f', '#f4f4f4']), { seg: 12 });
+  for (let i = 0; i < 5; i++) h.ball(vx + (h.rnd() - 0.5) * 0.3, 1.3 + h.rnd() * 0.2, vz + (h.rnd() - 0.5) * 0.3, 0.07, pick(h, TOY), NC);
+  F.B(-0.08, w / 6, 0.8, 0.04, 0.28, 0.22, '#c9a24a', NC); F.B(-0.06, w / 3, 0.8, 0.04, 0.22, 0.18, '#2a3038', NC);
+}
+function pingpongF(h, x, z, dir) { // 卓球台（下にもぐれる）
+  const [W, D] = lie(dir, 2.74, 1.525), F = frame(h, x, z, dir); table(h, x, z, W, D, '#2f6b4f', 0.76);
+  F.B(0, 0, 0.761, 2.7, 0.005, 0.03, '#f4f4f4', NC); F.B(0, 0, 0.76, 0.02, 0.16, 1.7, '#f4f4f4', NC);
+  for (const s of [-1, 1]) { const [px, pz] = F.at(s * 0.9, 0.3 * s); h.cyl(px, 0.76, pz, 0.08, 0.02, '#e04f4f', NC); }
+}
+function treadmillF(h, x, z, dir) { // ランニングマシン（前に操作パネル）
+  const F = frame(h, x, z, dir);
+  F.B(0, 0, 0, 1.9, 0.18, 0.85, '#2a3038', { r: 0.04 }); F.B(0.08, 0, 0.18, 1.6, 0.02, 0.6, '#15171a', NC);
+  for (const s of [-1, 1]) { const [px, pz] = F.at(-0.82, s * 0.4); rod(h, [px, 0.18, pz], [px, 1.25, pz], 0.035, '#55606b'); }
+  F.B(-0.86, 0, 1.2, 0.25, 0.14, 0.86, '#2a3038', { r: 0.03 }); F.B(-0.82, 0, 1.34, 0.12, 0.02, 0.4, '#3dff9a', { nocol: true, glow: 0.4 });
+}
+function punchbagF(h, x, z) { // サンドバッグ（スタンドにつるす）
+  h.B(x - 0.5, 0, z, 0.9, 0.08, 0.9, '#2a3038', { r: 0.03 }); h.cyl(x - 0.8, 0.08, z, 0.05, 2.4, '#55606b', { seg: 10 }); h.B(x - 0.4, 2.42, z, 0.9, 0.08, 0.1, '#55606b');
+  rod(h, [x, 2.42, z], [x, 1.75, z], 0.015, '#c9ccd0', NC); h.cyl(x, 0.65, z, 0.3, 1.1, '#c9302a', { seg: 16, pat: ['hstripe', '#c9302a', '#2a3038', 1, 6] });
+}
+function clothesF(h, x, z, dir, len) { // 服をかけたハンガーラック（服のうしろに隠れる。服ぜんたいが当たる）
+  const F = frame(h, x, z, dir), [W, D] = lie(dir, 0.5, len);
+  F.B(0, 0, 1.95, 0.04, 0.04, len, '#c9ccd0', NC); for (const s of [-1, 1]) F.B(0, s * len / 2, 0, 0.06, 2.0, 0.06, '#c9ccd0');
+  const n = Math.floor(len / 0.3);
+  for (let i = 0; i < n; i++) { const c = pick(h, ['#2a3038', '#7d8fb3', '#c9573f', '#e8dcc8', '#3f5f8a', '#8fbf7a', '#e0719a', '#f4f4f4']), ln = 0.7 + h.rnd() * 0.9; F.B((h.rnd() - 0.5) * 0.06, -len / 2 + (i + 0.5) * len / n, 1.9 - ln, 0.42, ln, 0.1, c, { r: 0.04, nocol: true, pat: ['fabric', c, 0, 1, 2] }); }
+  h.boxc(x, 0.45, z, W * 0.8, 1.5, D);
+}
+function globeF(h, x, z) { h.cyl(x, 0, z, 0.2, 0.05, '#5a3c28'); h.cyl(x, 0.05, z, 0.03, 0.55, '#5a3c28', { seg: 6 }); h.ball(x, 0.95, z, 0.33, '#2f6fb0', { pat: ['artSea', '#2f6fb0', ['#4fbf6a', '#59b6d8', '#f4f4f4', '#2f6fb0'], 2, 1] }); h.torus(x, 0.95, z, 0.38, 0.02, [0, 0, 0.4], '#c9a24a', NC); } // 地球儀
+
+// 部屋の中で使う道具（RM = 部屋の内がわ、put = 壁ぎわに家具を向きをそろえて置く など）
+function roomTools(h, HX, HZ) {
+  const RM = (x0, x1, z0, z1) => ({ x0: x0 <= -HX ? x0 : x0 + 0.2, x1: x1 >= HX ? x1 : x1 - 0.2, z0: z0 <= -HZ ? z0 : z0 + 0.2, z1: z1 >= HZ ? z1 : z1 - 0.2 });
+  const at = (R, s, t, dp) => (s === 'n' || s === 's') ? { x: t >= 0 ? R.x0 + t : R.x1 + t, z: s === 'n' ? R.z0 + dp / 2 : R.z1 - dp / 2, dir: [0, s === 'n' ? 1 : -1] }
+    : { x: s === 'w' ? R.x0 + dp / 2 : R.x1 - dp / 2, z: t >= 0 ? R.z0 + t : R.z1 + t, dir: [s === 'w' ? 1 : -1, 0] };
+  const put = (R, s, t, dp, fn, ...a) => { const p = at(R, s, t, dp); fn(h, p.x, p.z, p.dir, ...a); return p; };
+  const shelf = (R, s, t, len, ht, c, dp = 0.8) => { const p = at(R, s, t, dp); bookshelf(h, p.x, p.z, p.dir[0] ? dp : len, p.dir[0] ? len : dp, ht, c); };
+  const win = (R, s, t, w) => { const p = at(R, s, t, 0); windowIn(h, p.x, p.z, p.dir[0], p.dir[1], w); };
+  const art = (R, s, t, y0, w, ht) => { const p = at(R, s, t, 0); pic(h, p.x, y0, p.z, p.dir[0], p.dir[1], w, ht); };
+  const FL = (x0, x1, z0, z1, pat) => h.F((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, 0, pat);
+  const wood = (c, x0, x1, z0, z1) => FL(x0, x1, z0, z1, ['floorwood', c, 0, Math.max(1, Math.round((x1 - x0) / 3)), Math.max(1, Math.round((z1 - z0) / 3))]);
+  const tile = (c, g, x0, x1, z0, z1) => FL(x0, x1, z0, z1, ['tile', c, g, Math.max(1, Math.round((x1 - x0) / 1.4)), Math.max(1, Math.round((z1 - z0) / 1.4))]);
+  const rug = (x, z, w, d, k, c1, c2) => h.F(x, z, w, d, 0, [k, c1, c2, Math.max(1, Math.round(w / 2)), Math.max(1, Math.round(d / 2))], true);
+  return { RM, at, put, shelf, win, art, FL, wood, tile, rug };
+}
+
+/* ======== 学校の家具 ======== */
+// 児童のつくえ（天板・物入れ・脚）といす（fz = 座った人が向く向き）
+function schoolDesk(h, x, z, c, fz = -1) {
+  h.B(x, 0.68, z, 1.3, 0.06, 0.8, '#d7b47c', { r: 0.02, pat: ['grain', '#d7b47c', 0, 1, 1] }); h.B(x, 0.5, z, 1.2, 0.14, 0.7, '#8d8f94', { r: 0.01 });
+  for (const sx of [-1, 1]) h.B(x + sx * 0.58, 0, z, 0.05, 0.5, 0.7, '#8d8f94', { r: 0.01 });
+  chair(h, x, z - fz * 0.85, c, fz);
+  if (h.rnd() < 0.25) h.B(x + 0.62, 0.3, z - 0.1, 0.12, 0.34, 0.3, pick(h, TOY), { r: 0.04, nocol: true }); // 横にかけた手さげ
+}
+// 黒板（わく・チョーク入れ・字）。dir = 黒板の正面
+function blackboardF(h, x, z, dir, w) {
+  const F = frame(h, x, z, dir);
+  F.B(0.06, 0, 0.9, 0.12, 1.8, w + 0.2, '#8a6a4a', { r: 0.02 });
+  F.B(0.13, 0, 1.0, 0.02, 1.6, w, '#2f5d46', { nocol: true, pat: ['noise', '#2f5d46', 0, 3, 1] });
+  F.B(0.2, 0, 0.92, 0.16, 0.05, w, '#c9a26b', { r: 0.01 });
+  for (let k = 0; k < 5; k++) F.B(0.145, -w / 2 + 0.8 + k * (w - 1.6) / 4, 1.35 + (k % 3) * 0.4, 0.01, 0.04, 0.6 + (k % 2) * 0.4, '#f4f4f4', NC); // 字
+  for (let k = 0; k < 3; k++) F.B(0.2, 0.3 + k * 0.12, 0.97, 0.04, 0.03, 0.08, pick(h, ['#f4f4f4', '#f0d040', '#e0719a']), NC); // チョーク
+}
+// 教卓（大きめのつくえ・前の板）
+function lecternF(h, x, z, dir) {
+  const F = frame(h, x, z, dir);
+  F.B(0, 0, 0, 0.8, 0.95, 1.6, '#8a5a33', { r: 0.03, pat: ['grain', '#8a5a33', 0, 2, 1] });
+  F.B(0.02, 0, 0.95, 0.85, 0.05, 1.7, '#6b4a2b', { r: 0.02 });
+  F.B(0.0, 0.4, 1.0, 0.3, 0.06, 0.4, '#f4f4f4', NC); F.B(-0.1, -0.45, 1.0, 0.25, 0.16, 0.3, '#4f7fe0', { r: 0.02, nocol: true });
+}
+// ロッカー（せの高い。とびらの通気口・取っ手・名ふだ）
+function lockerRowF(h, x, z, dir, len, c, ht = 1.9) {
+  const F = frame(h, x, z, dir), n = Math.max(1, Math.round(len / 0.65));
+  F.B(0, 0, 0, 0.5, ht, len, c, { r: 0.03 });
+  F.B(0.255, 0, 0.05, 0.01, ht - 0.1, len - 0.06, c, { nocol: true, pat: ['vents', c, 0, n, 1] });
+}
+// ランドセルのたな（ます目に色とりどりのかばん）
+function cubbyF(h, x, z, dir, len) {
+  const F = frame(h, x, z, dir), n = Math.max(2, Math.round(len / 0.55));
+  F.B(0, 0, 0, 0.45, 1.25, len, '#c9a26b', { r: 0.02, pat: ['cabinet', '#c9a26b', '#8a6a4a', n, 3] });
+  for (let i = 0; i < n; i++) for (let k = 0; k < 2; k++) if (h.rnd() < 0.75) F.B(0.17, -len / 2 + (i + 0.5) * len / n, 0.47 + k * 0.4, 0.14, 0.28, len / n - 0.14, pick(h, ['#e04f4f', '#2a3038', '#4f7fe0', '#b06fd8', '#8a5a33', '#e0719a']), { r: 0.04, nocol: true });
+}
+// げた箱（両面のくつ入れ。列のあいだに隠れる）
+function getabakoF(h, x, z, dir, len, ht = 1.7) {
+  const F = frame(h, x, z, dir), c = '#b9b7b0', n = Math.max(2, Math.round(len / 0.32)), m = Math.max(3, Math.round(ht / 0.3));
+  F.B(0, 0, 0, 0.8, ht, len, c, { r: 0.02 });
+  for (const s of [-1, 1]) F.B(s * 0.405, 0, 0.05, 0.01, ht - 0.1, len - 0.06, c, { nocol: true, pat: ['cabinet', c, '#7a7d82', n, m] });
+  for (let i = 0; i < 6; i++) { const [px, pz] = F.at((h.rnd() < 0.5 ? -1 : 1) * 0.44, -len / 2 + 0.3 + h.rnd() * (len - 0.6)); h.B(px, 0, pz, 0.14, 0.1, 0.28, pick(h, ['#f4f4f4', '#e04f4f', '#4f7fe0']), { r: 0.04, nocol: true }); } // 上ばき
+}
+// カーテン（レールからたれた、ひだのある布。当たり判定あり。半分あいている）
+function curtainF(h, x, z, dir, len, ht, c, y0 = 0) {
+  const F = frame(h, x, z, dir);
+  F.B(0, 0, ht, 0.06, 0.05, len, '#c9ccd0', NC);
+  F.B(0, 0, y0 + 0.12, 0.12, ht - y0 - 0.12, len, c, { r: 0.04, pat: ['vband', c, shade(c, 0.85), Math.max(2, Math.round(len / 0.3)), 1] });
+}
+// トイレの個室（しきり・半分あいたドア・便器）。(x,z) = 個室のまん中、dir = 入口の向き
+function stallF(h, x, z, dir, c = '#7fb7d8') {
+  const F = frame(h, x, z, dir), W = 1.5, D = 1.7, H = 1.9;
+  for (const s of [-1, 1]) F.B(0, s * W / 2, 0.15, D, H - 0.15, 0.06, c, { r: 0.02 });
+  F.B(D / 2, -W / 2 + 0.35, 0.15, 0.06, H - 0.15, 0.7, c, { r: 0.02 }); // 入口の横の板
+  { // 外へ大きく開いたドア（ちょうつがいは入口のはし）
+    const th = 1.35, L = 0.78, [px, pz] = F.at(D / 2 + L / 2 * Math.sin(th), W / 2 - L / 2 * Math.cos(th)), [ox, oz] = F.at(0, 0), [ex, ez] = F.at(Math.sin(th), -Math.cos(th));
+    h.B(px, 0.15, pz, 0.06, H - 0.2, L, shade(c, 1.08), { r: 0.02, rot: [0, Math.atan2(ex - ox, ez - oz), 0] });
+  }
+  { const [px, pz] = F.at(-D / 2 + 0.45, 0); toiletF(h, px, pz, dir); }
+}
+// 実験台（黒い天板・流し・じゃ口・ガスの栓）といす
+function labBenchF(h, x, z, dir, len = 3) {
+  const F = frame(h, x, z, dir);
+  F.B(0, 0, 0, 1.3, 0.85, len, '#e8e1d2', { r: 0.02, pat: ['cabinet', '#e8e1d2', '#9a8a6a', Math.max(1, Math.round(len / 0.7)), 1] });
+  F.B(0, 0, 0.85, 1.4, 0.06, len + 0.1, '#1b1d20', { r: 0.02 });
+  F.B(0, -len / 2 + 0.45, 0.911, 0.5, 0.01, 0.6, '#9aa1a8', NC); { const [px, pz] = F.at(0, -len / 2 + 0.1); h.cyl(px, 0.91, pz, 0.03, 0.4, '#c9ccd0', { seg: 8 }); }
+  for (let i = 0; i < 3; i++) { const [px, pz] = F.at(0, -0.3 + i * 0.6); h.cyl(px, 0.91, pz, 0.04, 0.12, '#e0b030', { seg: 8, nocol: true }); h.lathe(px + 0.25, 0.91, pz, [[0.001, 0], [0.09, 0], [0.09, 0.05], [0.04, 0.16], [0.04, 0.24], [0.001, 0.24]], pick(h, ['#bfe6f5', '#c6f0c0', '#f6d0e0']), { seg: 10 }); }
+  for (const s of [-1, 1]) for (const t of [-1, 1]) { const [px, pz] = F.at(s * 1.05, t * len / 4); stool(h, px, pz, '#55606b'); }
+}
+// 段（音楽室のひな段・体育館のステージなど）。(x,z) = 前のはしのまん中、dir = 上る向き
+function risersF(h, x, z, dir, n, w, rise, run, c) {
+  const F = frame(h, x, z, dir);
+  for (let i = 0; i < n; i++) F.B(i * run + run / 2, 0, 0, run, (i + 1) * rise, w, c, { r: 0.02, pat: ['floorwood', c, 0, Math.max(1, Math.round(w / 2)), 1] });
+}
+// 譜面台
+function standF(h, x, z) { h.cyl(x, 0, z, 0.2, 0.03, '#2a3038'); rod(h, [x, 0.03, z], [x, 1.05, z], 0.02, '#2a3038'); h.B(x, 1.05, z, 0.5, 0.35, 0.04, '#2a3038', { rot: [-0.4, 0, 0], nocol: true }); }
+// たいこ（ティンパニ）
+function drumF(h, x, z, r = 0.45) { h.lathe(x, 0.15, z, [[0.001, 0], [r * 0.5, 0], [r, 0.45], [r, 0.62], [0.001, 0.62]], '#c98f4e', { seg: 16 }); h.cyl(x, 0.77, z, r * 0.98, 0.02, '#f4efe4', NC); for (let k = 0; k < 3; k++) { const a = k * 2.09; rod(h, [x + Math.cos(a) * r * 0.5, 0, z + Math.sin(a) * r * 0.5], [x + Math.cos(a) * r * 0.55, 0.3, z + Math.sin(a) * r * 0.55], 0.02, '#c9ccd0'); } }
+// マットの山（体育倉庫）
+function matsF(h, x, z, n, c = '#3f6fc9', al = true) { for (let i = 0; i < n; i++) h.B(x + (h.rnd() - 0.5) * 0.15, i * 0.2, z + (h.rnd() - 0.5) * 0.15, al ? 2.2 : 1.2, 0.2, al ? 1.2 : 2.2, i % 3 === 2 ? '#3f9b6a' : c, { r: 0.06 }); }
+// とび箱
+function vaultF(h, x, z, k = 5, al = true) { for (let i = 0; i < k; i++) h.B(x, i * 0.22, z, (al ? 1.5 : 0.9) - i * 0.04 * (al ? 1 : 0), 0.22, (al ? 0.9 : 1.5) - i * 0.04 * (al ? 0 : 1), i === k - 1 ? '#f4f4f4' : '#c9a26b', { r: 0.03, pat: i === k - 1 ? undefined : ['grain', '#c9a26b', 0, 1, 1] }); }
+// ボールかご
+function ballCartF(h, x, z) { h.B(x, 0.12, z, 1.0, 0.85, 0.7, '#c0c6cc', { r: 0.04, pat: ['vband', '#c0c6cc', '#8d8f94', 6, 1] }); for (const sx of [-1, 1]) for (const sz of [-1, 1]) h.cyl(x + sx * 0.42, 0, z + sz * 0.28, 0.06, 0.12, '#2a3038', NC); for (let i = 0; i < 5; i++) h.ball(x - 0.3 + (i % 3) * 0.3, 1.0, z - 0.12 + Math.floor(i / 3) * 0.24, 0.16, pick(h, ['#f08a3c', '#f4f4f4', '#e04f4f']), NC); }
+
 export const MAPS = {
   /* ---------- ロビー（ゲーム開始までみんなで歩き回る。まんなかの HUNTER の円に乗ると鬼になれる） ---------- */
   lobby: {
@@ -1425,88 +1819,141 @@ export const MAPS = {
     }
   },
 
-  /* ---------- おうち ---------- */
+  /* ---------- おうち（廊下と、たくさんの部屋） ----------
+     北：リビング／和室／階段ホール／ダイニングキッチン／パントリー／書斎／納戸／玄関
+     南：主寝室（ウォークインクローゼット・ベビールーム）／子ども部屋×2／遊び部屋／洗面所／浴室／トイレ／物置／趣味の部屋 */
   house: {
-    name: 'おうち', hx: 30, hz: 22, sky: '#d5dde6', kit: ['toy', 'plantK', 'screen', 'sofaK', 'goods', 'crate', 'junk', 'laundry', 'bags', 'sculpt', 'mural', 'rug', 'cubes', 'pole', 'bigbox', 'closet', 'gallery', 'tent', 'nook', 'nook', 'blocks', 'patch', 'shelfK',
-      'plush', 'plush', 'kotatsu', 'coats', 'coats', 'beanbag', 'ladderK', 'cleaning', 'bike', 'music', 'study', 'toybox', 'trampoline', 'slideK', 'playhouse', 'easel', 'garden', 'dolls', 'robot', 'dino', 'dresser', 'tallplant', 'lampset', 'pcdesk', 'clock', 'aquarium', 'tvset', 'dining'], pal: ['#e8dcc8', '#b98d5c', '#7d8fb3', '#8fbf7a', '#f3f1ec', '#c9573f', '#3f5f8a'], clutter: 84, spawn: [0, -11],
+    name: 'おうち', hx: 24, hz: 17, sky: '#d5dde6', pal: ['#e8dcc8', '#b98d5c', '#7d8fb3', '#8fbf7a', '#f3f1ec', '#c9573f', '#3f5f8a'], spawn: [-3, 0],
     build(h) {
-      h.F(-15, -11, 30, 22, 0, ['vstripe', '#b98d5c', '#ad8253', 15, 1]);
-      h.F(15, -11, 30, 22, 0, ['checker', '#ecebe4', '#a9bcc6', 15, 11]);
-      h.F(-20, 11, 20, 22, '#7d8fb3'); h.F(0, 11, 20, 22, '#8fbf7a');
-      h.F(20, 11, 20, 22, 0, ['checker', '#dfe7ea', '#c5d3d9', 10, 11]);
+      const P = this.pal, A = TOY, HX = 24, HZ = 17;
+      const FL = (x0, x1, z0, z1, pat) => h.F((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, 0, pat);
+      const wood = (c, x0, x1, z0, z1) => FL(x0, x1, z0, z1, ['floorwood', c, 0, Math.max(1, Math.round((x1 - x0) / 3)), Math.max(1, Math.round((z1 - z0) / 3))]);
+      const tile = (c, g, x0, x1, z0, z1) => FL(x0, x1, z0, z1, ['tile', c, g, Math.max(1, Math.round((x1 - x0) / 1.4)), Math.max(1, Math.round((z1 - z0) / 1.4))]);
+      const rug = (x, z, w, d, k, c1, c2) => h.F(x, z, w, d, 0, [k, c1, c2, Math.max(1, Math.round(w / 2)), Math.max(1, Math.round(d / 2))], true);
+      // 部屋の内がわ（内壁は厚さ 0.4 なので 0.2 ずつ内へ）と、壁ぎわに家具を置く道具
+      const RM = (x0, x1, z0, z1) => ({ x0: x0 <= -HX ? x0 : x0 + 0.2, x1: x1 >= HX ? x1 : x1 - 0.2, z0: z0 <= -HZ ? z0 : z0 + 0.2, z1: z1 >= HZ ? z1 : z1 - 0.2 });
+      const at = (R, s, t, dp) => (s === 'n' || s === 's') ? { x: t >= 0 ? R.x0 + t : R.x1 + t, z: s === 'n' ? R.z0 + dp / 2 : R.z1 - dp / 2, dir: [0, s === 'n' ? 1 : -1] }
+        : { x: s === 'w' ? R.x0 + dp / 2 : R.x1 - dp / 2, z: t >= 0 ? R.z0 + t : R.z1 + t, dir: [s === 'w' ? 1 : -1, 0] };
+      const put = (R, s, t, dp, fn, ...a) => { const p = at(R, s, t, dp); fn(h, p.x, p.z, p.dir, ...a); return p; };
+      const shelf = (R, s, t, len, ht, c, dp = 0.8) => { const p = at(R, s, t, dp); bookshelf(h, p.x, p.z, p.dir[0] ? dp : len, p.dir[0] ? len : dp, ht, c); };
+      const win = (R, s, t, w) => { const p = at(R, s, t, 0); windowIn(h, p.x, p.z, p.dir[0], p.dir[1], w); };
+      const art = (R, s, t, y0, w, ht) => { const p = at(R, s, t, 0); pic(h, p.x, y0, p.z, p.dir[0], p.dir[1], w, ht); };
+      const LV = RM(-24, -10, -17, -1.5), WA = RM(-10, -2, -17, -9.5), HL = RM(-10, -2, -9.5, -1.5), DK = RM(-2, 12, -17, -1.5), PAN = RM(12, 17, -17, -10), STU = RM(17, 24, -17, -10), NAN = RM(12, 17, -10, -1.5);
+      const BED = RM(-24, -11, 1.5, 11), WIC = RM(-24, -18, 11, 17), BABY = RM(-18, -11, 11, 17), KA = RM(-11, -3, 1.5, 10), KB = RM(-3, 5, 1.5, 10), PLAY = RM(-11, 5, 10, 17);
+      const SEN = RM(5, 10, 1.5, 8), BATH = RM(5, 10, 8, 17), WC = RM(10, 13, 1.5, 6.5), MONO = RM(10, 13, 6.5, 17), HOB = RM(13, 24, 1.5, 17);
+      // ---- 床 ----
+      wood('#c9a26b', -24, 17, -1.5, 1.5); wood('#c9a26b', 17, 24, -10, 1.5); // 廊下・玄関
+      wood('#b98d5c', -24, -10, -17, -1.5); FL(-10, -2, -17, -9.5, ['tatami', '#cfc68a', '#3f5f3a', 4, 4]); wood('#b98d5c', -10, -2, -9.5, -1.5); wood('#d1ad78', -2, 12, -17, -1.5);
+      tile('#efe6d0', '#c9bfa8', 12, 17, -17, -10); FL(17, 24, -17, -10, ['fabric', '#3f5a48', 0, 5, 5]); FL(12, 17, -10, -1.5, ['noise', '#a9a59a', 0, 3, 5]);
+      FL(-24, -11, 1.5, 11, ['fabric', '#d8cbb0', 0, 7, 5]); wood('#c9a26b', -24, -18, 11, 17); FL(-18, -11, 11, 17, ['dots', '#f6e1ea', '#ffffff', 4, 3]);
+      wood('#d9b98c', -11, -3, 1.5, 10); wood('#b98d5c', -3, 5, 1.5, 10); FL(-11, 5, 10, 17, ['check2', '#f0d040', '#59b6d8', 8, 4]);
+      tile('#eef3f6', '#c9d6de', 5, 10, 1.5, 8); tile('#d8ecf4', '#a8c8d8', 5, 10, 8, 17); tile('#f1ece0', '#d9d2c4', 10, 13, 1.5, 6.5); FL(10, 13, 6.5, 17, ['noise', '#a9a59a', 0, 2, 5]);
+      wood('#c9a26b', 13, 24, 1.5, 17);
       h.outer(6, '#efe6d6');
-      const W = '#f3f1ec';
-      wallX(h, 0, -30, -21.5, W); wallX(h, 0, -18.5, -1.5, W); wallX(h, 0, 1.5, 18.5, W); wallX(h, 0, 21.5, 30, W);
-      wallZ(h, 0, -22, -13, W); wallZ(h, 0, -9, 0, W);
-      wallZ(h, -10, 0, 9, '#e7d9c8', WALL, ['dots', '#e0719a']); wallZ(h, -10, 12, 22, '#e7d9c8', WALL, ['dots', '#e0719a']); wallZ(h, 10, 0, 9, '#d9e7e3', WALL, ['hstripe', '#59b6d8']); wallZ(h, 10, 12, 22, '#d9e7e3', WALL, ['hstripe', '#59b6d8']);
-      for (const x of [-20, -10, 0, 10, 20]) for (const z of [-0.2, 0.2]) h.B(x, 0, z, 2.8, 0.12, 0.04, '#d9d2c4', NC); // はば木
-      for (const p of [[-12, -1], [12, -1], [-11.2, 21], [4, 21.3], [28.8, 11], [-28.8, -1.2], [28.5, -19]]) lamp(h, p[0], p[1]);
-      // リビング
-      h.B(-17, 0, -12, 9, 0.04, 7, '#a8443f', { flat: true, nocol: true, pat: ['diag', '#a8443f', '#d9a441', 6, 5] });
-      sofaX(h, -17, -17, 5, '#3f5f8a', -1); sofaZ(h, -23, -12, 4, '#3f5f8a', -1);
-      table(h, -17, -12, 2.4, 1.2, '#6b4a2b', 0.45);
-      h.B(-17, 0, -6.5, 4.4, 0.6, 0.7, '#2b2b2b', { r: 0.04, pat: ['cabinet', '#2b2b2b', '#c9ccd0', 3, 1] }); // テレビ台
-      h.B(-17, 0.6, -6.5, 0.6, 0.08, 0.4, '#15171a'); h.B(-17, 0.68, -6.5, 0.1, 0.25, 0.1, '#15171a'); h.B(-17, 0.92, -6.5, 3, 1.5, 0.1, '#111418', { r: 0.03 }); h.B(-17, 0.98, -6.56, 2.85, 1.38, 0.02, '#1d3550', { nocol: true, glow: 0.25 }); // テレビ
-      bookshelf(h, -29.5, -17, 0.9, 4, 2.4, '#8a5a33'); bookshelf(h, -29.5, -6, 0.9, 3, 2.4, '#7a4c2a');
-      plant(h, -28.5, -21); plant(h, -1.5, -21);
-      h.B(-7, 0, -20.6, 3, 1.0, 1.4, '#15171a', { r: 0.04 }); h.B(-7, 1.0, -20.95, 3, 0.4, 0.7, '#15171a', { r: 0.04 }); h.B(-7, 0.98, -20.2, 2.7, 0.04, 0.5, '#f4f4f4', { pat: ['vband', '#f4f4f4', '#15171a', 26, 1] }); chair(h, -7, -19.2, '#3a2a1c', -1); // ピアノといす
-      table(h, -8, -4.5, 3.6, 1.6, '#c98f4e');
-      for (const dx of [-1.2, 0, 1.2]) { chair(h, -8 + dx, -3.2, '#8a5a33', -1); chair(h, -8 + dx, -5.8, '#8a5a33', 1); }
-      h.B(-11.5, 0, -16.5, 1.2, 0.8, 1.2, '#d9a441', { r: 0.2, pat: ['fabric', '#d9a441', 0, 1, 1] }); h.cyl(-26.5, 0, -2, 0.12, 1.8, '#444a50'); h.cyl(-26.5, 0, -2, 0.3, 0.04, '#444a50'); h.cone(-26.5, 1.75, -2, 0.42, 0.45, '#f5e9c0', { rt: 0.25, glow: 0.6 }); // 電気スタンド
-      h.B(-27, 0, -10, 1.6, 0.5, 1.6, '#7b5ea7', { r: 0.25, pat: ['fabric', '#7b5ea7', 0, 1, 1] });
-      // 絵（体の前の方を少し入れて隠れる）
-      pic(h, -13, 0.15, -0.2, 0, -1, 3, 2.4); pic(h, -5, 1.3, -0.2, 0, -1, 2.2, 1.6); pic(h, -0.2, 1.0, -18, -1, 0, 2.4, 1.8); pic(h, 0.2, 0.15, -16, 1, 0, 2.6, 2.4);
-      pic(h, -30, 1.0, -11.5, 1, 0, 2.6, 1.9); pic(h, -21.5, 1.0, 22, 0, -1, 2.2, 1.7); pic(h, -9.8, 0.15, 7.6, 1, 0, 2.2, 2.4); pic(h, 10.2, 0.15, 15, 1, 0, 2.6, 2.4);
-      // キッチン
-      h.B(17, 0, -21.4, 22, 0.95, 1.2, '#f4f4f4', { pat: ['cabinet', '#f4f4f4', '#9aa1a8', 18, 1] }); h.B(17, 0.95, -21.4, 22, 0.06, 1.25, '#3a3a3a');
-      h.B(17, 1.6, -21.75, 22, 0.75, 0.5, '#f4f4f4', { pat: ['cabinet', '#f4f4f4', '#9aa1a8', 18, 1] }); // つり戸だな
-      h.B(12, 1.0, -21.4, 1.0, 0.05, 0.6, '#c9ccd0', NC); h.cyl(12, 1.05, -21.9, 0.03, 0.35, '#c9ccd0', { seg: 8 }); // 流し・じゃ口
-      for (const dx of [-0.35, 0.35]) h.ring(20 + dx, 1.02, -21.4, 0.18, 0.025, '#2a3038'); // コンロ
-      h.B(29.3, 0, -10, 1.2, 0.95, 12, '#f4f4f4', { pat: ['cabinet', '#f4f4f4', '#9aa1a8', 10, 1] }); h.B(29.3, 0.95, -10, 1.25, 0.06, 12, '#3a3a3a');
-      h.B(3.2, 0, -21.2, 1.4, 2.3, 1.4, '#c9d1d6', { r: 0.08 }); h.B(3.2, 1.5, -20.49, 1.36, 0.02, 0.02, '#9aa1a8', NC); h.B(3.75, 0.6, -20.47, 0.05, 0.6, 0.05, '#9aa1a8', NC); h.B(3.75, 1.65, -20.47, 0.05, 0.4, 0.05, '#9aa1a8', NC); // 冷蔵庫
-      h.B(15, 0, -13, 6, 0.95, 2, '#4a4f57', { pat: ['cabinet', '#4a4f57', '#c9ccd0', 5, 1] }); h.B(15, 0.95, -13, 6.2, 0.06, 2.2, '#d8d2c4');
-      for (const dx of [-2, -0.7, 0.7, 2]) stool(h, 15 + dx, -11.2, '#e05a5a');
-      table(h, 8, -5, 2.6, 1.6, '#e8dcc8'); chair(h, 7, -3.7, '#5ae0a0', -1); chair(h, 9, -3.7, '#5ae0a0', -1); chair(h, 7, -6.3, '#5ae0a0', 1); chair(h, 9, -6.3, '#5ae0a0', 1);
-      bin(h, 27, -19.5, '#55606b'); bin(h, 26, -19.6, '#3f9b6a');
-      h.B(26, 0, -0.9, 5, 2.4, 0.9, '#8a6a4a', { pat: ['cabinet', '#8a6a4a', '#d9d2c4', 4, 2] }); carton(h, 21, 0, -6, 1, 1, 1, CARD[0]); carton(h, 21.2, 1, -6, 0.7, 0.7, 0.7, CARD[2]); carton(h, 22.2, 0, -5.6, 0.9, 0.8, 0.9, CARD[1]);
-      // 寝室
-      h.B(-21, 0, 13, 7, 0.04, 6, '#e8e1d2', { flat: true, nocol: true, pat: ['dots', '#e8e1d2', '#7d8fb3', 5, 4] });
-      bed(h, -25, 18, '#5b76b8'); h.B(-23.2, 0, 19.3, 0.7, 0.6, 0.7, '#7a5a3a', { pat: ['cabinet', '#7a5a3a', '#d9d2c4', 1, 2] }); closet(h, -29.3, 6, [1, 0], '#5a3c28', ['#e8dcc8', '#7d8fb3', '#c9573f'], TOY); // 洋服だんす（中に入れる）
-      table(h, -14, 20.6, 3, 1.2, '#d8d0c0'); chair(h, -14, 19.3, '#444444', 1); h.B(-18.5, 0, 21.2, 2.4, 1, 1, '#7a5a3a', { pat: ['cabinet', '#7a5a3a', '#d9d2c4', 2, 2] });
-      plant(h, -11, 1.2); h.cyl(-28.5, 0, 12, 0.4, 0.7, '#d8c9a3', { pat: ['fabric', '#d8c9a3', 0, 2, 1] }); h.B(-13, 0, 6, 1.4, 0.45, 1.4, '#c9573f', { r: 0.2, pat: ['fabric', '#c9573f', 0, 1, 1] });
-      // 子ども部屋
-      h.B(0, 0, 6, 8, 0.04, 6, '#f0d040', { flat: true, nocol: true, pat: ['confetti', '#f0d040', TOY, 4, 3] });
-      bed(h, -7, 18, '#e0719a'); bed(h, 7, 18, '#59b6d8');
-      for (let i = 0; i < 14; i++) { const x = -4.5 + h.rnd() * 9, z = 3 + h.rnd() * 7, s = 0.6 + h.rnd() * 0.4; brick(h, x, 0, z, s, TOY[i % 6]); if (i % 4 === 0) brick(h, x, s * 0.6 + s * 0.1, z, s * 0.8, TOY[(i + 2) % 6]); }
-      h.B(0, 0, 21.3, 5, 1.4, 0.9, '#f0d040', { pat: ['cabinet', '#f0d040', '#e0413a', 5, 2] }); h.ball(5.5, 0.5, 12.5, 0.5, '#e04f4f', { pat: ['hstripe', '#e04f4f', '#f4f4f4', 2, 3] }); h.ball(-3.5, 0.4, 12.2, 0.4, '#4f7fe0', { pat: ['dots', '#4f7fe0', '#f4f4f4', 3, 2] });
-      pit(h, 0, 15.2, 4, 3, 0.5, 0.22, '#e0719a', { r: 0.08, pat: ['vband', '#e0719a', '#f4f4f4', 6, 1] }, 0.62, 0.44, ['dots', '#59b6d8', TOY, 5, 4]); // ボールプール
-      for (let i = 0; i < 12; i++) h.ball(-1.5 + h.rnd() * 3, 0.64, 14.1 + h.rnd() * 2.2, 0.14, TOY[i % 6], NC);
-      tent(h, -6.5, 11.5, true, 1, '#f08a3c', '#f4f4f4'); // 子ども用テント（入口は部屋のまん中向き）
-      h.B(-9.2, 0, 4, 0.9, 1.8, 3, '#f08a3c', { pat: ['cabinet', '#f08a3c', '#f4f4f4', 1, 3] }); h.B(9.2, 0, 4, 0.9, 1.8, 3, '#4fbf6a', { pat: ['cabinet', '#4fbf6a', '#f4f4f4', 1, 3] });
-      KIT.nook(h, 7.6, 9.4, TOY, ['#f4f4f4', '#2a3038'], { al: false, sd: -1, L: 3.4 }); // 子ども部屋のくぼみの壁
-      // 外のかべの窓（窓わくが部屋の中に出ていて、窓台のくぼみに体が入る。カーテンつき）
-      for (const x of [-22, -12.5]) windowIn(h, x, -22, 0, 1); windowIn(h, -21.5, 22, 0, -1); windowIn(h, -4.3, 22, 0, -1, 1.8); windowIn(h, 19, 22, 0, -1);
-      windowIn(h, 30, 14, -1, 0); windowIn(h, -30, 13, 1, 0, 2.0);
-      // 浴室・物置
-      pit(h, 27, 18, 3.2, 5, 0.75, 0.25, '#ffffff', { r: 0.12 }, 0.62, 0.36, ['wave', '#7fc4e0', '#b8e2f0', 3, 4]); // 湯ぶね（お湯に体の下の方が沈む）
-      h.cyl(27, 0.75, 20.3, 0.04, 0.5, '#c9ccd0', { seg: 8 }); h.B(27, 1.2, 20.45, 0.4, 0.04, 0.1, '#c9ccd0', NC);
-      h.B(12, 0, 20.8, 1, 1.1, 1, '#e9edf0', { r: 0.08 }); h.ring(12, 0.55, 20.29, 0.3, 0.04, '#9aa1a8'); h.B(13.2, 0, 20.8, 1, 1.1, 1, '#d5dbe0', { r: 0.08 }); h.B(29.4, 0, 6, 1, 2.2, 5, '#9aa1a8', { pat: ['cabinet', '#9aa1a8', '#f4f4f4', 1, 5] }); // 洗たく機
-      h.lathe(15.5, 0, 20.5, [[0.001, 0], [0.3, 0], [0.45, 0.4], [0.45, 0.7], [0.001, 0.7]], '#d8c9a3', { pat: ['vband', '#d8c9a3', '#c4b48c', 6, 1] }); h.cyl(22, 0, 13, 0.4, 0.5, '#5fa8d8');
-      for (let i = 0; i < 9; i++) { const x = 12.5 + (i % 3) * 1.25, z = 2 + Math.floor(i / 3) * 1.25; carton(h, x, 0, z, 1.1, 1, 1.1, CARD[i % 4]); if (i % 2) carton(h, x, 1, z, 0.9, 0.8, 0.9, CARD[(i + 1) % 4]); }
-      h.B(20, 0, 5, 2.2, 0.9, 0.8, '#f4f4f4', { pat: ['cabinet', '#f4f4f4', '#9aa1a8', 2, 1] }); h.B(23, 0, 21, 4, 0.04, 1.6, '#5fa8d8', { flat: true, nocol: true });
-      // 部屋ごとに家具・遊具・道具をそろえる（うしろ・下・すき間に隠れる）
-      const HP = this.pal, HA = TOY;
-      scatter(h, ['kotatsu', 'plush', 'beanbag', 'coats', 'music', 'umbrella', 'toybox', 'easel'], -28, -2, -20, -2, HP, HA); // リビング
-      scatter(h, ['cleaning', 'umbrella', 'ladderK', 'beanbag', 'study', 'coats'], 2, 28, -20, -2, HP, HA); // キッチン
-      scatter(h, ['study', 'plush', 'coats', 'beanbag', 'kotatsu', 'music'], -28, -12, 2, 20, HP, HA); // 寝室
-      scatter(h, ['slideK', 'trampoline', 'playhouse', 'plush', 'toybox', 'jungle', 'spring'], -8.5, 8.5, 2, 20, HP, HA); // 子ども部屋
-      scatter(h, ['bike', 'bike', 'ladderK', 'garden', 'cleaning', 'music', 'toybox'], 12, 28, 2, 20, HP, HA); // 物置・浴室
-      // 人形・家具をもっと
-      scatter(h, ['tvset', 'lampset', 'tallplant', 'clock', 'aquarium', 'dolls', 'dresser', 'tallplant'], -28, -2, -20, -2, HP, HA);
-      scatter(h, ['fridgeK', 'dining', 'tallplant', 'crates', 'aquarium', 'clock'], 2, 28, -20, -2, HP, HA);
-      scatter(h, ['dresser', 'pcdesk', 'lampset', 'dolls', 'tallplant', 'clock', 'dresser'], -28, -12, 2, 20, HP, HA);
-      scatter(h, ['dolls', 'robot', 'dino', 'hina', 'dolls', 'robot'], -8.5, 8.5, 2, 20, HP, HA);
-      scatter(h, ['washer', 'crates', 'tallplant', 'robot', 'dresser'], 12, 28, 2, 20, HP, HA);
+      // ---- 壁（部屋ごとに壁紙を変える）----
+      const S = {
+        cor: ['#f3f1ec'], liv: ['#efe3cf', ['dots', '#e2d2b6', 1]], wa: ['#d9c7a0'], hall: ['#f3f1ec'], dk: ['#f4efe4'], pan: ['#e9e4d8'], stu: ['#3f5a50', ['vband', '#365048', 1]],
+        nan: ['#d9d4c7'], gen: ['#efe6d6'], bed: ['#d9e1ea', ['dots', '#c8d3df', 1]], wic: ['#efe9df'], baby: ['#f6e1ea', ['dots', '#f3c6d4', 1]], ka: ['#f8e3ef', ['hstripe', '#f3c6d4', 1]],
+        kb: ['#dcecf8', ['vband', '#c6e3f3', 1]], play: ['#fff1b8', ['confetti', TOY, 1]], sen: ['#e9f3f6', ['tile', '#c9d6de']], bath: ['#cfe6f2', ['tile', '#a8cfe0']], wc: ['#f1ece0', ['tile', '#d9d2c4']], mono: ['#d9d4c7'], hob: ['#e4e9ee'],
+      };
+      wallR(h, 'x', -1.5, -24, -10, [[-17, 3]], S.liv, S.cor); wallR(h, 'x', -1.5, -10, -2, [[-6, 3, true]], S.hall, S.cor); wallR(h, 'x', -1.5, -2, 12, [[4, 3]], S.dk, S.cor); wallR(h, 'x', -1.5, 12, 17, [[14.5, 2]], S.nan, S.cor);
+      wallR(h, 'z', -10, -17, -9.5, [[-14.5, 2, true]], S.liv, S.wa); wallR(h, 'z', -10, -9.5, -1.5, [], S.liv, S.hall); wallR(h, 'x', -9.5, -10, -2, [[-4, 2, true]], S.wa, S.hall);
+      wallR(h, 'z', -2, -17, -9.5, [[-14.5, 2, true]], S.wa, S.dk); wallR(h, 'z', -2, -9.5, -1.5, [], S.hall, S.dk);
+      wallR(h, 'z', 12, -17, -10, [[-14, 2]], S.dk, S.pan); wallR(h, 'z', 12, -10, -1.5, [], S.dk, S.nan);
+      wallR(h, 'x', -10, 12, 17, [[14.5, 2]], S.pan, S.nan); wallR(h, 'x', -10, 17, 24, [[20.5, 2]], S.stu, S.gen);
+      wallR(h, 'z', 17, -17, -10, [], S.pan, S.stu); wallR(h, 'z', 17, -10, -1.5, [[-5.5, 2]], S.nan, S.gen);
+      wallR(h, 'x', 1.5, -24, -11, [[-15.5, 3]], S.cor, S.bed); wallR(h, 'x', 1.5, -11, -3, [[-7, 2.2]], S.cor, S.ka); wallR(h, 'x', 1.5, -3, 5, [[1, 2.2]], S.cor, S.kb);
+      wallR(h, 'x', 1.5, 5, 10, [[7.5, 2]], S.cor, S.sen); wallR(h, 'x', 1.5, 10, 13, [[11.5, 1.8]], S.cor, S.wc); wallR(h, 'x', 1.5, 13, 24, [[18.5, 3]], S.cor, S.hob);
+      wallR(h, 'z', -11, 1.5, 10, [], S.bed, S.ka); wallR(h, 'z', -11, 10, 11, [], S.bed, S.play); wallR(h, 'z', -11, 11, 17, [], S.baby, S.play);
+      wallR(h, 'x', 11, -24, -18, [[-21, 2]], S.bed, S.wic); wallR(h, 'x', 11, -18, -11, [[-14.5, 2]], S.bed, S.baby); wallR(h, 'z', -18, 11, 17, [], S.wic, S.baby);
+      wallR(h, 'z', -3, 1.5, 10, [], S.ka, S.kb); wallR(h, 'x', 10, -11, -3, [[-7, 2]], S.ka, S.play); wallR(h, 'x', 10, -3, 5, [[1, 2]], S.kb, S.play);
+      wallR(h, 'z', 5, 1.5, 8, [], S.kb, S.sen); wallR(h, 'z', 5, 8, 10, [], S.kb, S.bath); wallR(h, 'z', 5, 10, 17, [], S.play, S.bath); wallR(h, 'x', 8, 5, 10, [[7.5, 2]], S.sen, S.bath);
+      wallR(h, 'z', 10, 1.5, 6.5, [], S.sen, S.wc); wallR(h, 'z', 10, 6.5, 8, [], S.sen, S.mono); wallR(h, 'z', 10, 8, 17, [], S.bath, S.mono); wallR(h, 'x', 6.5, 10, 13, [], S.wc, S.mono);
+      wallR(h, 'z', 13, 1.5, 6.5, [], S.wc, S.hob); wallR(h, 'z', 13, 6.5, 17, [[12, 2]], S.mono, S.hob);
+      // 開いたドア（ドアと壁のあいだに隠れられる）
+      doorOpen(h, -8.1, 1.7, [0, 1], 2.0, '#f3c6d4'); doorOpen(h, 2.1, 1.7, [0, 1], 2.0, '#9fc6e8'); doorOpen(h, 8.5, 1.7, [0, 1], 1.8); doorOpen(h, 12.4, 1.7, [0, 1], 1.6);
+      doorOpen(h, 13.5, -1.7, [0, -1], 1.8, '#a9a59a'); doorOpen(h, 21.5, -10.2, [0, -1], 1.8, '#5a3c28'); doorOpen(h, -20, 11.2, [0, 1], 1.8); doorOpen(h, -13.5, 11.2, [0, 1], 1.8, '#f6e1ea');
+      doorOpen(h, 12.2, -13, [1, 0], 1.8); doorOpen(h, 13.2, 11, [1, 0], 1.8, '#a9a59a'); doorOpen(h, 16.8, -4.5, [-1, 0], 1.8, '#a9a59a');
+      // ---- 廊下 ----
+      rug(-3.5, 0, 39, 1.3, 'diag', '#7d3f3f', '#c9a24a'); consoleF(h, -12, -1.1, [0, 1], 2.0); consoleF(h, 9.5, -1.1, [0, 1], 2.0);
+      KIT.tallplant(h, -23.2, 0, P, A); windowIn(h, -24, 0, 1, 0, 1.2);
+      for (const [x, nz] of [[-21.5, 1], [-0.8, 1], [-20.5, -1], [-11, -1], [-3.2, -1], [4.2, -1], [15, -1]]) pic(h, x, 1.15, nz > 0 ? -1.3 : 1.3, 0, nz, 1.5, 1.15);
+      h.cyl(-9, 0, 0.5, 0.18, 0.08, '#2a3038', NC); // おそうじロボット
+      // ---- 玄関（土間・上がりかまち・くつ箱・ドア）----
+      h.F(22.5, -4.5, 3.0, 8.0, 0, ['check2', '#9aa1a8', '#8d8f94', 3, 8], true); h.B(20.85, 0, -4.5, 0.3, 0.12, 8.0, '#8a5a33', { r: 0.02, pat: ['grain', '#8a5a33', 0, 1, 4] });
+      h.B(23.9, 0, -4.5, 0.2, 2.7, 1.9, '#6b4a2b', { r: 0.02, pat: ['cabinet', '#6b4a2b', '#c9a24a', 1, 2] }); h.ball(23.75, 1.1, -3.8, 0.08, '#c9a24a', NC); h.B(23.92, 2.7, -4.5, 0.24, 0.15, 2.3, '#f4f1e8');
+      shoeboxF(h, 22.75, -9.6, [0, 1], 2.2, 1.0); shoes(h, 22.4, -3.4, 4); shoes(h, 22.6, -6.6, 2); KIT.umbrella(h, 23.4, -1.0, P, A);
+      KIT.coats(h, 18.3, -8.7, P, A); KIT.tallplant(h, 23.3, 0.6, P, A); bench(h, 17.65, -2.6, false, '#8a5a33', -1); pic(h, 22.2, 1.2, 1.3, 0, -1, 1.4, 1.2);
+      // ---- リビング（テレビとソファ・本だな・ピアノ・水そう）----
+      rug(-18.8, -9.4, 7, 5, 'diag', '#a8443f', '#d9a441');
+      put(LV, 'w', 7.6, 0.6, tvF, 3.4); sofaF(h, -14.0, -9.4, [-1, 0], 4.4, '#3f5f8a'); sofaF(h, -18.5, -5.6, [0, -1], 3.0, '#3f5f8a'); sofaF(h, -18.8, -13.4, [0, 1], 1.4, '#c9573f');
+      table(h, -18.8, -9.4, 2.0, 1.1, '#6b4a2b', 0.45); lamp(h, -20.7, -13.7, 2.3);
+      shelf(LV, 'n', 2.5, 4, 2.4, '#8a5a33'); shelf(LV, 'n', -2.2, 3.2, 2.2, '#7a4c2a'); win(LV, 'n', 7.0, 2.4);
+      put(LV, 'e', 1.2, 0.6, pianoF); put(LV, 'e', -2.4, 0.55, chestF, 2.6, 0.85, '#6b4a2b'); art(LV, 'e', -2.4, 1.5, 2.0, 1.3); art(LV, 'w', 7.6, 2.6, 2.4, 1.1);
+      KIT.aquarium(h, -22.6, -3.3, P, A); KIT.tallplant(h, -23.2, -12.6, P, A); KIT.tallplant(h, -11.1, -6.6, P, A); KIT.plush(h, -13.0, -3.4, P, A); KIT.beanbag(h, -21.4, -14.9, P, A);
+      // ---- 和室（おしいれ・床の間・こたつ・びょうぶ・しょうじ）----
+      put(WA, 'n', 2.1, 0.9, oshiireF, 3.4); put(WA, 'n', -1.5, 0.9, tokonomaF, 2.4); KIT.kotatsu(h, -6.2, -13.0, P, A);
+      put(WA, 's', 1.4, 0.55, chestF, 1.8, 1.4, '#7a4c2a'); byobuF(h, -9.3, -11.6, [1, 0]); andonF(h, -2.8, -10.3); shojiF(h, -2.2, -11.0, [-1, 0], 1.8);
+      // ---- 階段ホール（段の下にもぐれる・上のおどり場にも登れる）----
+      stairsR(h, -8.9, -2.3, [0, -1], 9, 1.8, 0.23, 0.5, 1.6);
+      carton(h, -9.3, 0, -7.8, 0.8, 0.6, 0.8, CARD[1]); carton(h, -9.25, 0.6, -7.85, 0.6, 0.45, 0.6, CARD[3]); KIT.cleaning(h, -6.4, -7.6, P, A);
+      KIT.clock(h, -2.8, -5.0, P, A); KIT.coats(h, -3.0, -2.9, P, A); plant(h, -5.9, -8.4); pic(h, -9.8, 2.7, -7.6, 1, 0, 1.2, 1.0);
+      // ---- ダイニングキッチン ----
+      put(DK, 'n', 4.1, 0.65, counterF, 8.2, { sink: -2.2, stove: 2.1 }); put(DK, 'n', 9.0, 0.75, fridgeF); win(DK, 'n', 11.7, 2.0); bin(h, 8.05, -16.6, '#55606b'); bin(h, 11.3, -12.0, '#3f9b6a');
+      h.B(2.5, 0, -13.0, 4.4, 0.9, 1.0, '#e8dcc8', { r: 0.02, pat: ['cabinet', '#e8dcc8', '#9a8a6a', 6, 1] }); h.B(2.5, 0.9, -13.0, 4.6, 0.06, 1.2, '#3a3a3a', { r: 0.01 }); // アイランドキッチン
+      for (const x of [0.9, 2.1, 3.3, 4.5]) stool(h, x, -11.8, '#c9573f');
+      rug(5, -6, 5, 3.4, 'check2', '#e8dcc8', '#d9c9a8'); table(h, 5, -6, 3.2, 1.6, '#c98f4e');
+      for (const x of [3.9, 5, 6.1]) { chair(h, x, -4.85, '#8a5a33', -1); chair(h, x, -7.15, '#8a5a33', 1); }
+      put(DK, 'e', -4.5, 0.5, cupboardF, 2.6, '#b08a5a'); put(DK, 'w', -3.0, 0.55, chestF, 2.2, 0.9, '#8a6a4a'); art(DK, 'w', -3.0, 1.5, 1.8, 1.2);
+      KIT.tallplant(h, 11.1, -2.6, P, A); plant(h, -1.1, -2.4); KIT.crates(h, 10.4, -10.4, P, A);
+      // ---- パントリー ----
+      put(PAN, 'n', 2.3, 0.55, rackF, 4.4, 2.2); put(PAN, 'e', 3.9, 0.55, rackF, 3.0, 2.2);
+      carton(h, 13.0, 0, -11.0, 0.9, 0.8, 0.9, CARD[0]); carton(h, 13.0, 0.8, -11.0, 0.7, 0.55, 0.7, CARD[2]); h.lump(15.4, 0.35, -15.6, 0.45, 0.35, 0.32, '#e8dcc8', { seed: 3, bump: 0.12, freq: 2, pat: ['fabric', '#e8dcc8', 0, 1, 1] }); // 米ぶくろ
+      // ---- 書斎 ----
+      put(STU, 'n', 2.4, 0.7, deskF, '#6b4a2b', 'pc'); win(STU, 'n', -1.4, 1.8); shelf(STU, 'e', 3.2, 3.6, 2.4, '#5a3c28'); shelf(STU, 'w', 3.0, 3.0, 2.0, '#5a3c28');
+      sofaF(h, 22.9, -10.775, [0, -1], 1.4, '#7a2f2f'); globeF(h, 21.0, -13.5); rug(20.6, -13.6, 3, 2.6, 'diag', '#5a2f2f', '#c9a24a');
+      // ---- 納戸 ----
+      put(NAN, 'w', 4.0, 0.55, rackF, 4.4, 2.0, 'store'); bikeAt(h, 14.5, -7.0, false, '#e04f4f', false);
+      for (const [x, z, s] of [[16.3, -9.3, 0.9], [16.3, -8.3, 0.85], [16.3, -3.0, 0.9]]) { carton(h, x, 0, z, s, s * 0.85, s, pick(h, CARD)); if (h.rnd() < 0.6) carton(h, x, s * 0.85, z, s * 0.8, s * 0.6, s * 0.8, pick(h, CARD)); }
+      h.B(16.35, 0, -2.0, 0.35, 1.1, 0.7, '#2f6fb0', { r: 0.06 }); // スーツケース
+      // ---- 主寝室 ----
+      bedF(h, -22.28, 6.2, [1, 0], '#5b76b8', 2.6, 3.2); nightF(h, -23.75, 4.54, [1, 0], '#8a5a33'); nightF(h, -23.75, 7.86, [1, 0], '#8a5a33'); win(BED, 'w', -1.3, 1.6);
+      closet(h, -17.5, 10.225, [0, -1], '#8a5a33', P, A); put(BED, 'e', 6.8, 0.7, deskF, '#c9a26b', 'make'); put(BED, 'e', 2.4, 0.55, chestF, 1.8, 1.1, '#8a5a33');
+      sofaF(h, -19.6, 2.275, [0, 1], 1.4, '#c9573f'); rug(-18.6, 6.2, 3.6, 3, 'diag', '#7d8fb3', '#d9e1ea'); art(BED, 'w', 4.5, 1.75, 1.8, 1.1);
+      // ウォークインクローゼット（服のうしろに隠れる）
+      clothesF(h, -21.2, 16.0, [0, -1], 4.6); clothesF(h, -23.0, 13.1, [1, 0], 2.6); put(WIC, 'e', 2.8, 0.55, chestF, 1.4, 1.2, '#efe9df'); h.B(-19.0, 0, 12.4, 0.8, 0.75, 0.4, '#7b5ea7', { r: 0.06 });
+      // ベビールーム
+      put(BABY, 's', 3.3, 0.8, cribF); win(BABY, 's', -1.4, 1.4); put(BABY, 'w', 2.9, 0.55, chestF, 1.5, 1.0, '#f3f1ec'); put(BABY, 'e', 2.4, 1.15, sofaF, 1.3, '#f3c6d4');
+      bear(h, -12.4, 0, 16.3, 0.5, '#d9b48a', -1.57); bear(h, -17.2, 0, 12.0, 0.45, '#c6e3f3', 0); KIT.toybox(h, -16.6, 16.2, P, A);
+      // ---- 子ども部屋A（ひな人形・人形の家）----
+      bedF(h, -9.28, 6.0, [1, 0], '#e0719a', 1.6, 2.8); KIT.hina(h, -9.4, 8.5, P, A); put(KA, 'e', 4.0, 0.7, deskF, '#f3f1ec', 'study');
+      put(KA, 'n', 1.2, 0.55, chestF, 1.6, 1.1, '#f3f1ec'); shelf(KA, 'n', -1.0, 1.6, 1.6, '#e0719a', 0.6); rug(-6.6, 6, 3.4, 2.6, 'dots', '#f3c6d4', '#ffffff');
+      KIT.dolls(h, -6.4, 7.2, P, A); KIT.beanbag(h, -4.6, 8.4, P, A); bear(h, -9.6, 0.74, 5.6, 0.35, '#f3c6d4', 0); bear(h, -9.6, 0.74, 6.4, 0.3, '#c6e3f3', 0);
+      // ---- 子ども部屋B（2段ベッド）----
+      bunkF(h, 4.15, 5.6, [0, 1], '#4f7fe0'); put(KB, 'w', 4.2, 0.7, deskF, '#4f7fe0', 'pc'); shelf(KB, 's', 1.2, 1.8, 1.8, '#4f7fe0', 0.6); put(KB, 's', -1.0, 0.55, chestF, 1.4, 1.0, '#59b6d8');
+      rug(0.6, 5.6, 3.2, 2.6, 'check2', '#4f7fe0', '#f0d040'); KIT.robot(h, 3.3, 8.2, P, A); KIT.toybox(h, -1.0, 8.3, P, A);
+      // ---- 遊び部屋 ----
+      KIT.slideK(h, -8.2, 14.4, P, A); KIT.ballpit(h, -3.0, 14.6, P, A); KIT.playhouse(h, 2.6, 15.0, P, A); win(PLAY, 's', 2.3, 2.0); win(PLAY, 's', -2.3, 2.0);
+      for (let i = 0; i < 5; i++) brick(h, -4.4 + (i % 3) * 0.75, 0, 10.9 + Math.floor(i / 3) * 0.75, 0.55, TOY[i]);
+      // ---- 洗面所 ----
+      put(SEN, 'e', 2.6, 0.55, vanityF, 2.0); put(SEN, 'w', -1.0, 0.65, washerF, true); put(SEN, 'w', 2.2, 0.55, rackF, 1.8, 1.8, 'bath');
+      h.lathe(9.2, 0, 7.1, [[0.001, 0], [0.26, 0], [0.3, 0.5], [0.001, 0.5]], '#d8c9a3', { pat: ['vband', '#d8c9a3', '#c4b48c', 6, 1] }); rug(7.5, 7.3, 1.6, 0.8, 'hstripe', '#59b6d8', '#f4f4f4');
+      // ---- 浴室（お湯に体の下の方が沈む）----
+      pit(h, 7.5, 15.5, 4.4, 2.8, 0.75, 0.25, '#ffffff', { r: 0.12 }, 0.62, 0.36, ['wave', '#7fc4e0', '#b8e2f0', 3, 4]);
+      h.cyl(7.5, 0.75, 16.85, 0.04, 0.45, '#c9ccd0', { seg: 8 }); h.cyl(9.6, 0, 10.6, 0.03, 2.2, '#c9ccd0', { seg: 8 }); h.ball(9.45, 2.15, 10.6, 0.12, '#c9ccd0', NC);
+      h.cyl(6.4, 0, 11.4, 0.22, 0.42, '#f4f4f4', { seg: 14 }); h.lathe(7.3, 0, 11.0, [[0.001, 0], [0.2, 0], [0.24, 0.3], [0.001, 0.3]], '#f0d040', { seg: 14 }); h.B(9.6, 1.0, 12.4, 0.3, 0.05, 1.2, '#c9ccd0', NC);
+      for (let i = 0; i < 4; i++) h.cyl(9.62, 1.05, 12.0 + i * 0.25, 0.05, 0.2, pick(h, ['#e0719a', '#59b6d8', '#f4f4f4']), { seg: 8, nocol: true });
+      // ---- トイレ ----
+      put(WC, 's', 1.3, 0.86, toiletF); h.B(12.5, 0, 4.6, 0.5, 0.8, 0.5, '#f4f4f4', { r: 0.04 }); h.B(11.5, 1.65, 6.12, 1.2, 0.05, 0.35, '#8a5a33');
+      for (let i = 0; i < 3; i++) h.cyl(11.2 + i * 0.25, 1.7, 6.12, 0.1, 0.12, '#ffffff', { seg: 10, nocol: true });
+      // ---- 物置 ----
+      put(MONO, 'w', 5.0, 0.55, rackF, 5.0, 2.0, 'store'); bikeAt(h, 11.9, 15.5, false, '#4fbf6a', true); h.lathe(11.0, 0, 16.4, [[0.001, 0], [0.22, 0], [0.26, 0.42], [0.001, 0.42]], '#3f9b6a', { seg: 12 });
+      for (const [z, s] of [[7.4, 0.9], [8.4, 0.85], [9.4, 0.8]]) { carton(h, 12.3, 0, z, s, s * 0.85, s, pick(h, CARD)); if (h.rnd() < 0.6) carton(h, 12.3, s * 0.85, z, s * 0.8, s * 0.6, s * 0.8, pick(h, CARD)); }
+      // ---- 趣味の部屋（卓球台・楽器・ランニングマシン・サンドバッグ）----
+      pingpongF(h, 18.6, 9.4, [0, 1]); KIT.music(h, 15.4, 15.0, P, A); put(HOB, 'e', 4.4, 1.9, treadmillF); punchbagF(h, 22.8, 2.9);
+      put(HOB, 'e', -4.0, 1.15, sofaF, 3.0, '#7d8fb3'); KIT.easel(h, 21.0, 15.8, P, A); shelf(HOB, 'w', 5.0, 3.0, 2.2, '#8a5a33'); KIT.dino(h, 21.4, 9.6, P, A);
+      h.B(14.6, 0, 2.3, 1.6, 0.6, 0.5, '#2a3038', { r: 0.03 }); for (let i = 0; i < 4; i++) h.cyl(14.05 + i * 0.36, 0.6, 2.3, 0.12, 0.22, '#55606b', { seg: 10, nocol: true }); // ダンベル
+      win(HOB, 'e', 2.2, 1.6); win(HOB, 'e', 7.8, 2.0); win(HOB, 's', 5.4, 2.4); rug(21.6, 5.4, 3.0, 3.6, 'check2', '#3f6fc9', '#2f5aa8');
     }
   },
 
@@ -1547,10 +1994,9 @@ export const MAPS = {
       for (const x of [-28, -18, -9, 9, 18, 28]) bench(h, x, 2.7, true, WOOD, 1);
       for (const z of [-20, -11, 11, 20]) bench(h, -2.8, z, false, WOOD, -1);
       [[8, -8, '#e0719a'], [-8, -8, '#f0d040'], [8, 8, '#e04f4f'], [-8, 8, '#b06fd8']].forEach(f => { h.B(f[0], 0, f[1], 4, 0.4, 4, '#6b4a2b', { r: 0.06, pat: ['brick', '#6b4a2b', '#5a3c24', 4, 1] }); h.B(f[0], 0.4, f[1], 3.6, 0.25, 3.6, f[2], { pat: ['confetti', f[2], ['#ffffff', '#ffd940', '#3b8f46'], 3, 3] }); });
-      // 小屋とピクニック
-      h.B(27, 0, 21, 7, 3.2, 6, '#9b6b43', { pat: ['vstripe', '#9b6b43', '#8a5a33', 6, 2] }); h.B(27, 3.2, 21, 7.8, 0.4, 6.8, '#5a3c28'); h.B(27, 0, 17.98, 1.2, 2.2, 0.04, '#5a3c28', NC); h.B(25, 1.2, 17.98, 1.2, 0.9, 0.04, '#9fd0e8', NC);
+      // ピクニック
       for (const p of [[16, 10.5], [21, 10.5]]) { table(h, p[0], p[1], 2.4, 1.2, '#b08a5a'); h.B(p[0], 0, p[1] - 1.1, 2.4, 0.42, 0.4, '#b08a5a', { pat: ['grain', '#b08a5a', 0, 2, 1] }); h.B(p[0], 0, p[1] + 1.1, 2.4, 0.42, 0.4, '#b08a5a', { pat: ['grain', '#b08a5a', 0, 2, 1] }); }
-      h.B(31, 0, -2, 4, 3, 4.5, '#d9d2c4', { pat: ['brick', '#d9d2c4', '#c4bcaa', 4, 3] }); vending(h, 27.6, -3, '#e04f4f', -1); vending(h, 27.6, -1.6, '#4f7fe0', -1);
+      h.B(31, 0, -2, 4, 3, 4.5, '#d9d2c4', { pat: ['brick', '#d9d2c4', '#c4bcaa', 4, 3] }); h.B(31, 3, -2, 4.6, 0.15, 5.1, '#8a6a4a', { r: 0.03 }); h.roof(31, 3.15, -2, 4.6, 5.1, 1.5, 0, '#5a3c28', { pat: ['rooftile', '#5a3c28', '#3a2818', 3, 3] }); // トイレの建物と四角すいの屋根 vending(h, 27.6, -3, '#e04f4f', -1); vending(h, 27.6, -1.6, '#4f7fe0', -1);
       bin(h, 5, 5, '#55606b'); bin(h, -5, -5, '#55606b'); bin(h, 21, 3, '#3f9b6a');
       for (const p of [[6, -20], [-6, 20], [30, 8], [-30, 3]]) lamp(h, p[0], p[1], 3.4);
       // 岩場（地層の岩・すき間）
@@ -1561,59 +2007,123 @@ export const MAPS = {
     }
   },
 
-  /* ---------- 学校 ---------- */
+  /* ---------- 学校（ろうかと、たくさんの部屋） ----------
+     北：教室×2／職員室／校長室／保健室／放送室／図書室／昇降口（げた箱）
+     南：音楽室／図工室／理科室／トイレ／体育倉庫／体育館（ステージ・幕） */
   school: {
-    name: '学校', hx: 34, hz: 26, sky: '#d5dde6', kit: ['statue', 'goods', 'crate', 'screen', 'toy', 'stool', 'plantK', 'junk', 'bags', 'sculpt', 'laundry', 'mural', 'rug', 'pole', 'bigbox', 'closet', 'gallery', 'nook', 'nook', 'blocks', 'patch', 'stairs', 'shelfK',
-      'easel', 'study', 'cleaning', 'toybox', 'coats', 'plush', 'gym', 'music', 'beanbag', 'ladderK', 'aquarium', 'pcdesk', 'clock', 'robot', 'dino', 'tallplant', 'dresser'], pal: ['#f2efe6', '#c9a26b', '#d7b47c', '#5f87b8', '#b85f5f', '#cfe0d3'], clutter: 78, spawn: [0, 0],
+    name: '学校', hx: 34, hz: 26, sky: '#bfe0f5', pal: ['#f2efe6', '#c9a26b', '#d7b47c', '#5f87b8', '#b85f5f', '#cfe0d3'], spawn: [0, 0],
     build(h) {
-      h.F(0, 0, 68, 6, '#d9d4c7');
-      h.F(0, -14.5, 68, 23, 0, ['vstripe', '#c9a26b', '#bf9860', 34, 1]);
-      h.F(-21, 14.5, 26, 23, 0, ['vstripe', '#c9a26b', '#bf9860', 13, 1]);
-      h.F(13, 14.5, 42, 23, '#d9a55a');
+      const P = this.pal, A = TOY, T = roomTools(h, 34, 26), { RM, put, shelf, win, art, FL, wood, tile, rug } = T;
+      const C1 = RM(-34, -20, -26, -3), C2 = RM(-20, -6, -26, -3), STF = RM(-6, 8, -14, -3), PRN = RM(-6, 8, -26, -14), NUR = RM(8, 15, -14, -3), BRD = RM(8, 15, -26, -14), LIB = RM(15, 34, -26, -12), ENT = RM(15, 34, -12, -3);
+      const MUS = RM(-34, -20, 3, 26), ART = RM(-20, -6, 3, 26), SCI = RM(-6, 6, 3, 26), WC = RM(6, 12, 3, 13), STO = RM(6, 12, 13, 26), GYM = RM(12, 34, 3, 26);
+      // ---- 床 ----
+      tile('#d9d4c7', '#c9c4b7', -34, 34, -3, 3);
+      wood('#c9a26b', -34, -6, -26, -3); FL(-6, 8, -14, -3, ['fabric', '#8d939a', 0, 6, 5]); FL(-6, 8, -26, -14, ['fabric', '#7a2f2f', 0, 6, 5]);
+      tile('#eef6f2', '#cfe0d8', 8, 15, -14, -3); FL(8, 15, -26, -14, ['fabric', '#3a414a', 0, 3, 5]); wood('#b98d5c', 15, 34, -26, -12); FL(15, 34, -12, -3, ['check2', '#9aa1a8', '#8d8f94', 9, 4]);
+      wood('#b98d5c', -34, -20, 3, 26); FL(-20, -6, 3, 26, ['vstripe', '#c9a26b', '#bf9860', 7, 1]); tile('#e8eef0', '#c9d3d8', -6, 6, 3, 26);
+      tile('#d8ecf4', '#a8c8d8', 6, 12, 3, 13); FL(6, 12, 13, 26, ['noise', '#a9a59a', 0, 2, 5]); wood('#d9a55a', 12, 34, 3, 26);
       h.outer(6, '#f2efe6');
-      const W = '#f2efe6', G = '#cfe0d3';
-      wallX(h, -3, -34, -24.5, W); wallX(h, -3, -21.5, -1.5, W); wallX(h, -3, 1.5, 21.5, W); wallX(h, -3, 24.5, 34, W);
-      wallX(h, 3, -34, -22.5, G); wallX(h, 3, -19.5, 28.5, G); wallX(h, 3, 31.5, 34, G);
-      wallZ(h, -11.5, -26, -3, W); wallZ(h, 11.5, -26, -3, W); wallZ(h, -8, 3, 26, G, WALL, ['splat', TOY]); // 図工室の壁はペンキのしぶき
-      // 教室 ×3：机（天板・脚・物入れ）といす
-      [-23, 0, 23].forEach((cx, r) => {
-        const cc = ['#4f7fe0', '#e04f4f', '#4fbf6a'][r];
-        for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
-          const x = cx - 6 + i * 4, z = -8 - j * 3.4;
-          h.B(x, 0.68, z, 1.3, 0.06, 0.8, '#d7b47c', { r: 0.02, pat: ['grain', '#d7b47c', 0, 1, 1] }); h.B(x, 0.5, z, 1.2, 0.14, 0.7, '#8d8f94', { r: 0.01 });
-          for (const sx of [-1, 1]) h.B(x + sx * 0.58, 0, z, 0.05, 0.5, 0.7, '#8d8f94', { r: 0.01 });
-          chair(h, x, z + 0.85, cc, -1);
-        }
-        h.B(cx, 0, -23, 2.6, 0.8, 1, '#8a5a33', { r: 0.03, pat: ['cabinet', '#8a5a33', '#d9d2c4', 2, 1] }); h.B(cx, 1, -25.8, 9, 1.7, 0.15, '#2f5d46', NC); h.B(cx, 0.9, -25.6, 9, 0.08, 0.3, '#c9a26b', NC);
-        for (let k = 0; k < 4; k++) h.B(cx - 3 + k * 1.6, 1.4 + (k % 2) * 0.4, -25.72, 0.8, 0.03, 0.01, '#f4f4f4', NC); // 黒板の字
-        bookshelf(h, cx + 9.5, -12, 1, 6, 1.6, '#b08a5a'); h.B(cx - 9.5, 0, -22, 1, 2, 2.4, '#55606b', { pat: ['vents', '#55606b', 0, 2, 1] }); h.B(cx + 6, 0, -24, 1.2, 1.1, 1.2, '#e9edf0', { r: 0.06 });
-      });
-      // 廊下のロッカー（通気口・取っ手・名ふだ）
-      for (let x = -32; x <= 32; x += 3.2) { if ([-23, 0, 23].some(d => Math.abs(x - d) < 3)) continue; const c = Math.round(x) % 2 ? '#5f87b8' : '#b85f5f'; h.B(x, 0, -2.5, 2.6, 1.9, 0.5, c, { r: 0.03 }); for (const s of [-1, 1]) h.B(x + s * 0.65, 0.05, -2.245, 1.25, 1.8, 0.01, c, { nocol: true, pat: ['vents', c, 0, 1, 1] }); }
-      for (let x = -32; x <= 32; x += 6.4) { if ([-21, 30].some(d => Math.abs(x - d) < 3.2)) continue; bench(h, x, 2.4, true, '#8a5a33', 1); }
-      plant(h, -33, 0); plant(h, 33, 0);
-      for (const x of [-29, -16, -6, 6, 16, 29]) pic(h, x, 1.0, -3.2, 0, -1, 2.4, 1.7); // 教室のうしろの壁の絵
-      pic(h, -8.2, 0.15, 10, -1, 0, 2.6, 2.4); pic(h, -8.2, 0.15, 14.5, -1, 0, 2.6, 2.4); // 図工室の大きな絵
-      // 図工室
-      for (const p of [[-27, 9], [-15, 9], [-27, 17], [-15, 17]]) { table(h, p[0], p[1], 4, 2, '#e8dcc8'); for (const dx of [-1.2, 1.2]) { stool(h, p[0] + dx, p[1] - 1.5, '#55606b'); stool(h, p[0] + dx, p[1] + 1.5, '#55606b'); } }
-      h.B(-21, 0, 25.3, 14, 0.95, 1.2, '#f4f4f4', { pat: ['cabinet', '#f4f4f4', '#9aa1a8', 12, 1] }); bookshelf(h, -33.3, 14, 1, 8, 2.2, '#8a5a33');
-      TOY.forEach((c, i) => h.lathe(-26 + i * 1.6, 0.95, 25.3, [[0.001, 0], [0.3, 0], [0.3, 0.42], [0.27, 0.45], [0.001, 0.45]], c, { seg: 16 }));
-      h.B(-10, 0, 22, 1.4, 1.8, 0.2, '#e8dcc8'); h.B(-10, 0, 19, 1.4, 1.8, 0.2, '#e8dcc8'); h.B(-9.2, 0, 6, 1.6, 1.2, 3, '#b08a5a', { pat: ['cabinet', '#b08a5a', '#f4f4f4', 1, 2] });
-      KIT.nook(h, -30.6, 22.8, ['#e04f4f', '#4f7fe0', '#f0d040'], TOY, { al: true, sd: -1, L: 4.4 }); // 図工室のくぼみの壁
-      // 体育館
-      h.B(13, 0, 14.5, 0.15, 0.02, 23, '#ffffff', FL); h.cyl(13, 0, 14.5, 3, 0.02, '#c98f4e', FL);
-      for (const [x, s] of [[-6.6, 1], [32.6, -1]]) { h.B(x, 0, 14.5, 0.3, 3.6, 0.3, '#888e94'); h.B(x + s * 0.4, 2.7, 14.5, 0.15, 1.2, 1.8, '#ffffff'); h.ring(x + s * 0.75, 2.9, 14.5, 0.25, 0.025, '#e0413a'); }
-      for (let k = 0; k < 3; k++) h.B(13, 0, 4.2 + k * 0.9, 26, 0.45 * (3 - k), 0.9, '#b08a5a', { pat: ['grain', '#b08a5a', 0, 10, 1] });
-      for (let k = 0; k < 4; k++) h.B(2, k * 0.4, 23, 2.2 - k * 0.2, 0.4, 1.2, k % 2 ? '#e04f4f' : '#f4f4f4', { r: 0.03 });
-      h.B(8, 0, 23.5, 3, 0.25, 2, '#3f6fc9', { r: 0.06 }); h.B(8.3, 0.25, 23.5, 3, 0.25, 2, '#3f6fc9', { r: 0.06 }); h.B(12, 0, 24, 3, 0.25, 2, '#3f9b6a', { r: 0.06 });
-      h.B(30, 0, 23, 2.4, 1.2, 2.4, '#c0c6cc', { pat: ['vband', '#c0c6cc', '#a8afb6', 3, 1] }); for (let i = 0; i < 5; i++) h.ball(20 + i * 1.1, 0.35, 24.5, 0.35, i % 2 ? '#f08a3c' : '#e04f4f', { pat: ['hstripe', i % 2 ? '#f08a3c' : '#e04f4f', '#2a3038', 1, 4] });
-      h.B(24, 0, 8, 1.6, 1.1, 0.5, '#f0d040', { r: 0.05 }); h.B(27, 0, 8, 1.6, 1.1, 0.5, '#f0d040', { r: 0.05 }); h.B(-2, 0, 8, 3, 1, 1.4, '#5a3c28', { r: 0.05, pat: ['cabinet', '#5a3c28', '#d9d2c4', 2, 1] });
-      const SP = this.pal;
-      scatter(h, ['gym', 'gym', 'bars', 'trampoline', 'climb', 'jungle', 'gym'], -5, 31, 8.5, 22.5, SP, TOY); // 体育館：跳び箱・マット・平均台・鉄棒・トランポリン
-      scatter(h, ['easel', 'easel', 'easel', 'easel', 'easel'], -33, -9.5, 4, 22, SP, TOY); // 図工室：イーゼルの絵
-      scatter(h, ['cleaning', 'umbrella', 'coats', 'cleaning', 'umbrella'], -33, 33, -25.5, -5, SP, TOY); // 教室：そうじ道具・かさ立て・コートかけ
-      scatter(h, ['aquarium', 'clock', 'pcdesk', 'tallplant', 'aquarium', 'pcdesk', 'clock'], -33, 33, -25.5, -5, SP, TOY); // 教室の水そう・時計・パソコン
-      scatter(h, ['robot', 'dino', 'dolls', 'tallplant'], -33, -9.5, 4, 22, SP, TOY); // 図工室の作品
+      // ---- 壁（部屋ごとに色・模様を変える）----
+      const S = {
+        cor: ['#f2efe6'], c1: ['#f2efe6'], c2: ['#f6f1e2'], stf: ['#e9e4d8'], prn: ['#d9c7a0', ['vband', '#cdb88e', 1]], nur: ['#eef6f2'], brd: ['#5f6f7f', ['dots', '#4f5f6f', 1]],
+        lib: ['#efe3cf', ['dots', '#e2d2b6', 1]], ent: ['#e4e9ee'], mus: ['#f3ead8', ['vband', '#e8dcc0', 1]], art: ['#cfe0d3', ['splat', TOY, 1]], sci: ['#e8eef0'],
+        wc: ['#d8ecf4', ['tile', '#a8cfe0']], sto: ['#d9d4c7'], gym: ['#f2efe6'],
+      };
+      wallR(h, 'x', -3, -34, -20, [[-31, 2], [-23, 2]], S.c1, S.cor); wallR(h, 'x', -3, -20, -6, [[-17, 2], [-9, 2]], S.c2, S.cor); wallR(h, 'x', -3, -6, 8, [[1, 2.2]], S.stf, S.cor);
+      wallR(h, 'x', -3, 8, 15, [[11.5, 2]], S.nur, S.cor); wallR(h, 'x', -3, 15, 34, [[24.5, 17, true]], S.ent, S.cor);
+      wallR(h, 'x', 3, -34, -20, [[-31, 2], [-23, 2]], S.cor, S.mus); wallR(h, 'x', 3, -20, -6, [[-17, 2], [-9, 2]], S.cor, S.art); wallR(h, 'x', 3, -6, 6, [[-3, 2], [3, 2]], S.cor, S.sci);
+      wallR(h, 'x', 3, 6, 12, [[9, 1.8]], S.cor, S.wc); wallR(h, 'x', 3, 12, 34, [[17, 3], [29, 3]], S.cor, S.gym);
+      wallR(h, 'z', -20, -26, -3, [], S.c1, S.c2); wallR(h, 'z', -20, 3, 26, [[14.5, 2]], S.mus, S.art);
+      wallR(h, 'z', -6, -26, -14, [], S.c2, S.prn); wallR(h, 'z', -6, -14, -3, [[-8.5, 2]], S.c2, S.stf); wallR(h, 'z', -6, 3, 26, [[20, 2]], S.art, S.sci);
+      wallR(h, 'z', 8, -26, -14, [[-22, 1.8]], S.prn, S.brd); wallR(h, 'z', 8, -14, -3, [[-8.5, 1.8]], S.stf, S.nur);
+      wallR(h, 'z', 15, -26, -14, [[-18, 1.8]], S.brd, S.lib); wallR(h, 'z', 15, -14, -12, [], S.nur, S.lib); wallR(h, 'z', 15, -12, -3, [], S.nur, S.ent);
+      wallR(h, 'z', 6, 3, 13, [], S.sci, S.wc); wallR(h, 'z', 6, 13, 26, [], S.sci, S.sto); wallR(h, 'z', 12, 3, 13, [], S.wc, S.gym); wallR(h, 'z', 12, 13, 26, [[19, 2.4]], S.sto, S.gym);
+      wallR(h, 'x', -14, -6, 8, [[4, 2]], S.prn, S.stf); wallR(h, 'x', -14, 8, 15, [], S.brd, S.nur); wallR(h, 'x', -12, 15, 34, [[21.2, 2.4], [28.2, 2.4]], S.lib, S.ent); wallR(h, 'x', 13, 6, 12, [], S.wc, S.sto);
+      // 開いたドア（ドアと壁のあいだに隠れる）
+      doorOpen(h, 3.15, -3.2, [0, -1], 2.0, '#b08a5a'); doorOpen(h, 12.6, -3.2, [0, -1], 1.8, '#cfe0d8'); doorOpen(h, 5.1, -14.2, [0, -1], 1.8, '#5a3c28');
+      doorOpen(h, 10.0, 3.2, [0, 1], 1.6, '#7fb7d8'); doorOpen(h, 12.2, 20.3, [1, 0], 2.2, '#9aa1a8'); doorOpen(h, -20.2, 15.6, [-1, 0], 1.8, '#c9a26b');
+      // ---- ろうか（ロッカー・ベンチ・けいじ板・消火器）----
+      for (const x of [-27, -13]) lockerRowF(h, x, 2.55, [0, -1], 3.6, x < -20 ? '#5f87b8' : '#b85f5f');
+      lockerRowF(h, -1.2, -2.55, [0, 1], 2.6, '#6f9f6f'); lockerRowF(h, 6.8, 2.55, [0, -1], 1.3, '#9aa1a8');
+      for (const x of [-19.5, -5.6, 20.5]) bench(h, x, 2.35, true, '#8a5a33', 1);
+      for (const x of [-27, -13, 5.5]) art({ x0: -34, x1: 34, z0: -2.8, z1: 2.8 }, 'n', x + 34, 1.2, 2.2, 1.4);
+      for (const x of [-33.2, 33.2]) KIT.tallplant(h, x, 0, P, A);
+      h.cyl(-33.4, 0, -2.2, 0.16, 0.6, '#e0413a', { seg: 12 }); h.cyl(33.4, 0, 2.2, 0.16, 0.6, '#e0413a', { seg: 12 }); // 消火器
+      // ---- 教室（黒板・教壇・つくえ5×5・ランドセルのたな・ロッカー）----
+      const classroom = (R, cx, cc) => {
+        blackboardF(h, cx, -26, [0, 1], 9); h.B(cx, 0, -24.9, 10, 0.18, 2.0, '#b98d5c', { r: 0.02, pat: ['floorwood', '#b98d5c', 0, 4, 1] });
+        lecternF(h, cx, -22.9, [0, 1]);
+        for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) schoolDesk(h, cx - 5.2 + i * 2.6, -20.2 + j * 3.0, cc, -1);
+        cubbyF(h, cx, -3.425, [0, -1], 5.6);
+        put(R, 'e', -1.6, 0.5, lockerRowF, 2.4, '#9aa1a8'); plant(h, R.x1 - 0.6, R.z0 + 0.6);
+        art(R, 'e', 9, 1.4, 2.4, 1.6); art(R, 'e', 14.5, 1.4, 2.4, 1.6);
+      };
+      classroom(C1, -27, '#4f7fe0'); classroom(C2, -13, '#e04f4f');
+      win(C1, 'w', 8, 2.4); win(C1, 'w', 14, 2.4); shelf(C1, 'w', 4.0, 3.0, 1.6, '#b08a5a', 0.6); art(C2, 'w', 4, 1.3, 2.0, 1.4);
+      // ---- 職員室（先生のつくえの島・コピー機・本だな・ソファ）----
+      for (const iz of [-10, -6]) for (let k = 0; k < 3; k++) { deskF(h, -3.9 + k * 1.5, iz - 0.35, [0, -1], '#9aa1a8', k === 1 ? 'pc' : 'study'); deskF(h, -3.9 + k * 1.5, iz + 0.35, [0, 1], '#9aa1a8', k === 1 ? 'study' : 'pc'); }
+      shelf(STF, 'n', 2.0, 3.2, 2.0, '#9aa1a8', 0.6); shelf(STF, 'n', 5.8, 3.0, 2.0, '#9aa1a8', 0.6); blackboardF(h, 7.8, -11.3, [-1, 0], 3);
+      h.B(6.6, 0, -13.1, 1.2, 1.05, 0.8, '#d5dbe0', { r: 0.05 }); h.B(6.6, 1.05, -13.1, 1.0, 0.1, 0.6, '#9aa1a8', { r: 0.03 }); // コピー機
+      sofaF(h, 7.2, -5.0, [-1, 0], 2.2, '#7d8fb3'); table(h, 5.6, -5.0, 0.8, 1.4, '#6b4a2b', 0.42); KIT.tallplant(h, -5.2, -3.9, P, A); KIT.clock(h, -5.3, -12.4, P, A);
+      // ---- 校長室（大きなつくえ・ソファのセット・トロフィーのたな・肖像画）----
+      deskF(h, 1, -22.6, [0, -1], '#5a3c28', 'pc'); rug(1, -17.5, 6, 3.6, 'diag', '#7a2f2f', '#c9a24a');
+      sofaF(h, -1.6, -17.5, [1, 0], 2.4, '#7a2f2f'); sofaF(h, 3.6, -17.5, [-1, 0], 2.4, '#7a2f2f'); table(h, 1, -17.5, 1.2, 2.0, '#5a3c28', 0.45);
+      put(PRN, 'w', 6, 0.5, cupboardF, 3.0, '#5a3c28'); shelf(PRN, 'e', 1.6, 3.0, 2.2, '#5a3c28', 0.6); win(PRN, 'n', 6.8, 2.4);
+      art(PRN, 'n', 2.4, 1.7, 1.2, 1.5); art(PRN, 'n', 11.2, 1.7, 1.2, 1.5); KIT.tallplant(h, -5.2, -25.3, P, A); KIT.tallplant(h, 7.2, -14.8, P, A);
+      for (const [x, c] of [[-1.6, '#e04f4f'], [3.6, '#4f7fe0']]) { h.cyl(x, 0, -24.9, 0.25, 0.05, '#c9a24a'); h.cyl(x, 0.05, -24.9, 0.03, 2.2, '#c9a24a', { seg: 8 }); h.B(x + 0.45, 1.5, -24.9, 0.9, 0.6, 0.02, c, { nocol: true, pat: ['hstripe', c, '#f4f4f4', 1, 3] }); } // 旗
+      // ---- 保健室（カーテンのベッド・薬のたな・つくえ・洗面台・身長計）----
+      bedF(h, 13.55, -12.0, [-1, 0], '#cfe8e0', 1.1, 2.2); bedF(h, 13.55, -8.6, [-1, 0], '#f6e1ea', 1.1, 2.2);
+      curtainF(h, 13.6, -10.3, [0, 1], 2.4, 2.1, '#cfe8e0'); curtainF(h, 12.1, -12.4, [1, 0], 1.6, 2.1, '#cfe8e0'); curtainF(h, 12.1, -8.3, [1, 0], 1.2, 2.1, '#f6e1ea');
+      put(NUR, 'n', 1.5, 0.5, cupboardF, 2.2, '#f4f4f4'); put(NUR, 'w', 2.2, 0.7, deskF, '#f4f4f4', 'study'); put(NUR, 'w', -1.3, 0.55, vanityF, 1.2);
+      sofaF(h, 13.6, -3.775, [0, -1], 1.6, '#59b6d8'); h.B(14.3, 0, -5.6, 0.5, 0.06, 0.5, '#c9ccd0'); h.cyl(14.45, 0.06, -5.6, 0.04, 2.0, '#c9ccd0', { seg: 8 }); h.B(14.3, 1.5, -5.6, 0.3, 0.04, 0.3, '#c9ccd0', NC); // 身長計
+      // ---- 放送室（ミキサー・スピーカー・マイク・CDのたな）----
+      put(BRD, 'n', 3.3, 0.65, counterF, 4.0, { c: '#55606b', top: '#2a3038' });
+      for (let i = 0; i < 10; i++) h.B(9.7 + i * 0.3, 0.951, -25.1 + (i % 2) * 0.18, 0.12, 0.03, 0.12, pick(h, ['#e04f4f', '#3dff9a', '#f0d040', '#59b6d8']), { nocol: true, glow: 0.5 });
+      for (const x of [9.0, 14.0]) h.B(x, 0, -24.0, 0.7, 1.3, 0.6, '#2a3038', { r: 0.05, pat: ['dots', '#2a3038', '#55606b', 1, 2] }); // スピーカー
+      shelf(BRD, 'w', 8.5, 2.2, 2.0, '#2a3038', 0.5); chair(h, 11.5, -23.6, '#2a3038', -1); rod(h, [12.6, 0, -21.5], [12.6, 1.5, -21.5], 0.025, '#2a3038'); h.ball(12.6, 1.55, -21.5, 0.08, '#55606b', NC);
+      sofaF(h, 14.2, -15.3, [-1, 0], 2.0, '#2a3038'); carton(h, 9.0, 0, -15.0, 0.9, 0.7, 0.9, CARD[0]); carton(h, 9.0, 0.7, -15.0, 0.7, 0.5, 0.7, CARD[2]);
+      // ---- 図書室（本だなの列・読書テーブル・カウンター・絵本コーナー）----
+      for (const x of [19.5, 23.2, 26.9, 30.6]) bookshelf(h, x, -21.2, 0.9, 6, 2.2, pick(h, ['#8a5a33', '#7a4c2a', '#9a6a43']));
+      shelf(LIB, 'n', 3.5, 5, 2.4, '#8a5a33'); shelf(LIB, 'n', 10.5, 5, 2.4, '#8a5a33'); shelf(LIB, 'n', 16, 3.5, 2.4, '#8a5a33');
+      for (const x of [20.5, 27.0]) { table(h, x, -15.3, 3.2, 1.5, '#c9a26b'); for (const dx of [-1, 0, 1]) { chair(h, x + dx, -14.25, '#5f87b8', -1); chair(h, x + dx, -16.35, '#5f87b8', 1); } }
+      h.B(16.2, 0, -14.6, 0.8, 1.0, 2.6, '#c9a26b', { r: 0.03, pat: ['grain', '#c9a26b', 0, 1, 2] }); h.B(16.2, 1.0, -14.6, 0.95, 0.05, 2.75, '#8a5a33', { r: 0.02 }); // カウンター
+      rug(31.6, -15.0, 3.6, 3.6, 'dots', '#f0d040', '#e0719a'); KIT.beanbag(h, 32.4, -13.6, P, A); KIT.beanbag(h, 30.6, -16.2, P, A); globeF(h, 15.9, -24.6);
+      win(LIB, 'e', 5, 2.0); win(LIB, 'e', 10.5, 2.0);
+      // ---- 昇降口（げた箱の列・かさ立て・ガラスの戸・マット）----
+      for (const x of [19.5, 23.0, 26.5, 30.0]) getabakoF(h, x, -7.4, [1, 0], 4.8, 1.7);
+      glass(h, 33.8, 0, -7.4, 0.12, 2.6, 4.2); h.B(33.85, 2.6, -7.4, 0.3, 0.2, 4.6, '#9aa1a8'); rug(32.4, -7.4, 1.8, 4.0, 'hstripe', '#3f5f8a', '#2f4f7a');
+      KIT.umbrella(h, 17.2, -4.2, P, A); KIT.umbrella(h, 32.6, -4.0, P, A); bench(h, 32.8, -10.6, true, '#8a5a33', -1); art(ENT, 'n', 9.3, 1.3, 3.0, 1.6);
+      // ---- 音楽室（ひな段・いすと譜面台・ピアノ・ドラム・ティンパニ）----
+      blackboardF(h, -27, 26, [0, -1], 6); for (let k = 0; k < 5; k++) h.B(-27, 1.35 + k * 0.22, 25.86, 5.6, 0.02, 0.01, '#f4f4f4', NC); // 五線
+      risersF(h, -27, 12.0, [0, -1], 3, 10, 0.22, 2.2, '#b98d5c');
+      for (let i = 0; i < 6; i++) { const x = -31.2 + i * 1.7, z = 16.2 + Math.abs(i - 2.5) * 0.35; chair(h, x, z, '#3f5f8a', 1); standF(h, x, z + 0.9); }
+      put(MUS, 'w', -4.5, 0.6, pianoF); KIT.music(h, -24.0, 21.0, P, A); drumF(h, -32.8, 13.6); drumF(h, -32.6, 15.2, 0.38);
+      shelf(MUS, 'e', 4.0, 3.0, 2.0, '#8a5a33'); shelf(MUS, 'e', 20.5, 3.0, 2.0, '#8a5a33'); art(MUS, 'n', 6.8, 2.2, 2.0, 1.2); win(MUS, 's', 2.2, 1.6); win(MUS, 's', 11.8, 1.6);
+      // ---- 図工室（大きなつくえ・流し・イーゼル・作品）----
+      for (const [x, z] of [[-16, 9], [-10, 9], [-16, 16.5], [-10, 16.5]]) { table(h, x, z, 4, 2, '#e8dcc8'); for (const dx of [-1.2, 1.2]) { stool(h, x + dx, z - 1.5, '#55606b'); stool(h, x + dx, z + 1.5, '#55606b'); } }
+      put(ART, 's', 6.8, 0.65, counterF, 8.0, { sink: -2.0 }); TOY.forEach((c, i) => h.lathe(-15.6 + i * 1.2, 0.95, 25.4, [[0.001, 0], [0.25, 0], [0.25, 0.36], [0.22, 0.39], [0.001, 0.39]], c, { seg: 14 }));
+      art(ART, 'w', 4.5, 0.15, 2.6, 2.4); art(ART, 'w', 19.5, 0.15, 2.6, 2.4);
+      KIT.easel(h, -7.6, 7.0, P, A); KIT.easel(h, -7.6, 12.0, P, A); KIT.robot(h, -18.7, 22.6, P, A); KIT.dino(h, -8.6, 23.0, P, A);
+      // ---- 理科室（実験台・薬品のたな・水そう・地球儀）----
+      for (const [x, z] of [[-2.5, 9.5], [2.5, 9.5], [-2.5, 16.5], [2.5, 16.5]]) labBenchF(h, x, z, [1, 0], 3.0);
+      blackboardF(h, 0, 26, [0, -1], 6); labBenchF(h, 0, 23.0, [0, 1], 3.2);
+      put(SCI, 'w', 4.5, 0.55, rackF, 3.0, 2.0, 'bath'); put(SCI, 'e', 12.0, 0.55, rackF, 3.0, 2.0, 'bath'); KIT.aquarium(h, 4.6, 21.0, P, A); globeF(h, -4.9, 24.6); art(SCI, 'e', 18.5, 1.3, 2.4, 1.6);
+      // ---- トイレ（個室・小便器・洗面台）----
+      for (const z of [6.0, 7.5, 9.0, 10.5]) stallF(h, 10.95, z, [-1, 0]);
+      for (const z of [6.2, 7.4, 8.6]) { h.B(6.45, 0.35, z, 0.36, 0.65, 0.45, '#f4f4f4', { r: 0.1 }); h.B(6.5, 0.6, z + 0.6, 0.5, 1.0, 0.04, '#7fb7d8', { r: 0.01 }); }
+      put(WC, 'n', 0.9, 0.55, vanityF, 1.6); KIT.cleaning(h, 7.2, 12.0, P, A);
+      // ---- 体育倉庫（マット・とび箱・ボールかご・たな）----
+      matsF(h, 8.0, 15.0, 6); vaultF(h, 7.4, 18.6, 6, false); ballCartF(h, 10.6, 15.0); put(STO, 's', 2.8, 0.55, rackF, 4.0, 2.0, 'store');
+      matsF(h, 8.6, 22.0, 4, '#e04f4f'); put(STO, 'w', 9.5, 0.5, lockerRowF, 2.0, '#9aa1a8'); pylon(h, 10.9, 23.4); pylon(h, 11.3, 22.8);
+      // ---- 体育館（コートの線・バスケットゴール・ステージと幕・観客席）----
+      h.B(23, 0, 14.6, 0.15, 0.02, 22.5, '#ffffff', { nocol: true, flat: true }); h.cyl(23, 0, 14.6, 3, 0.02, '#c98f4e', { nocol: true, flat: true });
+      for (const [z, s] of [[3.55, 1], [25.65, -1]]) { h.B(23, 0, z, 0.3, 3.6, 0.3, '#888e94'); h.B(23, 2.7, z + s * 0.4, 1.8, 1.2, 0.15, '#ffffff'); h.ring(23, 2.9, z + s * 0.75, 0.25, 0.025, '#e0413a'); }
+      h.B(31.75, 0, 14.6, 4.5, 1.1, 15, '#b98d5c', { r: 0.03, pat: ['floorwood', '#b98d5c', 0, 2, 5] }); // ステージ
+      risersF(h, 27.3, 14.6, [1, 0], 5, 3, 0.22, 0.44, '#b98d5c');
+      curtainF(h, 29.75, 8.9, [1, 0], 3.6, 4.4, '#9a2a2a', 1.1); curtainF(h, 29.75, 20.3, [1, 0], 3.6, 4.4, '#9a2a2a', 1.1); curtainF(h, 32.9, 14.6, [-1, 0], 13, 4.4, '#7a2020', 1.1);
+      h.lathe(31.0, 1.1, 12.4, [[0.001, 0], [0.2, 0], [0.26, 0.5], [0.001, 0.5]], '#c9a24a', { seg: 12 }); h.lump(31.0, 1.9, 12.4, 0.4, 0.4, 0.4, '#e0719a', { seed: 2, bump: 0.2, freq: 3, pat: ['confetti', '#e0719a', ['#f4f4f4', '#f0d040'], 2, 1] });
+      risersF(h, 15.4, 9.0, [-1, 0], 3, 10, 0.22, 1.0, '#b08a5a');
+      vaultF(h, 18.0, 21.5, 5); matsF(h, 21.5, 23.8, 3); ballCartF(h, 26.2, 23.8); for (let i = 0; i < 4; i++) h.ball(14 + i * 1.1, 0.35, 24.9 - (i % 2) * 0.5, 0.35, i % 2 ? '#f08a3c' : '#e04f4f', { pat: ['hstripe', i % 2 ? '#f08a3c' : '#e04f4f', '#2a3038', 1, 4] });
     }
   },
 
