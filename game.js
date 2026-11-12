@@ -5,7 +5,7 @@ import { MAPS, MAP_LIST, KIT, KIT_R } from './maps.js';
 import { drawPattern } from './patterns.js';
 import { buildBody, RIG, makeHash, near, nearestVert, nearestMap } from './body.js';
 import { lump, knotPoint } from './shapes.js';
-import { boxCol, cylCol, ellCol, pushOut, stepBody, isFree } from './physics.js';
+import { boxCol, cylCol, ellCol, oboxCol, polyCol, pushOut, stepBody, isFree, makeGrid, nearCols } from './physics.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const $ = id => document.getElementById(id);
@@ -17,7 +17,7 @@ const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 const configured = !!firebaseConfig.apiKey && !/^YOUR/.test(firebaseConfig.apiKey);
 
 /* ---------------- 設定 ---------------- */
-const settings = { lite: false, sens: 1, bgm: 0.3, se: 0.6, bloom: !isTouch };
+const settings = { lite: false, sens: 1, bgm: 0.3, se: 0.7, bloom: !isTouch, loud: true };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('nurikakure_set') || '{}')); } catch (e) {}
 const saveSet = () => { try { localStorage.setItem('nurikakure_set', JSON.stringify(settings)); } catch (e) {} };
 
@@ -214,7 +214,41 @@ function addBox(x, y, z, w, h, d, color, opt = {}) {
   if (opt.soft) m.userData.sph = [x, y + h / 2, z, Math.max(w, h, d) / 2]; // 布・水面・ボールの海：中にいると自分からは透けて見える
   place(m, opt);
   if (opt.soft) { if (opt.sinkV != null) W.cols.push(boxCol(x - w / 2, x + w / 2, z - d / 2, z + d / 2, y, y + h, { soft: true, sinkV: opt.sinkV })); return; } // 上から入ると沈んで立つ
-  if (!opt.nocol && !opt.rot) W.cols.push(boxCol(x - w / 2, x + w / 2, z - d / 2, z + d / 2, y, y + h, { rr: rr > 0.03 ? rr : 0, nc: opt.noclimb, sink: opt.sink }));
+  if (opt.nocol) return;
+  if (!opt.rot) { W.cols.push(boxCol(x - w / 2, x + w / 2, z - d / 2, z + d / 2, y, y + h, { rr: rr > 0.03 ? rr : 0, nc: opt.noclimb, sink: opt.sink })); return; }
+  rotBoxCol(x, y + h / 2, z, w, h, d, opt.rot, { nc: opt.noclimb, sink: opt.sink }); // かたむけた箱も見た目どおりに当たる
+}
+// 回した箱の当たり判定：縦の軸まわりの向きはそのまま、かたむきは外側を包む大きさで
+const _eu = new THREE.Euler(), _qa = new THREE.Quaternion(), _va = new V3();
+function rotBoxCol(cx, cy, cz, w, h, d, rot, o = {}) {
+  _qa.setFromEuler(_eu.set(rot[0], rot[1], rot[2]));
+  const ax = new V3(1, 0, 0).applyQuaternion(_qa), az = new V3(0, 0, 1).applyQuaternion(_qa);
+  const yaw = Math.abs(ax.y) <= Math.abs(az.y) ? Math.atan2(-ax.z, ax.x) : Math.atan2(az.x, az.z), c = Math.cos(yaw), s = Math.sin(yaw);
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9;
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) {
+    _va.set(sx * w / 2, sy * h / 2, sz * d / 2).applyQuaternion(_qa);
+    const lx = _va.x * c - _va.z * s, lz = _va.x * s + _va.z * c;
+    x0 = Math.min(x0, lx); x1 = Math.max(x1, lx); z0 = Math.min(z0, lz); z1 = Math.max(z1, lz); y0 = Math.min(y0, _va.y); y1 = Math.max(y1, _va.y);
+  }
+  W.cols.push(oboxCol(cx, cz, Math.max(0.02, (x1 - x0) / 2), Math.max(0.02, (z1 - z0) / 2), yaw, Math.max(0, cy + y0), cy + y1, o));
+}
+// 横にねかせた円柱（丸太・たる・パイプ）の当たり判定：輪切りにした回した箱を重ねる。ななめの物は球を並べる
+function rotCylCol(cx, cy, cz, r, len, rot, o = {}) {
+  _qa.setFromEuler(_eu.set(rot[0], rot[1], rot[2])); const a = new V3(0, 1, 0).applyQuaternion(_qa);
+  if (Math.abs(a.y) > 0.94) { W.cols.push(cylCol(cx, cz, cy - len / 2, cy + len / 2, r, r, o)); return; }
+  if (Math.abs(a.y) < 0.25) {
+    const yaw = Math.atan2(-a.z, a.x), N = r > 0.3 ? 4 : 2, hs = 2 * r / N;
+    for (let k = 0; k < N; k++) {
+      const ya = cy - r + k * hs, yb = ya + hs, dm = ya <= cy && yb >= cy ? 0 : Math.min(Math.abs(ya - cy), Math.abs(yb - cy));
+      W.cols.push(oboxCol(cx, cz, len / 2 + r * Math.abs(a.y), Math.sqrt(Math.max(0, r * r - dm * dm)), yaw, Math.max(0, ya), yb, o));
+    }
+    return;
+  }
+  sphereLine(cx - a.x * len / 2, cy - a.y * len / 2, cz - a.z * len / 2, a.x, a.y, a.z, len, r);
+}
+function sphereLine(x, y, z, dx, dy, dz, len, r) { // 線にそって球を並べる（枝・ななめの柱）
+  const n = Math.max(2, Math.ceil(len / (r * 1.4)) + 1);
+  for (let i = 0; i < n; i++) { const t = i / (n - 1) * len; W.cols.push(ellCol(x + dx * t, y + dy * t, z + dz * t, r, r, r)); }
 }
 function addCyl(x, y, z, r, h, color, opt = {}) {
   const rt = opt.rt == null ? r : opt.rt, seg = W.cheap ? Math.min(opt.seg || 24, 12) : (opt.seg || 24);
@@ -222,7 +256,9 @@ function addCyl(x, y, z, r, h, color, opt = {}) {
   m.castShadow = !opt.flat; m.receiveShadow = true;
   if (opt.rot) { m.position.set(x, y, z); m.rotation.set(opt.rot[0], opt.rot[1], opt.rot[2]); } else m.position.set(x, y + h / 2, z); // 横にした円柱は y が中心
   place(m, opt);
-  if (!opt.nocol && !opt.rot) { const k = seg >= 8 ? 1 : 0.92; W.cols.push(cylCol(x, z, y, y + h, r * k, rt * k, { nc: opt.noclimb })); }
+  if (opt.nocol) return;
+  if (opt.rot) { rotCylCol(x, y, z, Math.max(r, rt), h, opt.rot, { nc: opt.noclimb }); return; }
+  const k = seg >= 8 ? 1 : 0.92; W.cols.push(cylCol(x, z, y, y + h, r * k, rt * k, { nc: opt.noclimb }));
 }
 function addBall(x, y, z, r, color, opt = {}) {
   const m = new THREE.Mesh(geoCache(`s${r}`, () => new THREE.SphereGeometry(r, W.cheap ? 12 : 22, W.cheap ? 8 : 16)), makeMat(color, opt, 0.95, opt.glow ? 1.6 : 1));
@@ -232,7 +268,7 @@ function addBall(x, y, z, r, color, opt = {}) {
   if (opt.glow && !opt.nolight && !settings.lite && !W.cheap && W.lamps < 10) { // 光るランタン
     W.lamps++; const k = W.info.dark || 1, L = new THREE.PointLight(0xffc27a, (14 + 60 * (1 - k)) * W.S, 16 * W.S, 2); L.position.set(x, y, z); W.scene.add(L); W.extras.push(L);
   }
-  if (opt.col) W.cols.push(ellCol(x, y, z, r, r, r));
+  if (!opt.nocol && !opt.nolight) W.cols.push(ellCol(x, y, z, r, r, r)); // 玉はどれも当たる（遠くの太陽・月だけ除く）
 }
 function addCone(x, y, z, r, h, color, opt = {}) {
   const seg = opt.seg || 22, rt = opt.rt || 0;
@@ -274,8 +310,8 @@ function addLump(x, y, z, rx, ry, rz, color, opt = {}) {
   if (opt.soft) m.userData.sph = [x, y, z, Math.max(rx, ry, rz)];
   place(m, opt);
   const a = opt.ry ? (rx + rz) / 2 : 0, k = opt.core || 0.9;
-  if (!opt.nocol && (!opt.soft || opt.core)) W.cols.push(ellCol(x, y, z, (a || rx) * k, ry * k, (a || rz) * k, { half: !!opt.half })); // かたい芯
-  if (!opt.nocol && opt.sinkV != null) W.cols.push(ellCol(x, y, z, (a || rx) * 0.92, ry * 0.92, (a || rz) * 0.92, { soft: true, sinkV: opt.sinkV })); // 葉っぱの上は少し沈む
+  if (!opt.nocol && (!opt.soft || opt.core)) W.cols.push(ellCol(x, y, z, (a || rx) * k, ry * k, (a || rz) * k, { half: !!opt.half })); // かたい芯（でこぼこの表面に少しだけ体が入る）
+  if (!opt.nocol && opt.soft && opt.sinkV != null) W.cols.push(ellCol(x, y, z, (a || rx) * 0.92, ry * 0.92, (a || rz) * 0.92, { soft: true, sinkV: opt.sinkV }));
 }
 function addKnot(x, y, z, R, t, p, q, ry, color, opt = {}) { // ねじれた結び目の形のオブジェ（当たり判定は線にそって並べた球）
   const m = new THREE.Mesh(new THREE.TorusKnotGeometry(R, t, W.cheap ? 64 : 140, W.cheap ? 8 : 14, p, q), makeMat(color, opt, 0.5));
@@ -284,9 +320,10 @@ function addKnot(x, y, z, R, t, p, q, ry, color, opt = {}) { // ねじれた結�
   for (let i = 0; i < 40; i++) { const k = knotPoint(i / 40 * Math.PI * 2 * p, p, q, R); W.cols.push(ellCol(x + k[0] * c + k[2] * s, y + k[1], z - k[0] * s + k[2] * c, t * 1.05, t * 1.05, t * 1.05)); }
 }
 const _up = new V3(0, 1, 0), _dir = new V3();
-function addCapC(x, y, z, r, len, dx, dy, dz, color, opt = {}) { // 中心と向きで置くカプセル（枝など。見た目だけ）
+function addCapC(x, y, z, r, len, dx, dy, dz, color, opt = {}) { // 中心と向きで置くカプセル（枝など）。当たり判定は線にそって並べた球
   const m = new THREE.Mesh(geoCache(`k${r},${len}`, () => new THREE.CapsuleGeometry(r, len, W.cheap ? 3 : 6, W.cheap ? 8 : 16)), makeMat(color, opt, 0.8));
-  m.position.set(x, y, z); m.quaternion.setFromUnitVectors(_up, _dir.set(dx, dy, dz).normalize()); m.castShadow = m.receiveShadow = true; place(m, opt);
+  _dir.set(dx, dy, dz).normalize(); m.position.set(x, y, z); m.quaternion.setFromUnitVectors(_up, _dir); m.castShadow = m.receiveShadow = true; place(m, opt);
+  if (!opt.nocol) sphereLine(x - _dir.x * len / 2, y - _dir.y * len / 2, z - _dir.z * len / 2, _dir.x, _dir.y, _dir.z, len, r);
 }
 function addTube(x, y, z, ro, ri, len, axis, color, opt = {}) { // 横にねかせた筒（土管・中が空洞の丸太）。y は中心。当たり判定は maps.js で輪切りの箱を並べる
   const seg = W.cheap ? 14 : 28, ax = axis === 'x';
@@ -299,14 +336,61 @@ function addTube(x, y, z, ro, ri, len, axis, color, opt = {}) { // 横にねか�
   }
 }
 const shadeHex = (c, k) => '#' + new THREE.Color(c).multiplyScalar(k).getHexString();
-function addTire(x, y, z, r) {
+function addTire(x, y, z, r, opt = {}) { // ねかせたタイヤ。当たり判定は輪にそって並べた細い柱（まん中の穴はあく）
   const m = new THREE.Mesh(geoCache(`t${r}`, () => new THREE.TorusGeometry(r * 0.72, r * 0.3, 10, 22)), makeMat('#1b1d20', {}, 0.8));
   m.rotation.x = Math.PI / 2; m.position.set(x, y + r * 0.3, z); m.castShadow = m.receiveShadow = true; place(m, {});
+  if (!opt.nocol) for (let i = 0; i < 8; i++) { const a = i * 0.785; W.cols.push(cylCol(x + Math.cos(a) * r * 0.72, z + Math.sin(a) * r * 0.72, y, y + r * 0.6, r * 0.3, r * 0.3)); }
 }
-function addWheel(x, y, z, r, w, axis) {
+function addWheel(x, y, z, r, w, axis, opt = {}) { // 車輪（ホイールつき）。当たり判定は角の丸い箱
   const m = new THREE.Mesh(geoCache(`w${r},${w}`, () => new THREE.CylinderGeometry(r, r, w, 18)), makeMat('#15171a', {}, 0.8));
-  if (axis === 'x') m.rotation.z = Math.PI / 2; else m.rotation.x = Math.PI / 2;
-  m.position.set(x, y, z); m.castShadow = true; place(m, {});
+  const hub = new THREE.Mesh(geoCache(`wh${r},${w}`, () => new THREE.CylinderGeometry(r * 0.55, r * 0.55, w * 1.04, 12)), makeMat('#b9c0c7', {}, 0.4));
+  for (const o of [m, hub]) { if (axis === 'x') o.rotation.z = Math.PI / 2; else o.rotation.x = Math.PI / 2; o.position.set(x, y, z); o.castShadow = true; place(o, {}); }
+  if (!opt.nocol) W.cols.push(boxCol(x - (axis === 'x' ? w / 2 : r), x + (axis === 'x' ? w / 2 : r), z - (axis === 'x' ? r : w / 2), z + (axis === 'x' ? r : w / 2), Math.max(0, y - r), y + r, { rr: r * 0.4 }));
+}
+// 回転体（たる・つぼ・ドラム缶・消火栓など）。prof = [[半径, 高さ], ...] 下から上へ。cols = [[y0, y1, r0, r1], ...] 当たり判定（なければ一番太い円柱）
+function addLathe(x, y, z, prof, color, opt = {}) {
+  const seg = W.cheap ? 12 : (opt.seg || 26), key = 'la' + prof.map(p => p[0].toFixed(3) + ',' + p[1].toFixed(3)).join(';') + seg;
+  const m = new THREE.Mesh(geoCache(key, () => new THREE.LatheGeometry(prof.map(p => new THREE.Vector2(p[0], p[1])), seg)), makeMat(color, Object.assign({ side: THREE.DoubleSide }, opt), 0.7));
+  m.position.set(x, y, z); if (opt.ry) m.rotation.y = opt.ry; m.castShadow = m.receiveShadow = true; place(m, opt);
+  if (opt.nocol) return;
+  if (opt.cols) { for (const c of opt.cols) W.cols.push(cylCol(x, z, y + c[0], y + c[1], c[2], c[3])); return; }
+  let r = 0, y0 = 1e9, y1 = -1e9; for (const p of prof) { r = Math.max(r, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
+  W.cols.push(cylCol(x, z, y + y0, y + y1, r * 0.97, r * 0.97));
+}
+// 輪（たるのたが・ふち）。見た目だけの細い飾り（表面から少し出るだけ）
+function addRing(x, y, z, R, t, color, opt = {}) {
+  const m = new THREE.Mesh(geoCache(`rg${R},${t}`, () => new THREE.TorusGeometry(R, t, 6, W.cheap ? 16 : 30)), makeMat(color, opt, 0.5));
+  m.rotation.x = Math.PI / 2; m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; place(m, opt);
+}
+// 岩の板・地層：上から見て凸の多角形の柱（ふちを少し面取り）。当たり判定は同じ多角形
+//   pts = [[dx,dz], ...]（中心からの位置）、top = 上の面の大きさ（1=まっすぐ、小さいとすそ広がり）
+function addSlab(x, y, z, pts, ht, color, opt = {}) {
+  const n = pts.length, top = opt.top == null ? 0.94 : opt.top, bev = Math.min(opt.bev == null ? 0.1 : opt.bev, ht * 0.35), dome = opt.dome == null ? bev * 0.6 : opt.dome;
+  const P = [], N = [], U = [];
+  const rings = [[0, 1], [ht - bev, 1 - (1 - top) * (ht - bev) / ht], [ht, top * 0.9]];
+  const ring = k => pts.map(p => [p[0] * rings[k][1], rings[k][0], p[1] * rings[k][1]]);
+  const R = [ring(0), ring(1), ring(2)];
+  let peri = [0]; for (let i = 0; i < n; i++) { const a = pts[i], b = pts[(i + 1) % n]; peri.push(peri[i] + Math.hypot(b[0] - a[0], b[1] - a[1])); }
+  const tri = (a, b, c, ua, ub, uc) => {
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+    const cxm = (a[0] + b[0] + c[0]) / 3, czm = (a[2] + b[2] + c[2]) / 3;
+    if (nx * cxm + nz * czm + ny * 0.001 < 0 && Math.abs(ny) < 0.9) { nx = -nx; ny = -ny; nz = -nz; [b, c] = [c, b]; [ub, uc] = [uc, ub]; } // 外向きにそろえる
+    if (Math.abs(ny) >= 0.9 && ny < 0) { nx = -nx; ny = -ny; nz = -nz; [b, c] = [c, b]; [ub, uc] = [uc, ub]; }
+    for (const [v, uv] of [[a, ua], [b, ub], [c, uc]]) { P.push(v[0], v[1], v[2]); N.push(nx, ny, nz); U.push(uv[0], uv[1]); }
+  };
+  for (let k = 0; k < 2; k++) for (let i = 0; i < n; i++) { // 横の面（面ごとに平らな光り方）
+    const j = (i + 1) % n, a = R[k][i], b = R[k][j], c = R[k + 1][j], d = R[k + 1][i], ua = [peri[i], a[1]], ub = [peri[i + 1], b[1]], uc = [peri[i + 1], c[1]], ud = [peri[i], d[1]];
+    tri(a, b, c, ua, ub, uc); tri(a, c, d, ua, uc, ud);
+  }
+  const ctr = [0, ht + dome, 0];
+  for (let i = 0; i < n; i++) { const j = (i + 1) % n, a = R[2][i], b = R[2][j]; tri(ctr, a, b, [0, 0], [a[0], a[2]], [b[0], b[2]]); } // 上の面（少しふくらむ）
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); g.computeBoundingSphere();
+  const m = new THREE.Mesh(g, makeMat(color, opt, 0.92)); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; place(m, opt);
+  if (opt.nocol) return;
+  const k = (1 + top) / 2 * 0.99; // 横の面のまん中あたりの大きさ（すそ広がりでも、見た目とのずれは少し）
+  W.cols.push(polyCol(pts.map(p => [x + p[0] * k, z + p[1] * k]), y, y + ht, { sink: opt.sink }));
 }
 function addLabel(x, y, z, w, d, text, color) { // 床に書いた文字（HUNTER など）
   const c = document.createElement('canvas'); c.width = 512; c.height = Math.max(32, Math.round(512 * d / w)); const g = c.getContext('2d');
@@ -385,9 +469,13 @@ function buildWorld(name) { // マップを W に組み立てる。設計図の�
     dome: (x, y, z, rx, ry, rz, col, o) => addDome(x * S, y * S, z * S, rx * S, ry * S, rz * S, col, o),
     cap: (x, y, z, r, len, col, o) => addCap(x * S, y * S, z * S, r * S, len * S, col, o),
     arch: (x, z, R, t, rot, pat) => addArch(x * S, z * S, R * S, t * S, rot, pat),
-    tire: (x, y, z, r) => addTire(x * S, y * S, z * S, r * S),
+    tire: (x, y, z, r, o) => addTire(x * S, y * S, z * S, r * S, o),
     tube: (x, y, z, ro, ri, len, axis, col, o) => addTube(x * S, y * S, z * S, ro * S, ri * S, len * S, axis, col, o),
-    wheel: (x, y, z, r, w, ax) => addWheel(x * S, y * S, z * S, r * S, w * S, ax),
+    wheel: (x, y, z, r, w, ax, o) => addWheel(x * S, y * S, z * S, r * S, w * S, ax, o),
+    lathe: (x, y, z, prof, col, o) => addLathe(x * S, y * S, z * S, prof.map(q => [q[0] * S, q[1] * S]), col, o && o.cols ? Object.assign({}, o, { cols: o.cols.map(c => c.map(v => v * S)) }) : o),
+    ring: (x, y, z, R, t, col, o) => addRing(x * S, y * S, z * S, R * S, t * S, col, o),
+    slab: (x, y, z, pts, ht, col, o = {}) => addSlab(x * S, y * S, z * S, pts.map(q => [q[0] * S, q[1] * S]), ht * S, col, Object.assign({}, o, { bev: o.bev == null ? 0.1 * S : o.bev * S, dome: o.dome == null ? undefined : o.dome * S })),
+    obox: (x, y, z, w, ht, d, yaw, o = {}) => W.cols.push(oboxCol(x * S, z * S, w * S / 2, d * S / 2, yaw, y * S, (y + ht) * S, { nc: !!o.noclimb, sink: !!o.sink })), // 見えない回した箱
     label: (x, y, z, w, d, text, col) => addLabel(x * S, y * S, z * S, w * S, d * S, text, col),
     lump: (x, y, z, rx, ry, rz, col, o) => addLump(x * S, y * S, z * S, rx * S, ry * S, rz * S, col, sc(o)),
     knot: (x, y, z, R, t, p, q, ry, col, o) => addKnot(x * S, y * S, z * S, R * S, t * S, p, q, ry, col, o),
@@ -428,7 +516,7 @@ function loadMap(name) {
   if (name === curMap) return false;
   curMap = name; MAPINFO = infoOf(name);
   W = mainW; disposeWorld(mainW); clearSplats();
-  buildWorld(name); mergeStatic(mainW); applyLight();
+  buildWorld(name); mergeStatic(mainW); applyLight(); colGrid = makeGrid(colliders, 4);
   const hx = MAPINFO.hx, hz = MAPINFO.hz;
   const c = sun.shadow.camera, e = Math.max(hx, hz) + 8; c.left = -e; c.right = e; c.top = e; c.bottom = -e; c.far = 160; c.updateProjectionMatrix();
   sun.position.set(hx * 0.35, 60, hz * 0.3);
@@ -573,11 +661,16 @@ function makeAvatar(skin) {
       for (const k of KP) { const v = out[n] || (out[n] = new V3()); v.set(k[1], k[2], k[3]); bones[k[0]].localToWorld(v); n++; }
       return n;
     },
-    setTag(text) {
+    setTag(text, color = '#fff') {
       const x = tc.getContext('2d'); x.clearRect(0, 0, 256, 64); x.font = 'bold 34px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-      x.lineWidth = 6; x.strokeStyle = '#000'; x.strokeText(text, 128, 32, 250); x.fillStyle = '#fff'; x.fillText(text, 128, 32, 250); tt.needsUpdate = true;
+      x.lineWidth = 6; x.strokeStyle = '#000'; x.strokeText(text, 128, 32, 250); x.fillStyle = color; x.fillText(text, 128, 32, 250); tt.needsUpdate = true; tag.userData.t = text;
     },
     setHunter(on, slot) { mesh.material = on ? hunterMat(slot) : skin.mat; gun.visible = on; },
+    setGhost(on) { // すけた体（見つかったあとのゴースト）
+      if (!on) return;
+      if (!av.gm) { av.gm = skin.mat.clone(); av.gm.onBeforeCompile = bodyShader; av.gm.transparent = true; av.gm.opacity = 0.42; av.gm.depthWrite = false; av.gm.emissiveIntensity = 0.25; }
+      mesh.material = av.gm; gun.visible = false;
+    },
     setOwner(o) { mesh.userData.owner = o; },
     setStyle(shape, sc) { // 丸/四角 と 大きさ
       const key = shape + sc; if (av.style === key) return; av.style = key;
@@ -592,6 +685,20 @@ function poseAvatar(skin, p, pose, shape, size) { // 分身・答え合わせ用
   const av = makeAvatar(skin); av.root.position.set(p[0], p[1], p[2]); av.root.rotation.y = p[3];
   av.lastPose = pose || ZERO; av.setStyle(shape === 'box' ? 'box' : 'round', HIDER_BASE * ([1, 1.5, 2].includes(size) ? size : 1)); av.setPose(pose || ZERO);
   return av;
+}
+// 壁ごしに赤く光って見える体（答え合わせの生き残り・自分が見つかった場所）
+const XRAY = new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.55, depthTest: false, depthWrite: false, fog: false });
+function xrayAvatar(skin, p, pose, shape, size) {
+  const av = poseAvatar(skin, p, pose, shape, size);
+  av.mesh.material = XRAY; av.mesh.renderOrder = 25; av.mesh.castShadow = av.mesh.receiveShadow = false; av.tag.visible = false;
+  return av;
+}
+function textSprite(text, color) { // 壁ごしにも見える文字（画面の上での大きさは遠くても同じ）
+  const c = document.createElement('canvas'); c.width = 512; c.height = 96; const x = c.getContext('2d');
+  x.font = 'bold 44px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.lineWidth = 9; x.strokeStyle = '#000'; x.strokeText(text, 256, 48, 500); x.fillStyle = color; x.fillText(text, 256, 48, 500);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false, sizeAttenuation: false, fog: false }));
+  sp.scale.set(0.3, 0.056, 1); sp.renderOrder = 32; return sp;
 }
 
 /* ---------------- 状態 ---------------- */
@@ -612,31 +719,51 @@ const lobbyLike = st => !st || st === 'lobby' || st === 'countdown'; // みん�
 // その人がいる場所：ロビーかゲームのマップか（隠れる時間のあいだ、鬼はだれもいないロビーで待つ）
 // 隠れる時間は、このラウンドの役割が届いた隠れる側だけがゲームのマップへ（届くまではロビーで待つ）
 const placeOf = p => lobbyLike(meta.state) || (meta.state === 'hiding' && !(p && p.rd === meta.round && p.role !== 'hunter')) ? 'lobby' : 'game';
-const tp = () => placeOf(P[uid]) === 'lobby' || myRole() === 'hider'; // 三人称視点か
+// ゴースト：ベーシック（鬼が増えない）で見つかった人は、体がすけたゴーストになって復活し、みんなの隠れ場所を見に行ける
+const isGhost = (p = P[uid]) => !!p && p.role === 'spectator' && meta.state === 'hunting' && meta.mode === 'basic' && !meta.practice && placeOf(p) === 'game';
+const tp = () => placeOf(P[uid]) === 'lobby' || myRole() === 'hider' || isGhost(); // 三人称視点か
 /* ---- 観戦の切り替え ----
-   ベーシック：見つかった人（観戦）は、生き残りの隠れる人・鬼のだれでも観戦できる
-   増え鬼：見つかった人は鬼になる。観戦できるのはほかの鬼だけ（隠れている味方の場所は分からない）
-   鬼はどちらのモードでも、ほかの鬼だけ（隠れる人の視点は見られない） */
-let specId = '', specPitch = 0;
+   隠れている人：増え鬼でもベーシックでも、止まってから2秒たつと「👀 鬼を見る」で鬼の目線を見られる（増え鬼では、ほかの隠れる人は映らない）
+   ベーシック：見つかった人（ゴースト）は、切り替えで鬼・生き残りの隠れる人のだれでも観戦できる
+   増え鬼：見つかった人は鬼になる。観戦できるのはほかの鬼だけ（隠れている味方の場所・名前は分からない）
+   鬼・弾切れで脱落した鬼は、ほかの鬼だけ */
+let specId = '', specPitch = 0, stillAt = 0;
+const SPEC_WAIT = 2000; // 隠れている人は、止まってからこの時間がたつと鬼の画面を見られる
+const _lastP = new V3();
 function specList() {
   if (meta.state !== 'hunting' || meta.practice) return [];
   const role = myRole(), here = placeOf(P[uid]), any = role === 'spectator' && meta.mode === 'basic';
-  if (role !== 'spectator' && role !== 'hunter') return [];
+  if (role !== 'spectator' && role !== 'hunter' && role !== 'hider') return [];
   return Object.keys(P).filter(id => id !== uid && POS[id] && ents[id] && placeOf(P[id]) === here && (P[id].role === 'hunter' || (any && P[id].role === 'hider' && !P[id].found)))
     .sort((a, b) => String(P[a].slot).localeCompare(String(P[b].slot)));
 }
 const specOn = () => !!specId && specList().includes(specId);
+const stillFor = () => performance.now() - stillAt;
 function specUI(force) { // 観戦ボタン（見られる人がいる時だけ）。位置が届くと増えるので、HUD の更新でも見直す
   const sl = specList(); if (!sl.length) specId = '';
-  const txt = specId ? `👀 ${(P[specId] || {}).name || ''} ▶` : (myRole() === 'hunter' ? '👀 ほかの鬼を観戦' : '👀 観戦きりかえ'), b = $('btnSpec'), on = sl.length > 0;
+  const hider = myRole() === 'hider';
+  const txt = specId ? `👀 ${(P[specId] || {}).name || ''} ▶` : (myRole() === 'hunter' ? '👀 ほかの鬼を観戦' : '👀 観戦きりかえ'), b = $('btnSpec'), on = sl.length > 0 && !hider; // 隠れている人は右下の丸いボタンを使う
   if (b.textContent !== txt) b.textContent = txt;
   if (on === b.classList.contains('hide')) { show('btnSpec', on); if (!force) layoutCols(); }
+  const bs = $('bSpecH'), onH = hider && sl.length > 0; // 隠れている人の「鬼を見る」ボタン（ほかのボタンと重ならない場所）
+  if (onH === bs.classList.contains('hide')) { show('bSpecH', onH); if (!force) layoutCols(); }
+  if (onH) {
+    const ready = specOn() || stillFor() >= SPEC_WAIT, st = specOn() ? 'back' : ready ? 'ok' : 'wait';
+    if (bs.dataset.st !== st) { bs.dataset.st = st; bs.innerHTML = st === 'back' ? '<b>もどる</b><small>自分の画面</small>' : st === 'ok' ? `<b>👀 鬼を見る</b><small>${isTouch ? 'タップ' : 'V キー'}</small>` : '<b>👀 鬼</b><small>止まって2秒</small>'; }
+    bs.classList.toggle('ready', ready);
+  }
 }
 function nextSpec() {
   const l = specList(); if (!l.length) { specId = ''; return; }
+  if (myRole() === 'hider' && !specId && stillFor() < SPEC_WAIT) { toast('止まってから2秒たつと、鬼の画面を見られます', 1600); return; } // 動いている間は見られない
   const i = l.indexOf(specId); specId = i < 0 ? l[0] : (l[i + 1] || '');
-  if (specId) { const t = POS[specId]; specPitch = t ? +t[4] || 0 : 0; if (P[specId].role === 'hider') { me.camYaw = (t ? +t[3] || 0 : 0); me.camPitch = -0.25; } }
-  toast(specId ? `👀 ${P[specId].name}（${P[specId].role === 'hunter' ? '鬼' : 'カメレオン'}）を観戦中` : (myRole() === 'hunter' ? '自分の視点にもどりました' : '自由に歩いて観戦'), 1800);
+  if (specId) {
+    const t = POS[specId]; specPitch = t ? +t[4] || 0 : 0; if (P[specId].role === 'hider') { me.camYaw = (t ? +t[3] || 0 : 0); me.camPitch = -0.25; }
+    if (panel) setPanel(''); closeWheel(); if (document.pointerLockElement) document.exitPointerLock();
+  }
+  const mine = myRole() === 'hider';
+  toast(specId ? `👀 ${P[specId].name}（${P[specId].role === 'hunter' ? '鬼' : 'カメレオン'}）の画面` + (mine ? (meta.mode === 'fueoni' ? '　※ほかの隠れる人は映りません' : '') + '　もう一度押すと自分にもどる' : '')
+    : (mine || myRole() === 'hunter' ? '自分の視点にもどりました' : isGhost() ? '👻 ゴーストで自由に見て回れます' : '自由に歩いて観戦'), 2200);
   refreshUI();
 }
 const canTool = () => lobbyLike(meta.state) || (myRole() === 'hider' && (meta.state === 'hiding' || meta.state === 'hunting'));
@@ -644,19 +771,22 @@ const targetMap = () => placeOf(P[uid]) === 'lobby' ? 'lobby' : (meta.cur || 'ho
 let myOnH = false; // HUNTER の円に乗っているか
 
 /* ---------------- サウンド ---------------- */
-let ac = null, bgmG = null, seG = null, stepBuf = null;
+let ac = null, bgmG = null, seG = null, stepBuf = null, noiseBuf = null;
 function applyVol() { if (!ac) return; bgmG.gain.value = settings.bgm * 0.5; seG.gain.value = settings.se; }
 function note(dest, f, t, dur, type, vol) {
   const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f;
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.02);
 }
-try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e) {} // iOS: 他のアプリの音楽を止めずにミックス再生
+// iOS：「マナーモードでも音を出す」がオンなら消音スイッチに関係なく鳴らす（playback）。オフなら他のアプリの音楽と重ねて鳴らす（ambient・消音スイッチで消える）
+function applySession() { try { if (navigator.audioSession) navigator.audioSession.type = settings.loud ? 'playback' : 'ambient'; } catch (e) {} }
+applySession();
 function audioInit() {
   if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
   try {
     ac = new (window.AudioContext || window.webkitAudioContext)();
-    bgmG = ac.createGain(); seG = ac.createGain(); bgmG.connect(ac.destination); seG.connect(ac.destination); applyVol();
+    bgmG = ac.createGain(); seG = ac.createGain(); bgmG.connect(ac.destination);
+    const comp = ac.createDynamicsCompressor(); comp.threshold.value = -10; comp.knee.value = 8; comp.ratio.value = 6; seG.connect(comp); comp.connect(ac.destination); applyVol(); // 大きな音（銃声）が割れないように
     const seq = [0, 7, 12, 7, 3, 10, 15, 10, 5, 12, 17, 12, 3, 10, 14, 10]; let step = 0;
     setInterval(() => {
       if (ac.state !== 'running' || settings.bgm <= 0 || document.hidden) return;
@@ -669,12 +799,23 @@ function audioInit() {
 }
 function sfx(kind, pan = 0, vol = 1) {
   if (!ac || settings.se <= 0) return; const t = ac.currentTime;
-  if (kind === 'shot') {
-    const len = Math.floor(ac.sampleRate * 0.25), buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
-    const s = ac.createBufferSource(); s.buffer = buf; const g = ac.createGain(); g.gain.value = 0.8; s.connect(g); g.connect(seG); s.start();
-    note(seG, 90, t, 0.18, 'square', 0.4);
-  } else if (kind === 'found') { note(seG, 880, t, 0.14, 'square', 0.25); note(seG, 660, t + 0.13, 0.14, 'square', 0.25); note(seG, 440, t + 0.26, 0.3, 'square', 0.25); }
+  const outP = node => { if (ac.createStereoPanner && pan) { const pn = ac.createStereoPanner(); pn.pan.value = Math.max(-1, Math.min(1, pan)); node.connect(pn); pn.connect(seG); } else node.connect(seG); };
+  if (kind === 'shot') { // ショットガン：はじける音＋ドンという低い音＋こだま。自分の銃はそのあとポンプの音
+    if (!noiseBuf) { const len = Math.floor(ac.sampleRate * 0.9); noiseBuf = ac.createBuffer(1, len, ac.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; }
+    const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(); s.buffer = noiseBuf;
+    f.type = 'lowpass'; f.frequency.setValueAtTime(9000, t); f.frequency.exponentialRampToValueAtTime(300, t + 0.4);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(1.7 * vol, t + 0.004); g.gain.exponentialRampToValueAtTime(0.25 * vol, t + 0.12); g.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+    s.connect(f); f.connect(g); outP(g); s.start(t); s.stop(t + 0.8);
+    const o = ac.createOscillator(), og = ac.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.28);
+    og.gain.setValueAtTime(1.4 * vol, t); og.gain.exponentialRampToValueAtTime(0.001, t + 0.34); o.connect(og); outP(og); o.start(t); o.stop(t + 0.36);
+    const e = ac.createBufferSource(), ef = ac.createBiquadFilter(), eg = ac.createGain(); e.buffer = noiseBuf; ef.type = 'bandpass'; ef.frequency.value = 600; ef.Q.value = 0.7; // こだま
+    eg.gain.setValueAtTime(0.0001, t + 0.14); eg.gain.linearRampToValueAtTime(0.32 * vol, t + 0.18); eg.gain.exponentialRampToValueAtTime(0.001, t + 0.85); e.connect(ef); ef.connect(eg); outP(eg); e.start(t + 0.14); e.stop(t + 0.9);
+    if (!pan && vol >= 1) { sfx('pump', 0, 0.9); }
+  } else if (kind === 'pump' || kind === 'reload') { // ガシャッ（ポンプ・弾をこめる音）
+    if (!noiseBuf) return;
+    const at = kind === 'pump' ? [0.38, 0.52] : [0, 0.12, 0.24];
+    for (const dt of at) { const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(); s.buffer = noiseBuf; f.type = 'bandpass'; f.frequency.value = 2400 + Math.random() * 900; f.Q.value = 2.5; g.gain.setValueAtTime(0.9 * vol, t + dt); g.gain.exponentialRampToValueAtTime(0.001, t + dt + 0.07); s.connect(f); f.connect(g); outP(g); s.start(t + dt, Math.random() * 0.4); s.stop(t + dt + 0.09); note(seG, 260, t + dt, 0.05, 'square', 0.12 * vol); }
+  } else if (kind === 'lose') [523, 440, 349, 262].forEach((f, i) => note(seG, f, t + i * 0.16, 0.28, 'triangle', 0.35)); else if (kind === 'found') { note(seG, 880, t, 0.14, 'square', 0.25); note(seG, 660, t + 0.13, 0.14, 'square', 0.25); note(seG, 440, t + 0.26, 0.3, 'square', 0.25); }
   else if (kind === 'pop') note(seG, 520, t, 0.1, 'sine', 0.4);
   else if (kind === 'whistle') {
     const o = ac.createOscillator(), g = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain();
@@ -698,7 +839,8 @@ function sfx(kind, pan = 0, vol = 1) {
 /* ---------------- UI小物 ---------------- */
 let toastT = 0;
 function toast(msg, ms = 2200) { const t = $('toast'); t.textContent = msg; t.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => { t.style.opacity = 0; }, ms); }
-const show = (id, on) => $(id).classList.toggle('hide', !on);
+let laying = false, layHid = {}; // ボタン配置の編集中（そのあいだは見せる・隠すを覚えておくだけ）
+const show = (id, on) => { if (laying && id in layHid) { layHid[id] = !on; return; } $(id).classList.toggle('hide', !on); };
 function setPanel(p) {
   panel = p; eyedrop = false; $('bDrop').style.background = ''; $('tDrop').classList.remove('on'); if (p) closeWheel();
   show('pPaint', p === 'paint'); show('pPose', p === 'pose');
@@ -767,7 +909,8 @@ function leaveRoom(msg) {
   clearList(decoyAvs); decoyAvs = []; clearGhosts(); clearSplats();
   if (document.pointerLockElement) document.exitPointerLock();
   panel = '';
-  for (const id of ['hud', 'sys', 'tools', 'pPaint', 'pPose', 'lobby', 'reveal', 'cross', 'joy', 'bJump', 'bPose', 'bFire', 'rank', 'btnRoom', 'btnMap', 'btnGo', 'wheel', 'count', 'onH']) show(id, false);
+  for (const id of ['hud', 'sys', 'tools', 'pPaint', 'pPose', 'lobby', 'reveal', 'cross', 'joy', 'bJump', 'bPose', 'bFire', 'bSpecH', 'ghostP', 'rank', 'btnRoom', 'btnMap', 'btnGo', 'wheel', 'count', 'onH']) show(id, false);
+  specId = ''; deathKey = 'x'; updateDeathMark(); xrayAvs = [];
   me.cling = null; jump.held = false; setClingUI();
   fpGun.visible = false; $('shells').innerHTML = ''; $('shells').dataset.n = '';
   meta = {}; loadMap('park');
@@ -794,6 +937,7 @@ function syncEnts() {
     }
     if (e.name !== p.name) { e.name = p.name; e.av.setTag(p.name || '?'); }
     e.av.setHunter(p.role === 'hunter' && !lobbyLike(meta.state), p.slot);
+    if (isGhost(p)) e.av.setGhost(true); // ゴースト（すけた体）
     { const sl = styleOf(p); e.av.setStyle(sl[0], sl[1]); }
     if (id !== uid) {
       const pj = JSON.stringify(p.pose || 0);
@@ -815,25 +959,88 @@ function rebuildDecoys() {
     }
   }
 }
+// 答え合わせ：見つかった人は見つかった場所に、生き残った人は隠れていた場所に体を出す
+// 生き残りがいれば 30秒間、その体が壁ごしに赤く光って名前も見える
+let revealSnap = {}, xrayEnd = 0, xrayAvs = [];
+const XRAY_MS = 30000;
+const hidSpot = id => { const p = P[id]; return (p && p.hid && p.hid.p) ? p.hid : revealSnap[id]; };
 function buildReveal() {
-  clearGhosts();
+  clearGhosts(); xrayAvs = [];
   const list = $('rlist'); list.textContent = '';
   const hs = Object.keys(P).filter(id => P[id].orig === 'hider').sort((a, b) => Number(P[a].slot) - Number(P[b].slot));
+  const xon = net && net.now() < xrayEnd;
   for (const id of hs) {
     const p = P[id], e = ents[id];
     if (p.found && p.last && p.last.p && e) {
       const av = poseAvatar(e.skin, p.last.p, p.last.pose, p.shape, p.size);
       av.setTag('✖ ' + p.name); scene.add(av.root); ghosts.push(av);
     }
+    const sp = !p.found && hidSpot(id);
+    if (sp && sp.p && e) { // 生き残り：隠れていた場所
+      const av = poseAvatar(e.skin, sp.p, sp.pose, p.shape, p.size); av.setTag('★ ' + p.name, xon ? '#ff8a8a' : '#fff'); scene.add(av.root); ghosts.push(av);
+      if (xon) { const xa = xrayAvatar(e.skin, sp.p, sp.pose, p.shape, p.size); scene.add(xa.root); ghosts.push(xa); av.tag.material.depthTest = false; av.tag.renderOrder = 31; xrayAvs.push({ av, xa }); }
+    }
     const row = document.createElement('div'), nm = document.createElement('span'), b = document.createElement('button');
     const by = p.found && P[p.found.by] ? `（${P[p.found.by].name}が発見）` : '';
     nm.textContent = (p.found ? '✖ ' : '★ ') + p.name + (p.found ? by : '（生き残り）') + `　👀${p.score || 0}pt`;
     b.textContent = '見に行く'; b.className = 'sec';
-    b.onclick = () => { const t = (p.found && p.last && p.last.p) || (id === uid ? posArr() : POS[id]); if (!t) return; me.pos.set(t[0], t[1], t[2] + 2.5); me.vy = 0; me.camYaw = 0; me.camPitch = -0.2; };
+    b.onclick = () => { const t = (p.found && p.last && p.last.p) || (sp && sp.p) || (id === uid ? posArr() : POS[id]); if (t) goNear(t); };
     row.append(nm, b); list.append(row);
   }
   if (!hs.length) list.textContent = 'カメレオンはいませんでした';
-  $('rTitle').textContent = meta.winner === 'hunter' ? '🔫 鬼（ハンター）の勝ち！' : '🦎 カメレオンの勝ち！';
+  const why = meta.why === 'ammo' ? '（鬼の弾が0になった）' : meta.why === 'time' ? '（時間いっぱい逃げきった）' : '';
+  $('rTitle').textContent = meta.winner === 'hunter' ? '🔫 鬼（ハンター）の勝ち！' : '🦎 カメレオンの勝ち！' + why;
+}
+function goNear(t) { // その場所のそばへ行って、そちらを向く（ぶつからない場所をさがす）
+  let ok = null;
+  for (let i = 0; i < 8 && !ok; i++) { const a = i * Math.PI / 4, x = t[0] + Math.cos(a) * 2.2, z = t[2] + Math.sin(a) * 2.2; if (Math.abs(x) < MAPINFO.hx - 0.5 && Math.abs(z) < MAPINFO.hz - 0.5 && isFree(x, z, 0.35, colliders)) ok = [x, z]; }
+  ok = ok || [t[0], t[2]];
+  me.pos.set(ok[0], (t[1] || 0) + 0.3, ok[1]); me.vy = 0; me.cling = null; me.kx = me.kz = 0; setClingUI();
+  me.camYaw = Math.atan2(ok[0] - t[0], ok[1] - t[2]); me.camPitch = -0.25; specId = ''; refreshUI();
+}
+// 自分が見つかった場所の目印（見つかった人だけに見える。壁ごしにも見える）
+let deathMk = null, deathKey = '';
+const BEAM_MAT = new THREE.MeshBasicMaterial({ color: 0xff3030, transparent: true, opacity: 0.22, depthWrite: false, fog: false, side: THREE.DoubleSide });
+function updateDeathMark() {
+  const p = P[uid], want = !!(inRoom && p && p.found && p.last && p.last.p && meta.state === 'hunting' && placeOf(p) === 'game');
+  const key = want ? JSON.stringify(p.last.p) : '';
+  if (key === deathKey) return; deathKey = key;
+  if (deathMk) { scene.remove(deathMk.g); scene.remove(deathMk.av.root); deathMk.g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material !== BEAM_MAT) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); deathMk = null; }
+  if (!want) return;
+  const t = p.last.p, g = new THREE.Group();
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 40, 12, 1, true), BEAM_MAT); beam.position.set(t[0], t[1] + 20, t[2]);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.65, 32), BEAM_MAT); ring.rotation.x = -Math.PI / 2; ring.position.set(t[0], t[1] + 0.05, t[2]);
+  const lab = textSprite('✖ あなたが見つかった場所', '#ff7070'); lab.position.set(t[0], t[1] + 2.2, t[2]);
+  g.add(beam, ring, lab); scene.add(g);
+  const av = xrayAvatar(mySkin, t, p.last.pose, p.shape, p.size); scene.add(av.root);
+  deathMk = { g, av };
+}
+// ゴーストの「見に行く」一覧（生きている隠れる人）
+let ghostKey = '';
+function ghostPanel() {
+  const on = isGhost() && !specOn();
+  show('ghostP', on); if (!on) { ghostKey = ''; return; }
+  const ids = Object.keys(P).filter(id => P[id].role === 'hider' && !P[id].found && POS[id]).sort((a, b) => Number(P[a].slot) - Number(P[b].slot));
+  const key = ids.map(id => id + P[id].name).join('|'); if (key === ghostKey) return; ghostKey = key;
+  const list = $('glist'); list.textContent = '';
+  for (const id of ids) {
+    const row = document.createElement('div'), nm = document.createElement('span'), b = document.createElement('button');
+    nm.textContent = '🦎 ' + P[id].name; b.textContent = '見に行く'; b.className = 'sec';
+    b.onclick = () => { const t = POS[id]; if (t) goNear(t); };
+    row.append(nm, b); list.append(row);
+  }
+  if (!ids.length) list.textContent = '隠れている人はいません';
+}
+function updateMarks(now) { // 目印・壁ごしの体・ゴーストの一覧・鬼を見るボタンの進み具合
+  updateDeathMark();
+  if (xrayAvs.length) {
+    const left = xrayEnd - net.now();
+    if (left <= 0 || meta.state !== 'reveal') { for (const { av, xa } of xrayAvs) { scene.remove(xa.root); av.tag.material.depthTest = true; av.tag.renderOrder = 0; av.setTag(av.tag.userData.t || '', '#fff'); } xrayAvs = []; $('rX').textContent = ''; }
+    else { XRAY.opacity = 0.38 + 0.22 * Math.sin(now / 180); $('rX').textContent = `🔴 生き残った人の隠れ場所を表示中（壁ごしに赤く光る）あと ${Math.ceil(left / 1000)} 秒`; }
+  }
+  if (now > (updateMarks.t || 0)) { updateMarks.t = now + 300; ghostPanel(); }
+  const bs = $('bSpecH');
+  if (!bs.classList.contains('hide')) { const k = specOn() ? 1 : Math.min(1, stillFor() / SPEC_WAIT); if (Math.abs((+bs.dataset.p || 0) - k) > 0.02 || (k === 1) !== (bs.dataset.p === '1')) { bs.dataset.p = k === 1 ? '1' : k.toFixed(2); bs.style.setProperty('--p', (k * 360).toFixed(0) + 'deg'); } }
 }
 function renderLobby() {
   const list = $('plist'); list.textContent = '';
@@ -852,14 +1059,14 @@ function renderLobby() {
 function layoutCols() {
   const H = innerHeight, sb = 14;
   const bottomOf = id => { const el = $(id); return el.classList.contains('hide') ? H : el.getBoundingClientRect().top; };
-  const rightLimit = Math.min(bottomOf('bJump'), bottomOf('bPose'), bottomOf('bFire')) - 10, leftLimit = bottomOf('joy') - 10;
+  const rightLimit = Math.min(bottomOf('bJump'), bottomOf('bPose'), bottomOf('bFire'), bottomOf('bSpecH')) - 10, leftLimit = bottomOf('joy') - 10;
   for (const [id, lim] of [['tools', rightLimit], ['sys', leftLimit]]) {
     const el = $(id); el.classList.remove('two', 'three');
-    if (el.classList.contains('hide')) continue;
+    if (el.classList.contains('hide') || el.dataset.custom) continue; // 自分で動かした列はそのまま
     if (el.getBoundingClientRect().bottom > lim) { el.classList.add('two'); if (el.getBoundingClientRect().bottom > lim) { el.classList.remove('two'); el.classList.add('three'); } }
   }
   const sr = $('sys').getBoundingClientRect(), left = Math.max(64, Math.round(sr.right + 6)) + 'px'; // ランキング・答え合わせは左のボタンの右へ
-  $('rank').style.left = left; $('reveal').style.left = left;
+  $('rank').style.left = left; $('reveal').style.left = left; $('ghostP').style.left = left;
 }
 addEventListener('resize', () => setTimeout(layoutCols, 50));
 function refreshUI() {
@@ -875,8 +1082,8 @@ function refreshUI() {
   show('joy', isTouch && walk); show('bJump', walk); show('bPose', walk && tool); // ジャンプ・ポーズのボタンはPCでも表示
   if (!tool || !walk) closeWheel();
   show('bFire', isTouch && role === 'hunter' && st === 'hunting');
-  show('rank', st === 'hunting' && !meta.practice);
-  specUI(true);
+  show('rank', st === 'hunting' && !meta.practice && !isGhost());
+  specUI(true); ghostPanel();
   $('btnLobby').classList.toggle('hide', meta.host !== uid);
   if (lobbyLike(st)) { renderLobby(); if (lobbyOpen && document.pointerLockElement) document.exitPointerLock(); }
   layoutCols();
@@ -910,7 +1117,15 @@ function onMeta() {
   syncMap();
   if (st !== lastState) {
     syncEnts();
-    if (st === 'reveal') { buildReveal(); sfx('win'); if (document.pointerLockElement) document.exitPointerLock(); }
+    if (st === 'reveal') {
+      // 生き残った人の隠れていた場所を覚える（みんなが動き出す前）。生き残った本人は自分の場所を送る
+      revealSnap = {};
+      for (const id in P) if (P[id].orig === 'hider' && !P[id].found) revealSnap[id] = id === uid ? { p: posArr(), pose: me.pose.slice() } : (POS[id] ? { p: POS[id].slice(), pose: cleanPose(P[id].pose) } : null);
+      if (P[uid] && P[uid].orig === 'hider' && !P[uid].found && lastState === 'hunting') net.update(`${base}/players/${uid}`, { hid: { p: posArr(), pose: me.pose.slice() } });
+      const surv = Object.values(P).some(q => q.orig === 'hider' && !q.found);
+      xrayEnd = surv ? (meta.rt || net.now()) + XRAY_MS : 0;
+      specId = ''; buildReveal(); sfx('win'); if (document.pointerLockElement) document.exitPointerLock();
+    }
     if (lastState === 'reveal') clearGhosts();
     if (st === 'hunting' && lastState === 'hiding') toast(myRole() === 'hunter' ? '探索スタート！' : '鬼が動き出した！', 2500);
     lastState = st;
@@ -925,7 +1140,8 @@ function onPlayers() {
     const role = meta.mode === 'fueoni' ? 'hunter' : 'spectator';
     p.role = role; me.ammo = meta.ammo || 0;
     net.update(`${base}/players/${uid}`, { role, last: { p: posArr(), pose: me.pose.slice() }, ammo: me.ammo, score: Math.round(myScore) });
-    sfx('found'); toast(role === 'hunter' ? '見つかった！ここからは鬼の仲間だ（ほかの鬼の観戦もできます）' : '見つかった！観戦にまわります（👀 で誰でも観戦できます）', 3500);
+    sfx('found'); toast(role === 'hunter' ? '見つかった！ここからは鬼の仲間だ（ほかの鬼の観戦もできます。隠れている味方の場所は見えません）' : '見つかった！👻 ゴーストになって復活。みんなの隠れ場所を見に行けます（👀 で誰でも観戦できます）', 4200);
+    me.vy = 0; me.cling = null; specId = ''; setClingUI();
   }
   for (const id in P) if (P[id].found && !knownFound.has(id)) { knownFound.add(id); if (id !== uid) { toast(`${P[id].name} が見つかった！`); sfx('found'); } }
   syncEnts(); checkRound(); syncMap();
@@ -950,7 +1166,7 @@ function startGame() {
   const round = (meta.round || 0) + 1, u = {};
   ids.forEach(id => {
     const role = hs.has(id) ? 'hunter' : 'hider';
-    Object.assign(u, { [`players/${id}/role`]: role, [`players/${id}/orig`]: role, [`players/${id}/found`]: null, [`players/${id}/last`]: null, [`players/${id}/ammo`]: meta.ammo, [`players/${id}/rd`]: round, [`players/${id}/score`]: null, [`players/${id}/onH`]: null });
+    Object.assign(u, { [`players/${id}/role`]: role, [`players/${id}/orig`]: role, [`players/${id}/found`]: null, [`players/${id}/last`]: null, [`players/${id}/hid`]: null, [`players/${id}/out`]: null, [`players/${id}/ammo`]: meta.ammo, [`players/${id}/rd`]: round, [`players/${id}/score`]: null, [`players/${id}/onH`]: null });
   });
   u.decoys = null; u.shots = null;
   net.update(base, u); // 先に役割を配ってから、ゲームの状態を変える（届く順番で一瞬ちがうマップへ行かないように）
@@ -959,7 +1175,7 @@ function startGame() {
   v['meta/hs'] = practice ? net.now() : null;
   v['meta/state'] = practice ? 'hunting' : 'hiding';
   v['meta/end'] = net.now() + (practice ? 864e5 : meta.hideTime * 1000);
-  v['meta/round'] = round; v['meta/winner'] = null;
+  v['meta/round'] = round; v['meta/winner'] = null; v['meta/why'] = null; v['meta/rt'] = null;
   net.update(base, v);
 }
 let startedFor = 0;
@@ -974,11 +1190,13 @@ function hostLoop() {
     else if (now >= meta.end + 400 && startedFor !== meta.end) { startedFor = meta.end; startGame(); }
   } else if (meta.state === 'hiding' && now >= meta.end) net.update(base + '/meta', { state: 'hunting', end: now + meta.huntTime * 1000, hs: now });
   else if (meta.state === 'hunting') {
+    // 鬼の勝ち：全員見つけた。カメレオンの勝ち：時間いっぱい逃げきった／鬼の弾が0になった（弾が0になった鬼は脱落し、鬼がいなくなったら負け）
     const all = Object.values(P), hs = all.filter(p => p.orig === 'hider'), alive = hs.filter(p => !p.found).length, hunters = all.filter(p => p.role === 'hunter');
-    let w = null;
-    if (alive === 0) w = 'hunter';
-    else if (!hunters.length || now >= meta.end || hunters.every(h => (h.ammo || 0) <= 0)) w = 'hider';
-    if (w) { meta.state = 'reveal'; net.update(base + '/meta', { state: 'reveal', winner: w }); }
+    let w = null, why = '';
+    if (alive === 0) { w = 'hunter'; why = 'all'; }
+    else if (!hunters.length || hunters.every(h => (h.ammo || 0) <= 0)) { w = 'hider'; why = all.some(p => p.out) ? 'ammo' : 'left'; }
+    else if (now >= meta.end) { w = 'hider'; why = 'time'; }
+    if (w) { meta.state = 'reveal'; net.update(base + '/meta', { state: 'reveal', winner: w, why, rt: now }); }
   }
 }
 setInterval(hostLoop, 500);
@@ -1100,16 +1318,34 @@ function fire() {
   if (specOn()) return; // 観戦中は撃てない
   if (!inRoom || myRole() !== 'hunter' || meta.state !== 'hunting') return;
   const now = performance.now(); if (now < nextFire) return;
-  if (me.ammo <= 0) { toast('弾切れ！'); return; }
-  nextFire = now + 700; me.ammo--; fpGun.position.z = 0.12; fpGun.rotation.x = 0.14; net.set(`${base}/players/${uid}/ammo`, me.ammo);
+  if (me.ammo <= 0) { outOfAmmo(); return; }
+  audioInit();
+  nextFire = now + 700; me.ammo--; fpGun.position.z = 0.12; fpGun.rotation.x = 0.14;
   const o = camera.getWorldPosition(new V3()).toArray().map(v => +v.toFixed(2)), d = camera.getWorldDirection(new V3()).toArray().map(v => +v.toFixed(3));
   const seed = (Math.random() * 1e9) | 0;
-  doShot(o, d, seed, true, uid);
+  const kills = doShot(o, d, seed, true, uid);
   net.push(base + '/shots', { by: uid, o, d, seed, t: net.now() });
+  // 隠れる人を見つけたら、撃った人の弾だけ全回復（味方の弾は増えない）
+  if (kills > 0) { me.ammo = Math.max(me.ammo, Number(meta.ammo) || me.ammo); setTimeout(() => sfx('reload'), 380); toast(`見つけた！ 弾が全回復（${me.ammo}発）`, 2000); }
+  net.set(`${base}/players/${uid}/ammo`, me.ammo);
+  if (me.ammo <= 0) outOfAmmo();
 }
-function doShot(o, d, seed, mine, by) {
-  if (!o || !d) return;
-  sfx('shot');
+// 弾が0になった鬼は負け（脱落）。鬼がだれもいなくなったらカメレオンの勝ち
+function outOfAmmo() {
+  if (meta.practice) { me.ammo = Number(meta.ammo) || 8; net.set(`${base}/players/${uid}/ammo`, me.ammo); toast('弾が0になった！ 本番ならここで鬼の負け（練習なので弾を補充しました）', 3200); return; }
+  if (myRole() !== 'hunter') return;
+  const others = Object.keys(P).some(id => id !== uid && P[id].role === 'hunter' && (P[id].ammo || 0) > 0);
+  net.update(`${base}/players/${uid}`, { role: 'spectator', out: true, ammo: 0 });
+  sfx('lose'); toast(others ? '💥 弾が0になった…あなたは脱落！（ほかの鬼を観戦できます）' : '💥 弾が0になった…鬼の負け！', 4000);
+}
+function doShot(o, d, seed, mine, by) { // 撃った弾の処理。見つけた隠れる人の数を返す
+  if (!o || !d) return 0;
+  { // 銃声：自分の銃は大きく、ほかの鬼の銃は遠いほど小さく、来た方向から聞こえる
+    const lp = camera.getWorldPosition(_e), dx = o[0] - lp.x, dz = o[2] - lp.z, dist = Math.hypot(dx, o[1] - lp.y, dz);
+    const sy = Math.sin(me.camYaw), cy = Math.cos(me.camYaw), a = Math.atan2(cy * dx - sy * dz, -sy * dx - cy * dz);
+    sfx('shot', mine ? 0 : Math.sin(a) * Math.min(1, dist / 6), mine ? 1 : Math.max(0.18, 1 - dist / 70));
+  }
+  let kills = 0;
   const r = rng(seed), origin = new V3(o[0], o[1], o[2]), dir = new V3(d[0], d[1], d[2]).normalize();
   const up = Math.abs(dir.y) > 0.99 ? new V3(1, 0, 0) : new V3(0, 1, 0);
   const rx = new V3().crossVectors(dir, up).normalize(), ry = new V3().crossVectors(rx, dir);
@@ -1125,9 +1361,10 @@ function doShot(o, d, seed, mine, by) {
     if (!ow && mine) { const g = graze(origin, pd, h ? h.distance : 80, avs); if (g) ow = g.mesh.userData.owner; }
     if (!ow) { if (h) addSplat(h, color); continue; }
     const key = ow.type + ow.uid + (ow.i || 0); if (done.has(key)) continue; done.add(key);
-    if (ow.type === 'player') { net.set(`${base}/players/${ow.uid}/found`, { by: uid, t: net.now() }); toast(`${(P[ow.uid] || {}).name || ''} を見つけた！`); }
-    else { net.remove(`${base}/decoys/${ow.uid}/${ow.i}`); toast('それは分身だった！'); sfx('pop'); }
+    if (ow.type === 'player') { net.set(`${base}/players/${ow.uid}/found`, { by: uid, t: net.now() }); toast(`${(P[ow.uid] || {}).name || ''} を見つけた！`); kills++; }
+    else { net.remove(`${base}/decoys/${ow.uid}/${ow.i}`); toast('それは分身だった！（弾は回復しません）'); sfx('pop'); }
   }
+  return kills;
 }
 
 /* ---------------- 入力 ---------------- */
@@ -1146,10 +1383,10 @@ addEventListener('keydown', e => {
     if (e.code === 'KeyP') setPanel(panel === 'paint' ? '' : 'paint');
     if (e.code === 'KeyO') toggleWheel();
     if (e.code === 'KeyF') placeDecoy();
-    if (e.code === 'KeyV' && specList().length) nextSpec();
     if (e.code === 'KeyQ') nextPose();
     if (e.code === 'KeyE') { if (document.pointerLockElement === cv) { const h = dropAt(null); if (h) doPick(h); } else setDrop(!eyedrop); }
   }
+  if (e.code === 'KeyV' && specList().length) nextSpec(); // 観戦の切り替え（隠れる人は鬼の画面）
   if (e.code === 'Escape') closeWheel();
 });
 addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Space') { jumpUp(); if (e.target.tagName === 'BUTTON') e.preventDefault(); } });
@@ -1187,7 +1424,7 @@ cv.addEventListener('wheel', e => { if (panel === 'paint') setZoom(paintZoom - M
 cv.addEventListener('contextmenu', e => e.preventDefault());
 { // スティックとボタン
   const j = $('joy'), k = $('knob');
-  const mv = e => { if (e.pointerId !== joy.id) return; const r = j.getBoundingClientRect(); let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2); const l = Math.hypot(dx, dy), m = 45; if (l > m) { dx *= m / l; dy *= m / l; } joy.x = dx / m; joy.y = -dy / m; k.style.transform = `translate(${dx}px,${dy}px)`; };
+  const mv = e => { if (e.pointerId !== joy.id) return; const r = j.getBoundingClientRect(), sc = Number(j.dataset.sc) || 1; let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2); const l = Math.hypot(dx, dy), m = 45 * sc; if (l > m) { dx *= m / l; dy *= m / l; } joy.x = dx / m; joy.y = -dy / m; k.style.transform = `translate(${dx / sc}px,${dy / sc}px)`; }; // 大きさを変えたスティックにも合わせる
   const end = e => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; k.style.transform = ''; };
   j.addEventListener('pointerdown', e => { audioInit(); joy.id = e.pointerId; try { j.setPointerCapture(e.pointerId); } catch (_) {} mv(e); });
   j.addEventListener('pointermove', mv); j.addEventListener('pointerup', end); j.addEventListener('pointercancel', end);
@@ -1196,6 +1433,7 @@ cv.addEventListener('contextmenu', e => e.preventDefault());
   for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) bj.addEventListener(ev, jumpUp);
   $('bPose').addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); if (performance.now() - wheelAt > 450 || $('wheel').classList.contains('hide')) toggleWheel(); });
   $('bFire').addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); fire(); });
+  $('bSpecH').addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); nextSpec(); });
 }
 function setClingUI() { // くっついている間はジャンプボタンが「はなれる」になる
   const on = !!me.cling, b = $('bJump');
@@ -1204,39 +1442,49 @@ function setClingUI() { // くっついている間はジャンプボタンが�
 }
 
 /* ---------------- 移動・カメラ ---------------- */
-const _pr = [], SINK = 0.12; // 沈みこむ深さ（体の大きさに対して）
-function unstick() { // 体のパーツが壁や家具にめり込んでいたら外へ押し出す（壁抜け・埋まり隠れ対策）
+// 絵・模様の壁には体の前の方だけが少し入る（全身はうまらない）。体の中心は面から SINK_R×体の大きさ より近づけない
+const _pr = [], SINK_R = 0.1, SINK_ALLOW = 0.04;
+let colGrid = null;
+function unstick(cols) { // 体のパーツが壁や家具にめり込んでいたら外へ押し出す（壁抜け・埋まり隠れ対策）
   const e = ents[uid]; if (!e) return false; let any = false;
   for (let it = 0; it < 4; it++) {
     e.av.root.position.copy(me.pos); e.av.root.rotation.y = me.yaw; e.av.root.updateMatrixWorld(true);
     const n = e.av.probes(_pr); let moved = false;
-    for (let i = 0; i < n && !moved; i++) { const r = pushOut(_pr[i], colliders, me.sinkD ? me.sinkD + 0.1 * e.av.sc : 0); if (r) { me.pos.x += r[0]; me.pos.z += r[1]; moved = any = true; } }
+    for (let i = 0; i < n && !moved; i++) { const r = pushOut(_pr[i], cols, me.sinkR ? SINK_ALLOW * e.av.sc : 0); if (r) { me.pos.x += r[0]; me.pos.z += r[1]; moved = any = true; } }
     if (!moved) break;
   }
   return any;
 }
 function updateMe(dt) {
   const st = meta.state, role = myRole(), third = tp();
+  if (specOn()) { // 観戦中：体はその場で止まったまま（壁にくっついていても落ちない）
+    const e = ents[uid]; if (e) { e.av.root.position.copy(me.pos); e.av.root.rotation.y = me.yaw; }
+    _lastP.copy(me.pos); return;
+  }
   const frozen = !st || (lobbyLike(st) && lobbyOpen) || specOn(); // 観戦中は動かない
   let ix = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x;
   let iy = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + joy.y;
   if (frozen) ix = iy = 0;
   const l = Math.hypot(ix, iy); if (l > 1) { ix /= l; iy /= l; }
-  const sy = Math.sin(me.camYaw), cy = Math.cos(me.camYaw), sp = role === 'hunter' && !lobbyLike(st) ? 6.2 : 5.2; // マップが広いので少し速め
+  const sy = Math.sin(me.camYaw), cy = Math.cos(me.camYaw), sp = (role === 'hunter' && !lobbyLike(st)) || isGhost() ? 6.2 : 5.2; // マップが広いので少し速め
   const mx = (-sy * iy + cy * ix) * sp, mz = (-cy * iy - sy * ix) * sp;
   const e = ents[uid];
   me.h = third && e ? Math.max(0.3, e.av.height) : 1.6; me.r = third && e ? Math.max(0.18, Math.min(0.42, 0.33 * e.av.sc)) : 0.33; me.reach = third && e ? e.av.reach : me.r;
-  me.sinkD = third && e ? SINK * e.av.sc : 0; // 絵・模様の壁には体が少し沈む（表面だけが出る）
-  const ev = stepBody(me, { mx, mz, sp, held: jump.held && !frozen, press: jump.press, heldFor: (performance.now() - jump.t) / 1000, frozen }, dt, colliders);
+  me.sinkR = third && e && (lobbyLike(st) || role === 'hider') ? SINK_R * e.av.sc : 0; // 絵・模様の壁には体の一部だけが少し入る
+  const near = colGrid ? nearCols(colGrid, me.pos.x, me.pos.z, 5) : colliders; // 近くの当たり判定だけ調べる
+  const ev = stepBody(me, { mx, mz, sp, held: jump.held && !frozen, press: jump.press, heldFor: (performance.now() - jump.t) / 1000, frozen }, dt, near);
   jump.press = false;
   if (ev) { setClingUI(); if (ev === 'on' && clingTips < 2) { clingTips++; toast(isTouch ? '壁にくっついた！ スティックで上下左右に動ける／もう一度ジャンプで離れる' : '壁にくっついた！ WASDで上下左右に動ける／もう一度 Space で離れる', 2800); } }
   if (me.cling) me.yaw = third ? Math.atan2(me.cling.nx, me.cling.nz) : me.camYaw; // 壁のほうを向く
   else if (third) { if (l > 0.15) me.yaw = Math.atan2(-mx, -mz); } else me.yaw = me.camYaw;
-  if (third && unstick() && me.cling) me.cling.pushed = true;
+  if (third && unstick(near) && me.cling) me.cling.pushed = true;
   const bx = MAPINFO.hx - 0.4, bz = MAPINFO.hz - 0.4; // マップの外（裏世界）には出られない
   me.pos.x = Math.max(-bx, Math.min(bx, me.pos.x)); me.pos.z = Math.max(-bz, Math.min(bz, me.pos.z));
   if (!(me.pos.y > -2) || !(me.pos.y < 30) || me.pos.x !== me.pos.x || me.pos.z !== me.pos.z) { spawnAt('any'); setClingUI(); }
   if (e) { e.av.root.position.copy(me.pos); e.av.root.rotation.y = me.yaw; }
+  // 止まっている時間（隠れている人は、止まって2秒たつと鬼の画面を見られる）
+  if (l > 0.05 || _lastP.distanceToSquared(me.pos) > 4e-6 || (!me.ground && !me.cling)) stillAt = performance.now();
+  _lastP.copy(me.pos);
   hunterSpot();
 }
 function hunterSpot() { // ロビーの HUNTER の円に乗っているか（体の中心が円の中で、床に立っている時だけ）
@@ -1309,20 +1557,23 @@ function footsteps(e, p, dt, here) { // 鬼には、動いている隠れる人�
   sfx('step', Math.sin(a), Math.pow(1 - d / STEP_RANGE, 1.3));
 }
 function updateEnts(dt) {
-  const st = meta.state, role = myRole(), seeH = st === 'reveal' || role !== 'hider' || meta.mode === 'basic', here = placeOf(P[uid]);
+  const st = meta.state, role = myRole(), seeH = st === 'reveal' || role !== 'hider' || meta.mode === 'basic', here = placeOf(P[uid]), ghost = isGhost();
   const k = Math.min(1, dt * 10);
   for (const id in ents) {
     const e = ents[id], p = P[id]; if (!p) continue;
     let vis;
     if (!st || placeOf(p) !== here) vis = false; // 別の場所（ロビーとゲームのマップ）にいる人は見えない
     else if (lobbyLike(st)) vis = true;
-    else if (p.role === 'spectator') vis = false;
     else if (id === uid) vis = tp();
+    else if (p.role === 'spectator') vis = ghost && isGhost(p); // ゴーストどうしだけ見える（鬼・隠れる人からは見えない）
     else if (id === specId && p.role === 'hunter') vis = false; // その鬼の目から見ているので体は消す
     else if (p.role === 'hunter') vis = true;
-    else vis = seeH;
+    else vis = seeH; // 増え鬼の隠れる人は、鬼の画面を見ていても、ほかの隠れる人は映らない
     e.av.root.visible = vis;
-    e.av.tag.visible = id !== uid && (lobbyLike(st) || st === 'reveal' || p.role === 'hunter' || role !== 'hunter');
+    // 名前：鬼の名前はみんなに見える。隠れる人の名前は、ベーシックの隠れる人どうし・ゴーストだけ（増え鬼で見つかった人・脱落した鬼には見えない）
+    e.av.tag.visible = id !== uid && (lobbyLike(st) || st === 'reveal' || p.role === 'hunter' || (p.role === 'hider' ? (role === 'hider' || (role === 'spectator' && meta.mode === 'basic')) : role !== 'hunter'));
+    const xr = ghost && p.role === 'hider' && !p.found && vis; // ゴーストには、隠れている人の名前が壁ごしに見える
+    if (e.xr !== xr) { e.xr = xr; e.av.tag.material.depthTest = !xr; e.av.tag.renderOrder = xr ? 30 : 0; }
     if (id !== uid) {
       const t = POS[id];
       if (t) {
@@ -1343,12 +1594,12 @@ function updateHud(now) {
   if (inRoom) specUI(false);
   const st = meta.state, role = myRole();
   const left = Math.max(0, Math.ceil(((meta.end || 0) - net.now()) / 1000));
-  $('hRole').textContent = specOn() ? `👀 ${P[specId].name} を観戦中` : lobbyLike(st) ? '🛋 ロビー' : role === 'hunter' ? (st === 'hiding' ? '🔫 鬼（ロビーで待機）' : '🔫 鬼') : role === 'hider' ? '🦎 カメレオン' : '👀 観戦';
+  $('hRole').textContent = specOn() ? `👀 ${P[specId].name}（${P[specId].role === 'hunter' ? '鬼' : 'カメレオン'}）の画面` : lobbyLike(st) ? '🛋 ロビー' : role === 'hunter' ? (st === 'hiding' ? '🔫 鬼（ロビーで待機）' : '🔫 鬼') : role === 'hider' ? '🦎 カメレオン' : isGhost() ? '👻 ゴースト' : (P[uid] && P[uid].out) ? '💥 脱落（観戦）' : '👀 観戦';
   $('hTimer').textContent = meta.practice ? '練習' : st === 'countdown' ? `開始 ${left}` : st === 'hiding' ? `隠れ ${left}` : st === 'hunting' ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : st === 'reveal' ? '結果' : '--';
   const alive = Object.values(P).filter(p => p.orig === 'hider' && !p.found).length;
   const dc = DEC[uid] ? [0, 1].filter(i => DEC[uid][i]).length : 0;
   const nOn = Object.values(P).filter(p => p.onH).length;
-  $('hInfo').textContent = lobbyLike(st) ? `${Object.keys(P).length}人｜HUNTER ${nOn}人` + (meta.host === uid || st === 'countdown' ? '' : '｜ホストの開始待ち') : role === 'hunter' ? `弾 ${me.ammo}｜残り ${alive}人` : `残り ${alive}人｜分身 ${dc}/2`;
+  $('hInfo').textContent = lobbyLike(st) ? `${Object.keys(P).length}人｜HUNTER ${nOn}人` + (meta.host === uid || st === 'countdown' ? '' : '｜ホストの開始待ち') : role === 'hunter' ? `弾 ${me.ammo}｜残り ${alive}人` : role === 'hider' ? `残り ${alive}人｜分身 ${dc}/2` : `残り ${alive}人`;
   if (st === 'countdown') { $('countN').textContent = left; $('countS').textContent = nOn ? `HUNTER の円に ${nOn}人（この中から鬼を選びます）` : 'HUNTER の円に乗ると鬼になれる（だれもいなければ全員からランダム）'; }
   const sh = $('shells'), n = (role === 'hunter' && st === 'hunting') ? Math.min(me.ammo, 16) : -1;
   if (sh.dataset.n !== String(n)) { sh.dataset.n = n; sh.innerHTML = n > 0 ? '<i></i>'.repeat(n) : ''; }
@@ -1421,8 +1672,8 @@ function tick() {
   requestAnimationFrame(tick);
   const dt = Math.min(clock.getDelta(), 0.05), now = performance.now();
   if (inRoom) {
-    updateMe(dt); updateEnts(dt); updateCamera(); updateHud(now); gameTick(now);
-    if (now > posT && (lobbyLike(meta.state) || myRole() !== 'spectator')) {
+    updateMe(dt); updateEnts(dt); updateCamera(); updateHud(now); gameTick(now); updateMarks(now);
+    if (now > posT && (lobbyLike(meta.state) || myRole() !== 'spectator' || isGhost())) {
       posT = now + (settings.lite ? 180 : 100);
       const a = posArr(), s = a.join(); if (s !== lastPos) { lastPos = s; net.set(`${base}/pos/${uid}`, a); }
     }
@@ -1614,7 +1865,9 @@ document.querySelectorAll('[data-size]').forEach(b => { b.onclick = () => setBod
 setBody(me.shape, me.size);
 $('rotL').onclick = () => { me.yaw += Math.PI / 12; }; $('rotR').onclick = () => { me.yaw -= Math.PI / 12; };
 // 設定
-function openSettings() { $('oLite').checked = settings.lite; $('oBloom').checked = !!settings.bloom; $('oSens').value = settings.sens; $('oBgm').value = settings.bgm; $('oSe').value = settings.se; show('modal', true); if (document.pointerLockElement) document.exitPointerLock(); }
+function openSettings() { $('oLite').checked = settings.lite; $('oBloom').checked = !!settings.bloom; $('oSens').value = settings.sens; $('oBgm').value = settings.bgm; $('oSe').value = settings.se; $('oLoud').checked = !!settings.loud; show('modal', true); if (document.pointerLockElement) document.exitPointerLock(); }
+$('oLoud').addEventListener('change', e => { settings.loud = e.target.checked; applySession(); saveSet(); audioInit(); });
+$('btnLay').onclick = () => { show('modal', false); layoutEdit(true); };
 $('btnSet1').onclick = openSettings; $('btnSet2').onclick = openSettings;
 $('btnSetClose').onclick = () => show('modal', false);
 $('oBloom').addEventListener('change', e => { settings.bloom = e.target.checked; saveSet(); });
@@ -1623,7 +1876,67 @@ $('oSens').addEventListener('input', e => { settings.sens = Number(e.target.valu
 $('oBgm').addEventListener('input', e => { settings.bgm = Number(e.target.value); audioInit(); applyVol(); saveSet(); });
 $('oSe').addEventListener('input', e => { settings.se = Number(e.target.value); applyVol(); saveSet(); });
 
+/* ---------------- ボタンの配置・大きさ（設定から変える。端末ごとに保存） ---------------- */
+const LAY_ITEMS = [['joy', 'スティック'], ['bJump', 'ジャンプ'], ['bPose', 'ポーズ'], ['bFire', '撃つ'], ['bSpecH', '鬼を見る'], ['tools', '道具の列'], ['sys', 'メニューの列']];
+let layout = {};
+try { layout = JSON.parse(localStorage.getItem('nurikakure_layout') || '{}') || {}; } catch (e) { layout = {}; }
+const saveLay = () => { try { localStorage.setItem('nurikakure_layout', JSON.stringify(layout)); } catch (e) {} };
+function applyLayout() { // 保存した場所（画面に対する割合）と大きさをボタンにあてる
+  for (const [id] of LAY_ITEMS) {
+    const el = $(id), L = layout[id];
+    if (!L) { for (const k of ['left', 'top', 'right', 'bottom', 'transform', 'transformOrigin']) el.style[k] = ''; delete el.dataset.custom; el.dataset.sc = '1'; continue; }
+    el.style.right = 'auto'; el.style.bottom = 'auto'; el.style.transformOrigin = '0 0'; el.style.transform = `scale(${L.s || 1})`; el.dataset.sc = L.s || 1;
+    el.style.left = Math.round(L.x * innerWidth) + 'px'; el.style.top = Math.round(L.y * innerHeight) + 'px'; el.dataset.custom = '1';
+    if (!el.classList.contains('hide')) { // 画面からはみ出さないように
+      const r = el.getBoundingClientRect(); let dx = 0, dy = 0;
+      if (r.right > innerWidth) dx = innerWidth - r.right; if (r.left + dx < 0) dx = -r.left; if (r.bottom > innerHeight) dy = innerHeight - r.bottom; if (r.top + dy < 0) dy = -r.top;
+      if (dx || dy) { el.style.left = Math.round(r.left + dx) + 'px'; el.style.top = Math.round(r.top + dy) + 'px'; }
+    }
+  }
+}
+let laySel = '', layDrag = null;
+function layoutEdit(on) {
+  if (on === laying) return; laying = on;
+  document.body.classList.toggle('laying', on); show('layBar', on);
+  if (on) {
+    if (document.pointerLockElement) document.exitPointerLock();
+    layHid = {};
+    for (const [id] of LAY_ITEMS) { const el = $(id); layHid[id] = el.classList.contains('hide'); el.classList.remove('hide'); el.classList.add('layed'); el.dataset.layid = id; }
+    if (!$('bJump').innerHTML) setClingUI(); if (!$('bSpecH').innerHTML) $('bSpecH').innerHTML = '<b>👀 鬼</b><small>止まって2秒</small>';
+    laySelect('bJump');
+  } else {
+    for (const [id] of LAY_ITEMS) { const el = $(id); el.classList.remove('layed', 'sel'); delete el.dataset.layid; if (layHid[id]) el.classList.add('hide'); }
+    laySel = ''; layDrag = null; refreshUI(); applyLayout(); layoutCols();
+  }
+}
+function laySelect(id) {
+  laySel = id; for (const [k] of LAY_ITEMS) $(k).classList.toggle('sel', k === id);
+  const it = LAY_ITEMS.find(i => i[0] === id); $('layName').textContent = '選択中：' + (it ? it[1] : '') + '（ドラッグで動かす）';
+  $('laySize').value = (layout[id] && layout[id].s) || 1;
+}
+function layStore(id) { const el = $(id), r = el.getBoundingClientRect(); layout[id] = { x: r.left / innerWidth, y: r.top / innerHeight, s: Number(el.dataset.sc) || 1 }; saveLay(); }
+// 編集中は、ボタンをおしても本来の動きをしない（ドラッグで動かすだけ）
+for (const ev of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'click', 'contextmenu']) addEventListener(ev, e => {
+  if (!laying || (e.target.closest && e.target.closest('#layBar'))) return;
+  e.stopPropagation(); if (ev !== 'pointermove') e.preventDefault();
+  if (ev === 'pointerdown') {
+    const el = e.target.closest && e.target.closest('[data-layid]'); if (!el) return;
+    laySelect(el.dataset.layid); const r = el.getBoundingClientRect();
+    if (!layout[el.dataset.layid]) { layout[el.dataset.layid] = { x: r.left / innerWidth, y: r.top / innerHeight, s: 1 }; applyLayout(); }
+    layDrag = { id: el.dataset.layid, px: e.clientX, py: e.clientY, x: r.left, y: r.top, pid: e.pointerId };
+  } else if (ev === 'pointermove' && layDrag && e.pointerId === layDrag.pid) {
+    const el = $(layDrag.id), r = el.getBoundingClientRect(), w = r.width, h = r.height;
+    const x = Math.max(0, Math.min(innerWidth - w, layDrag.x + e.clientX - layDrag.px)), y = Math.max(0, Math.min(innerHeight - h, layDrag.y + e.clientY - layDrag.py));
+    el.style.left = Math.round(x) + 'px'; el.style.top = Math.round(y) + 'px';
+  } else if ((ev === 'pointerup' || ev === 'pointercancel') && layDrag && e.pointerId === layDrag.pid) { layStore(layDrag.id); layDrag = null; }
+}, true);
+$('laySize').addEventListener('input', e => { if (!laySel) return; const L = layout[laySel] || (layStore(laySel), layout[laySel]); L.s = Number(e.target.value); saveLay(); applyLayout(); });
+$('layOne').onclick = () => { if (!laySel) return; delete layout[laySel]; saveLay(); applyLayout(); laySelect(laySel); };
+$('layAll').onclick = () => { layout = {}; saveLay(); applyLayout(); if (laySel) laySelect(laySel); };
+$('layDone').onclick = () => layoutEdit(false);
+addEventListener('resize', () => setTimeout(applyLayout, 60));
+
 if (!isTouch) document.body.classList.add('pc');
-setClingUI(); setPoseName('立つ');
+setClingUI(); setPoseName('立つ'); applyLayout();
 loadMap('park');
 tick();

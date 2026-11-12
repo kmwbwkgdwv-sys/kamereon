@@ -18,7 +18,9 @@
           "huntTime": { ".validate": "newData.isNumber() && newData.val() >= 30 && newData.val() <= 900" },
           "ammo": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 50" },
           "end": { ".validate": "newData.isNumber()" },
-          "round": { ".validate": "newData.isNumber()" }
+          "round": { ".validate": "newData.isNumber()" },
+          "why": { ".validate": "newData.val() === 'all' || newData.val() === 'time' || newData.val() === 'ammo' || newData.val() === 'left'" },
+          "rt": { ".validate": "newData.isNumber()" }
         },
 
         "slots": {
@@ -35,6 +37,7 @@
             "role": { ".validate": "newData.val() === 'hider' || newData.val() === 'hunter' || newData.val() === 'spectator'" },
             "ammo": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 50" },
             "onH": { ".validate": "newData.isBoolean()" },
+            "out": { ".validate": "newData.isBoolean()" },
             "found": {
               ".write": "auth != null && root.child('rooms').child($room).child('players').child(auth.uid).exists()"
             }

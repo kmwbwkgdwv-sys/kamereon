@@ -93,6 +93,25 @@ body.pc .tbtn{width:66px;height:66px;font-size:13px}body.pc #bPose{right:calc(96
 .mapcard.rnd-on .ph{font-size:30px}
 .mapcard:disabled{opacity:1}
 #bFire{bottom:calc(112px + env(safe-area-inset-bottom));background:rgba(230,80,40,.7);width:86px;height:86px}
+/* 隠れている人の「鬼を見る」ボタン：ポーズボタンの上（ほかのボタンと重ならない）。止まっている時間が輪になってたまる */
+#bSpecH{bottom:calc(112px + env(safe-area-inset-bottom));right:calc(108px + var(--sr));background:conic-gradient(rgba(90,200,255,.8) var(--p,0deg),rgba(255,255,255,.16) 0);font-size:12px}
+#bSpecH.ready{background:rgba(40,150,230,.85);border-color:#bfe6ff}
+#bSpecH[data-st=back]{background:rgba(255,210,122,.9);color:#1b2a22}
+#bSpecH[data-st=back] small{color:#1b2a22}
+body.pc #bSpecH{right:calc(96px + var(--sr));bottom:calc(100px + env(safe-area-inset-bottom))}
+#ghostP{position:fixed;z-index:18;left:calc(64px + var(--sl));top:calc(50px + env(safe-area-inset-top));max-width:300px;max-height:40vh;overflow:auto;padding:10px 12px}
+#ghostP b{display:block;font-size:14px}#ghostP small{display:block;margin:2px 0 4px}
+#glist div{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 8px;background:#ffffff12;border-radius:8px;margin:4px 0;font-size:13px}
+#glist button{padding:5px 9px;font-size:12px}
+#rX{display:block;color:#ff9a9a;font-weight:700;margin:2px 0}
+/* ボタン配置の編集 */
+body.laying .layed{outline:2px dashed #ffd27a;outline-offset:3px;z-index:55!important;cursor:move}
+body.laying .layed.sel{outline:3px solid #ffd27a}
+body.laying #layShade{display:block}
+#layShade{display:none;position:fixed;inset:0;z-index:50;background:rgba(10,16,24,.45)}
+#layBar{position:fixed;left:50%;top:calc(8px + env(safe-area-inset-top));transform:translateX(-50%);z-index:60;background:rgba(14,19,26,.95);border-radius:14px;padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:center;max-width:94vw;font-size:13px;box-shadow:0 6px 24px #0008}
+#layBar button{padding:7px 10px;font-size:13px}
+#layBar input[type=range]{width:130px}
 #count{position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:15;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:4px;text-shadow:0 3px 12px #000a}
 #count b{font-size:84px;line-height:1;color:#fff}#count span{font-size:14px;font-weight:700;background:rgba(0,0,0,.5);padding:4px 10px;border-radius:10px}
 #onH{position:fixed;left:50%;bottom:calc(16px + var(--sb));transform:translateX(-50%);z-index:12;pointer-events:none;background:#d9342b;color:#fff;font-weight:800;padding:8px 14px;border-radius:999px;box-shadow:0 2px 10px #0006;font-size:14px}
@@ -115,7 +134,7 @@ small{color:#9fb2c2}
   #tools button,#sys button{padding:6px 8px;font-size:12px}#tools,#sys{gap:4px;top:calc(46px + env(safe-area-inset-top))}
   #reveal{max-width:300px;max-height:60vh}
   #joy{width:110px;height:110px;bottom:calc(14px + var(--sb))}#knob{left:30px;top:30px}
-  .tbtn{width:66px;height:66px}#bJump,#bPose{bottom:calc(14px + var(--sb))}#bPose{right:calc(96px + var(--sr))}#bFire{bottom:calc(90px + var(--sb));width:76px;height:76px}
+  .tbtn{width:66px;height:66px}#bJump,#bPose{bottom:calc(14px + var(--sb))}#bPose{right:calc(96px + var(--sr))}#bFire{bottom:calc(90px + var(--sb));width:76px;height:76px}#bSpecH{bottom:calc(90px + var(--sb));right:calc(96px + var(--sr))}
   #mapGrid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}.mapcard .ph{width:72px;flex-basis:72px}
 }
 </style>
@@ -145,7 +164,7 @@ small{color:#9fb2c2}
     <button id="btnSet1" class="sec">⚙ 設定</button>
   </div>
   <div id="status"></div>
-  <p class="sub" style="margin-top:12px">ルームに入るとロビーに出ます。歩き回ったり体を塗って待ち、ホストが「▶ ゲーム開始」を押すと10秒後にスタート。まんなかの <b>HUNTER</b> の円に乗っていると鬼になれます。<br>操作: PCは WASD＋マウス / Space ジャンプ（壁の近くで長押しすると壁にくっつく。離してもくっついたまま、もう一度押すと離れる） / P ペイント / E スポイト / O ポーズをえらぶ / Q ポーズ切替 / F 分身。スマホは左スティック＋画面ドラッグ＋右下のボタン。</p>
+  <p class="sub" style="margin-top:12px">ルームに入るとロビーに出ます。歩き回ったり体を塗って待ち、ホストが「▶ ゲーム開始」を押すと10秒後にスタート。まんなかの <b>HUNTER</b> の円に乗っていると鬼になれます。<br>操作: PCは WASD＋マウス / Space ジャンプ（壁の近くで長押しすると壁にくっつく。離してもくっついたまま、もう一度押すと離れる） / P ペイント / E スポイト / O ポーズをえらぶ / Q ポーズ切替 / F 分身 / V 観戦（隠れている人は止まって2秒で鬼の画面）。スマホは左スティック＋画面ドラッグ＋右下のボタン。ボタンの場所と大きさは ⚙ 設定で変えられます。</p>
 </div></div>
 
 <!-- HUD -->
@@ -229,6 +248,7 @@ small{color:#9fb2c2}
 <div id="reveal" class="card t hide">
   <h2 id="rTitle"></h2>
   <small>答え合わせタイム：自由に歩いて、みんなの隠れ場所を見て回ろう</small>
+  <span id="rX"></span>
   <div id="rlist"></div>
   <button id="btnLobby" class="full">ロビーに戻る</button>
 </div>
@@ -248,6 +268,20 @@ small{color:#9fb2c2}
   <button id="mpClose" class="full sec">もどる</button>
 </div></div>
 <button id="bFire" class="tbtn hide">撃つ</button>
+<button id="bSpecH" class="tbtn hide"></button>
+
+<!-- ゴースト（ベーシックで見つかった人）：隠れている人を見に行く -->
+<div id="ghostP" class="card t hide"><b>👻 ゴースト</b><small>あなたの姿は鬼にも隠れている人にも見えません。隠れている人の名前は壁ごしに見えます</small><div id="glist"></div></div>
+
+<!-- ボタン配置の編集 -->
+<div id="layShade"></div>
+<div id="layBar" class="hide">
+  <span id="layName">ボタンをドラッグして動かす／タップで選んで大きさを変える</span>
+  <label>大きさ <input id="laySize" type="range" min="0.6" max="1.8" step="0.05" value="1"></label>
+  <button id="layOne" class="sec">これを元に戻す</button>
+  <button id="layAll" class="sec">全部元に戻す</button>
+  <button id="layDone">完了</button>
+</div>
 
 <!-- 設定 -->
 <div id="modal" class="hide"><div class="card">
@@ -257,7 +291,9 @@ small{color:#9fb2c2}
   <label class="l">視点感度 <input id="oSens" type="range" min="0.2" max="3" step="0.1"></label>
   <label class="l">BGM音量 <input id="oBgm" type="range" min="0" max="1" step="0.05"></label>
   <label class="l">効果音の音量 <input id="oSe" type="range" min="0" max="1" step="0.05"></label>
-  <small>自分のアプリで音楽を流しながら遊ぶときは、BGM音量を0にしてください（効果音だけ鳴ります）。<br>軽量化モード：影オフ・解像度ダウン・通信頻度ダウン（アンチエイリアスは再読み込み後に反映）</small>
+  <label class="l">マナーモードでも音を出す（iPhone） <input id="oLoud" type="checkbox" style="width:22px;height:22px"></label>
+  <button id="btnLay" class="full sec">🕹 ボタンの配置・大きさを変える</button>
+  <small>iPhone で消音スイッチがオンでも、ショットガンなどの音が鳴ります（ほかのアプリの音楽は止まります）。音楽を流しながら遊ぶときはオフにして、BGM音量を0に。<br>軽量化モード：影オフ・解像度ダウン・通信頻度ダウン（アンチエイリアスは再読み込み後に反映）</small>
   <button id="btnSetClose" class="full">閉じる</button>
 </div></div>
 

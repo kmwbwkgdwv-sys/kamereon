@@ -64,6 +64,81 @@ export function drawPattern(x, S, kind, c1, c2, r) {
       for (let i = 0; i < 26; i++) { x.fillStyle = r() < 0.6 ? 'rgba(0,0,0,0.16)' : 'rgba(255,255,255,0.08)'; const px = r() * S, w = 2 + r() * 5; x.fillRect(px, 0, w, S); }
       speck(60, 0.05);
       break;
+    case 'planks': { // 木箱の板（たての板・すき間・まわりのわく）
+      const fr = q * 0.34; x.fillStyle = col(0);
+      for (let i = 0; i < 4; i++) { x.fillStyle = shade(c1, 0.9 + ((i * 37) % 5) * 0.04); x.fillRect(i * q, 0, q, S); x.fillStyle = 'rgba(0,0,0,0.42)'; x.fillRect(i * q, 0, 3, S); }
+      for (let i = 0; i < 40; i++) { x.fillStyle = `rgba(60,30,10,${(0.05 + r() * 0.08).toFixed(3)})`; x.fillRect(r() * S, r() * S, 1 + r() * 1.5, 8 + r() * 26); } // 木目
+      x.fillStyle = shade(c1, 0.78); x.fillRect(0, 0, S, fr); x.fillRect(0, S - fr, S, fr); x.fillRect(0, 0, fr, S); x.fillRect(S - fr, 0, fr, S);
+      x.strokeStyle = shade(c1, 0.72); x.lineWidth = fr * 0.8; x.beginPath(); x.moveTo(fr, fr); x.lineTo(S - fr, S - fr); x.stroke(); // ななめの補強
+      x.fillStyle = 'rgba(0,0,0,0.5)'; for (const [a, b] of [[fr / 2, fr / 2], [S - fr / 2, fr / 2], [fr / 2, S - fr / 2], [S - fr / 2, S - fr / 2]]) { x.beginPath(); x.arc(a, b, 2.2, 0, 6.2832); x.fill(); } // くぎ
+      break;
+    }
+    case 'carton': // 段ボール（まん中にガムテープ・ふたの線・印刷）
+      speck(120, 0.03);
+      x.fillStyle = shade(c1, 0.82); x.fillRect(0, S * 0.495, S, 2);
+      x.fillStyle = 'rgba(236,224,196,0.85)'; x.fillRect(S * 0.41, 0, S * 0.18, S);
+      x.fillStyle = 'rgba(255,255,255,0.25)'; x.fillRect(S * 0.43, 0, S * 0.03, S);
+      x.strokeStyle = 'rgba(40,30,20,0.55)'; x.lineWidth = 2; x.strokeRect(S * 0.08, S * 0.66, S * 0.2, S * 0.2); x.beginPath(); x.moveTo(S * 0.12, S * 0.8); x.lineTo(S * 0.18, S * 0.7); x.lineTo(S * 0.24, S * 0.8); x.stroke(); // 上向き矢印のマーク
+      break;
+    case 'corrugate': // 波板（コンテナ・倉庫の壁）
+      for (let i = 0; i < 16; i++) { const g = x.createLinearGradient(i * S / 16, 0, (i + 1) * S / 16, 0); g.addColorStop(0, shade(c1, 0.78)); g.addColorStop(0.5, shade(c1, 1.12)); g.addColorStop(1, shade(c1, 0.78)); x.fillStyle = g; x.fillRect(i * S / 16, 0, S / 16 + 1, S); }
+      for (let i = 0; i < 14; i++) { x.fillStyle = `rgba(120,60,20,${(0.05 + r() * 0.12).toFixed(3)})`; x.fillRect(r() * S, r() * S, 2 + r() * 10, 2 + r() * 16); } // さび
+      break;
+    case 'vents': // ロッカーの通気口・取っ手
+      x.fillStyle = 'rgba(0,0,0,0.45)'; for (let i = 0; i < 6; i++) x.fillRect(S * 0.3, S * 0.06 + i * S * 0.045, S * 0.4, S * 0.022);
+      x.fillStyle = 'rgba(0,0,0,0.35)'; x.fillRect(0, 0, 3, S); x.fillRect(S - 3, 0, 3, S);
+      x.fillStyle = '#c9ccd0'; x.fillRect(S * 0.78, S * 0.45, S * 0.06, S * 0.14); x.fillStyle = 'rgba(0,0,0,0.4)'; x.fillRect(S * 0.79, S * 0.47, S * 0.04, S * 0.1);
+      x.fillStyle = '#f4f4f4'; x.fillRect(S * 0.4, S * 0.38, S * 0.2, S * 0.08);
+      break;
+    case 'rockface': // 岩肌：大きな色の面（体に塗りやすい）と少しのひび
+      for (let k = 0; k < 7; k++) { // 角ばった色の面
+        const cx = r() * S, cy = r() * S, rad = q * (0.7 + r() * 0.9), n = 5 + Math.floor(r() * 3), c = col(k);
+        x.fillStyle = c; wrap((a, b) => { x.beginPath(); for (let i = 0; i < n; i++) { const t = i / n * 6.2832 + r() * 0.4, rr = rad * (0.7 + r() * 0.3); i ? x.lineTo(a + Math.cos(t) * rr, b + Math.sin(t) * rr) : x.moveTo(a + Math.cos(t) * rr, b + Math.sin(t) * rr); } x.closePath(); x.fill(); }, cx, cy, rad);
+      }
+      x.strokeStyle = 'rgba(0,0,0,0.22)'; x.lineWidth = 1.6;
+      for (let k = 0; k < 4; k++) { let a = r() * S, b = r() * S; x.beginPath(); x.moveTo(a, b); for (let i = 0; i < 5; i++) { a += (r() - 0.5) * q; b += r() * q * 0.6; x.lineTo(a, b); } x.stroke(); }
+      speck(90, 0.04);
+      break;
+    case 'strata': // 地層（よこの帯。上下でつながる）
+      { const n = 3; for (let i = 0; i < n; i++) { x.fillStyle = col(i); const y0 = Math.floor(i * S / n + (i ? S / n * 0.3 : 0)); x.fillRect(0, y0, S, Math.ceil(S / n * (i ? 0.3 : 0.5))); } }
+      x.strokeStyle = 'rgba(0,0,0,0.18)'; x.lineWidth = 1.5; for (let k = 0; k < 3; k++) { const y = r() * S; x.beginPath(); for (let i = 0; i <= 8; i++) x.lineTo(i * S / 8, y + (r() - 0.5) * 6); x.stroke(); }
+      speck(110, 0.035);
+      break;
+    case 'bigcamo': // 大きな迷彩（色の数が少なく、体にまねしやすい）
+      for (let k = 0; k < 2; k++) for (let i = 0; i < 4; i++) { const cx = r() * S, cy = r() * S, c = col(k); for (let b = 0; b < 3; b++) dot(cx + (r() - 0.5) * q * 1.4, cy + (r() - 0.5) * q * 1.4, q * (0.45 + r() * 0.35), c); }
+      break;
+    case 'graffiti': // らくがき（太いしぶき・ぐるぐる・ギザギザの線）
+      for (let i = 0; i < 6; i++) { const cx = r() * S, cy = r() * S, c = col(i), s = q * (0.4 + r() * 0.5); dot(cx, cy, s, c); for (let b = 0; b < 5; b++) { const a = r() * 6.283, d = s * (1 + r()); dot(cx + Math.cos(a) * d, cy + Math.sin(a) * d, s * (0.1 + r() * 0.2), c); } }
+      x.lineCap = 'round'; x.lineJoin = 'round';
+      for (let i = 0; i < 4; i++) { x.strokeStyle = col(i + 2); x.lineWidth = q * (0.12 + r() * 0.12); x.beginPath(); let a = r() * S, b = r() * S; x.moveTo(a, b); for (let k = 0; k < 6; k++) { a += (r() - 0.5) * q * 1.6; b += (r() - 0.5) * q * 1.6; x.lineTo(a, b); } x.stroke(); }
+      x.strokeStyle = '#1b1d20'; x.lineWidth = 3; for (let i = 0; i < 2; i++) { const a = r() * S * 0.6, b = r() * S * 0.7 + 20; x.beginPath(); x.moveTo(a, b); x.quadraticCurveTo(a + 20, b - 30, a + 40, b); x.quadraticCurveTo(a + 60, b + 30, a + 80, b); x.stroke(); }
+      break;
+    case 'grain': // 木目（家具の板）
+      for (let i = 0; i < 22; i++) { x.strokeStyle = `rgba(70,40,15,${(0.06 + r() * 0.1).toFixed(3)})`; x.lineWidth = 1 + r() * 2; const y = r() * S; x.beginPath(); for (let k = 0; k <= 8; k++) x.lineTo(k * S / 8, y + Math.sin(k * 0.9 + i) * 3 + (r() - 0.5) * 2); x.stroke(); }
+      speck(60, 0.03);
+      break;
+    case 'fabric': // 布（ソファ・クッションの織り目）
+      for (let i = 0; i < S; i += 4) { x.fillStyle = 'rgba(0,0,0,0.05)'; x.fillRect(i, 0, 1, S); x.fillRect(0, i, S, 1); }
+      speck(160, 0.03);
+      break;
+    case 'vend': // 自動販売機の窓（ならんだ飲み物とねだん）
+      x.fillStyle = shade(c1, 1.05); x.fillRect(0, 0, S, S);
+      for (let j = 0; j < 3; j++) {
+        x.fillStyle = 'rgba(0,0,0,0.25)'; x.fillRect(0, (j + 1) * S / 3 - 6, S, 6);
+        for (let i = 0; i < 6; i++) { const cx = (i + 0.5) * S / 6, by = (j + 1) * S / 3 - 14, c = col(i + j * 2); x.fillStyle = c; x.fillRect(cx - 7, by - 22, 14, 22); x.fillRect(cx - 3, by - 28, 6, 6); x.fillStyle = 'rgba(255,255,255,0.4)'; x.fillRect(cx - 5, by - 18, 3, 14); x.fillStyle = '#1b1d20'; x.fillRect(cx - 6, by + 2, 12, 5); }
+      }
+      break;
+    case 'cabinet': // 台所の戸だな（とびらと取っ手）
+      x.fillStyle = 'rgba(0,0,0,0.3)'; x.fillRect(0, 0, 3, S); x.fillRect(0, S * 0.24, S, 3);
+      x.fillStyle = 'rgba(255,255,255,0.18)'; x.fillRect(6, S * 0.3, S - 12, 2);
+      x.fillStyle = col(0); x.fillRect(S * 0.72, S * 0.1, S * 0.16, 4); x.fillRect(S * 0.8, S * 0.36, 5, S * 0.22);
+      break;
+    case 'books': // 本だなの本（いろいろな色と高さの背表紙）
+      for (let j = 0; j < 4; j++) {
+        const y1 = (j + 1) * S / 4 - 4; x.fillStyle = shade(c1, 0.7); x.fillRect(0, y1, S, 4);
+        for (let a = 2; a < S - 4;) { const w = 5 + Math.floor(r() * 7), hh = S / 4 * (0.6 + r() * 0.32); x.fillStyle = col(Math.floor(r() * 8)); x.fillRect(a, y1 - hh, w, hh); x.fillStyle = 'rgba(255,255,255,0.35)'; x.fillRect(a + 1, y1 - hh * 0.8, w - 2, 2); a += w + 1; }
+      }
+      break;
     default: speck(280, 0.035); // ざらつき
   }
 }
