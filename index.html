@@ -54,8 +54,42 @@ label.l select,label.l input[type=number]{width:55%;margin:0;padding:8px}
 #rlist button{padding:5px 9px;font-size:12px}
 #joy{position:fixed;left:calc(18px + var(--sl));bottom:calc(22px + env(safe-area-inset-bottom));width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.14);z-index:11;touch-action:none}
 #knob{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.5);pointer-events:none}
-.tbtn{position:fixed;right:calc(20px + var(--sr));width:76px;height:76px;border-radius:50%;z-index:11;font-size:14px;touch-action:none;background:rgba(255,255,255,.22)}
+.tbtn{position:fixed;right:calc(20px + var(--sr));width:76px;height:76px;border-radius:50%;z-index:11;font-size:14px;touch-action:none;background:rgba(255,255,255,.22);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0;line-height:1.1;border:2px solid rgba(255,255,255,.35)}
+.tbtn small{color:#fff;font-size:9px;font-weight:600;opacity:.9}
 #bJump{bottom:calc(24px + env(safe-area-inset-bottom))}
+#bJump.cling{background:rgba(240,170,40,.85);border-color:#ffe2a0}
+#bPose{bottom:calc(24px + env(safe-area-inset-bottom));right:calc(108px + var(--sr));background:rgba(46,139,99,.75)}
+#bPose.on{background:#ffd27a;color:#1b2a22}
+#bPose small{max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.pc .tbtn{width:66px;height:66px;font-size:13px}body.pc #bPose{right:calc(96px + var(--sr))}
+/* ポーズのえらび輪 */
+#wheel{position:fixed;inset:0;z-index:16;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.28)}
+#ring{position:relative;width:380px;height:380px;flex:0 0 380px;border-radius:50%;transform:scale(var(--ws,1));background:radial-gradient(circle,rgba(16,26,36,.35) 0 27%,rgba(14,20,28,.86) 28%);border:3px solid rgba(255,255,255,.9);box-shadow:0 0 0 6px rgba(46,139,99,.55),0 12px 40px rgba(0,0,0,.5)}
+#ring .pi{position:absolute;width:56px;height:56px;margin:-28px;border-radius:50%;padding:0;background:#24384a;border:2px solid rgba(255,255,255,.3);overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;font-weight:700}
+#ring .pi img{width:100%;height:40px;object-fit:cover;flex:0 0 40px}
+#ring .pi i{font-style:normal;font-size:22px;line-height:40px;height:40px}
+#ring .pi span{font-size:8.5px;line-height:1;white-space:nowrap;margin-top:1px;letter-spacing:-.3px}
+#ring .pi.cur{border-color:#ffd27a;box-shadow:0 0 0 2px #ffd27a}
+#ring .pi.empty{opacity:.55;border-style:dashed}
+#ring .pi:hover{border-color:#fff}
+#wClose{position:absolute;left:50%;top:50%;width:66px;height:66px;margin:-33px;border-radius:50%;padding:0;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.5);font-size:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15}
+#wClose b{font-size:18px}#wName{font-size:9px;color:#ffd27a;max-width:60px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+/* マップえらび */
+#mapPick{position:fixed;inset:0;z-index:45;background:#10151c;display:flex;align-items:flex-start;justify-content:center;padding:14px calc(14px + var(--sr)) 14px calc(14px + var(--sl));overflow:auto;touch-action:pan-y}
+#mapPick .card{max-width:760px}
+#mapGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:6px 0}
+.mc{padding:0;background:#1d2732;border:2px solid transparent;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;text-align:center}
+.mc span,.mapcard span{padding:6px 4px;font-size:14px}
+.mc.on{border-color:#ffd27a}
+.ph{position:relative;width:100%;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ph img:not([src]){display:none}
+.ph:not(.rnd)::before{content:'📷 じゅんび中…';font-size:11px;color:#fff;text-shadow:0 1px 3px #000;opacity:.8}
+.ph.rnd{background:linear-gradient(135deg,#2e8b63,#2f6fb0);font-size:42px}
+.mapcard{display:flex;align-items:center;gap:8px;padding:4px;background:#1d2732;width:55%;text-align:left}
+.mapcard .ph{width:96px;flex:0 0 96px;border-radius:8px}
+.mapcard.rnd-on .ph{font-size:30px}
+.mapcard:disabled{opacity:1}
 #bFire{bottom:calc(112px + env(safe-area-inset-bottom));background:rgba(230,80,40,.7);width:86px;height:86px}
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:flex;align-items:center;justify-content:center;padding:16px}
 small{color:#9fb2c2}
@@ -75,7 +109,8 @@ small{color:#9fb2c2}
   #tools button,#sys button{padding:6px 8px;font-size:12px}#tools,#sys{gap:4px;top:calc(46px + env(safe-area-inset-top))}
   #reveal{max-width:300px;max-height:60vh}
   #joy{width:110px;height:110px;bottom:calc(14px + var(--sb))}#knob{left:30px;top:30px}
-  .tbtn{width:66px;height:66px}#bJump{bottom:calc(14px + var(--sb))}#bFire{bottom:calc(90px + var(--sb));width:76px;height:76px}
+  .tbtn{width:66px;height:66px}#bJump,#bPose{bottom:calc(14px + var(--sb))}#bPose{right:calc(96px + var(--sr))}#bFire{bottom:calc(90px + var(--sb));width:76px;height:76px}
+  #mapGrid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}.mapcard .ph{width:72px;flex-basis:72px}
 }
 </style>
 <script type="importmap">
@@ -104,7 +139,7 @@ small{color:#9fb2c2}
     <button id="btnSet1" class="sec">⚙ 設定</button>
   </div>
   <div id="status"></div>
-  <p class="sub" style="margin-top:12px">操作: PCは WASD＋マウス / Space ジャンプ（壁に向かって長押しでよじ登り） / P ペイント / E スポイト / O ポーズ / Q ポーズ切替 / F 分身。スマホは左スティック＋画面ドラッグ。</p>
+  <p class="sub" style="margin-top:12px">操作: PCは WASD＋マウス / Space ジャンプ（壁の近くで長押しすると壁にくっつく。離してもくっついたまま、もう一度押すと離れる） / P ペイント / E スポイト / O ポーズをえらぶ / Q ポーズ切替 / F 分身。スマホは左スティック＋画面ドラッグ＋右下のボタン。</p>
 </div></div>
 
 <!-- HUD -->
@@ -120,12 +155,12 @@ small{color:#9fb2c2}
   <button id="btnLeave">退出</button>
   <button id="btnSwap" class="hide">役割切替</button>
   <button id="btnRoom" class="hide">🏠 ルーム設定</button>
+  <button id="btnMap" class="hide">🗺 マップ</button>
 </div>
 <div id="tools" class="hide">
   <button id="tPaint">🎨 ペイント</button>
   <button id="tDrop">💧 スポイト</button>
-  <button id="tPose">🧍 ポーズ</button>
-  <button id="tNext">🔁 ポーズ切替</button>
+  <button id="tPose">🧍 体・ポーズ調整</button>
   <button id="tDecoy">👥 分身を置く</button>
   <button id="tDecoyX">分身を消す</button>
   <button id="tZoomIn">＋</button>
@@ -168,7 +203,7 @@ small{color:#9fb2c2}
   <div id="plist"></div>
   <div id="hostSet">
     <label class="l">ゲームモード <select id="sMode"><option value="fueoni">増え鬼（見つかると鬼になる）</option><option value="basic">ベーシック（鬼は増えない）</option></select></label>
-    <label class="l">マップ <select id="sMap"><option value="random">ランダム</option></select></label>
+    <label class="l">マップ <button id="mapCard" class="mapcard" type="button"></button></label>
     <label class="l">笛が鳴る間隔 <select id="sWhistle"><option value="30">30秒</option><option value="45">45秒</option><option value="60">60秒</option><option value="90">90秒</option><option value="120">120秒</option><option value="0">鳴らさない</option></select></label>
     <label class="l">最初の鬼の人数 <select id="sHunters"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
     <label class="l">隠れる時間（秒） <input id="sHide" type="number" min="20" max="300" step="10"></label>
@@ -190,7 +225,18 @@ small{color:#9fb2c2}
 
 <!-- スマホ操作 -->
 <div id="joy" class="hide"><div id="knob"></div></div>
-<button id="bJump" class="tbtn hide">ジャンプ<br><small style="color:#fff">長押しで登る</small></button>
+<button id="bJump" class="tbtn hide"></button>
+<button id="bPose" class="tbtn hide"><b>ポーズ</b><small id="bPoseN"></small></button>
+
+<!-- ポーズのえらび輪：押すとそのポーズになる -->
+<div id="wheel" class="hide"><div id="ring"><button id="wClose"><b>✕</b>とじる<span id="wName"></span></button></div></div>
+
+<!-- マップえらび（写真つき） -->
+<div id="mapPick" class="hide"><div class="card">
+  <h2 id="mpTitle">マップをえらぶ</h2>
+  <div id="mapGrid"></div>
+  <button id="mpClose" class="full sec">もどる</button>
+</div></div>
 <button id="bFire" class="tbtn hide">撃つ</button>
 
 <!-- 設定 -->

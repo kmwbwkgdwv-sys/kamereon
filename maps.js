@@ -1,40 +1,57 @@
-// マップ定義。h = { B(箱), F(床), cyl(円柱), ball(球), outer(外壁), rnd(乱数) }
+// マップ定義。h = { B(箱), F(床), cyl(円柱), ball(球), dome(だ円の山), cap(丸頭の柱), arch(アーチ), outer(外壁), rnd(乱数) }
 // B(x, y0, z, 幅, 高さ, 奥行, 色, opt)  ※ x,z は中心、y0 は底面の高さ
+// opt.pat = [模様, 地の色, 模様の色(配列も可), 横のくり返し, 縦のくり返し]  模様は patterns.js
+// opt.soft = 葉っぱ（弾がすり抜ける・中に隠れられる）
 export const MAP_LIST = [['house', 'おうち'], ['park', '公園'], ['school', '学校'], ['warehouse', '倉庫'], ['town', '夜の商店街'],
   ['station', 'ガソリンスタンド'], ['circuit', 'サーキット'], ['desert', '古代の砂漠'], ['neon', 'ネオン街'], ['volcano', '火山']];
 
 const NC = { nocol: true }, FL = { nocol: true, flat: true };
-const WALL = 4.5; // 内壁の高さ（家具から登れない高さ）
+const WALL = 4.5; // 内壁の高さ
 const table = (h, x, z, w, d, c, ht = 0.76) => {
   h.B(x, ht - 0.08, z, w, 0.08, d, c);
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) h.B(x + sx * (w / 2 - 0.1), 0, z + sz * (d / 2 - 0.1), 0.1, ht - 0.08, 0.1, c, NC);
 };
-const chair = (h, x, z, c) => h.B(x, 0, z, 0.5, 0.45, 0.5, c);
-const sofaX = (h, x, z, w, c, back) => { h.B(x, 0, z, w, 0.5, 1.2, c); h.B(x, 0.5, z + back * 0.45, w, 0.5, 0.3, c); };
-const sofaZ = (h, x, z, d, c, back) => { h.B(x, 0, z, 1.2, 0.5, d, c); h.B(x + back * 0.45, 0.5, z, 0.3, 0.5, d, c); };
+const chair = (h, x, z, c) => h.B(x, 0, z, 0.5, 0.45, 0.5, c, { r: 0.12 });
+const sofaX = (h, x, z, w, c, back) => { h.B(x, 0, z, w, 0.5, 1.2, c, { r: 0.2 }); h.B(x, 0.5, z + back * 0.45, w, 0.5, 0.3, c, { r: 0.14 }); };
+const sofaZ = (h, x, z, d, c, back) => { h.B(x, 0, z, 1.2, 0.5, d, c, { r: 0.2 }); h.B(x + back * 0.45, 0.5, z, 0.3, 0.5, d, c, { r: 0.14 }); };
 const bed = (h, x, z, c) => {
-  h.B(x, 0, z, 2.2, 0.55, 3.2, '#efe9df'); h.B(x, 0.55, z - 0.35, 2.2, 0.12, 2.5, c);
+  h.B(x, 0, z, 2.2, 0.55, 3.2, '#efe9df', { r: 0.18 }); h.B(x, 0.55, z - 0.35, 2.2, 0.12, 2.5, c);
   h.B(x, 0.55, z + 1.2, 1.6, 0.2, 0.5, '#ffffff'); h.B(x, 0, z + 1.7, 2.3, 1.1, 0.15, '#6b4a2b');
 };
 const plant = (h, x, z) => { h.cyl(x, 0, z, 0.35, 0.55, '#b5651d'); h.ball(x, 1.15, z, 0.7, '#2f7d3a', { col: true }); };
-const tree = (h, x, z, s = 1) => { h.cyl(x, 0, z, 0.28 * s, 2.4 * s, '#6b4a2b'); h.ball(x, 3.4 * s, z, 1.6 * s, '#2f7d3a'); h.ball(x + 0.8 * s, 3.0 * s, z + 0.4 * s, 1.1 * s, '#3b8f46'); };
+const LEAF = ['#2f7d3a', '#3b8f46', '#25622d', '#4a9a3e'];
+// 木：太い幹は登れる。てっぺんの枝の足場に乗ると葉っぱの中に隠れられる（葉っぱは弾がすり抜ける）
+const tree = (h, x, z, s = 1) => {
+  const th = 2.5 * s;
+  h.cyl(x, 0, z, 0.55 * s, th, '#6b4a2b', { rt: 0.42 * s, pat: ['bark', '#6b4a2b', 0, 2, 2] });
+  h.cyl(x, th, z, 1.05 * s, 0.28 * s, '#5a3c24', { rt: 0.95 * s });
+  h.ball(x, th + 0.9 * s, z, 1.65 * s, '#2f7d3a', { soft: true, pat: ['leaf', '#2f7d3a', LEAF, 3, 2] });
+  h.ball(x + 0.85 * s, th + 0.5 * s, z + 0.45 * s, 1.15 * s, '#3b8f46', { soft: true, pat: ['leaf', '#3b8f46', LEAF, 2, 2] });
+};
 const car = (h, x, z, c, alongX) => {
   const w = alongX ? 4.4 : 2, d = alongX ? 2 : 4.4;
-  h.B(x, 0.3, z, w, 0.8, d, c, { r: 0.32 }); h.B(x, 1.05, z, alongX ? 2.5 : 1.8, 0.7, alongX ? 1.8 : 2.5, '#2a3038', { r: 0.3 });
+  h.B(x, 0.3, z, w, 0.8, d, c, { r: 0.36 }); h.B(x, 1.05, z, alongX ? 2.5 : 1.8, 0.7, alongX ? 1.8 : 2.5, '#2a3038', { r: 0.32 });
   for (const s of [-1, 1]) { h.ball(x + (alongX ? s * 2.1 : 0.6), 0.75, z + (alongX ? 0.6 : s * 2.1), 0.13, s > 0 ? '#fff4c2' : '#e0413a'); h.ball(x + (alongX ? s * 2.1 : -0.6), 0.75, z + (alongX ? -0.6 : s * 2.1), 0.13, s > 0 ? '#fff4c2' : '#e0413a'); }
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) h.wheel(x + sx * (alongX ? 1.4 : 0.95), 0.36, z + sz * (alongX ? 0.95 : 1.4), 0.36, 0.26, alongX ? 'z' : 'x');
 };
-const palm = (h, x, z, s = 1) => { h.cyl(x, 0, z, 0.22 * s, 4 * s, '#8a6a3c', { rt: 0.15 * s }); for (let i = 0; i < 6; i++) { const a = i * 1.047; h.dome(x + Math.cos(a) * 1.2 * s, 4 * s, z + Math.sin(a) * 1.2 * s, 1.4 * s, 0.3 * s, 0.55 * s, '#3f8f3a', { nocol: true, rot: a }); } h.ball(x, 3.85 * s, z, 0.3 * s, '#6b4a2b'); };
-const tires = (h, x, z, n = 3) => { h.cyl(x, 0, z, 0.4, 0.3 * n, '#1b1d20'); for (let i = 0; i < n; i++) h.tire(x, i * 0.3, z, 0.5); };
-const pylon = (h, x, z) => { h.B(x, 0, z, 0.42, 0.04, 0.42, '#f08a3c', NC); h.cone(x, 0.04, z, 0.17, 0.55, '#f08a3c', { cw: 0.9 }); };
-const kart = (h, x, z, c) => { h.B(x, 0.12, z, 1.1, 0.36, 1.8, c, { r: 0.16 }); h.B(x, 0.48, z + 0.4, 0.7, 0.4, 0.45, '#2a3038', { r: 0.12 }); h.ball(x, 0.78, z + 0.1, 0.25, '#f4f4f4'); for (const sx of [-1, 1]) for (const sz of [-1, 1]) h.wheel(x + sx * 0.62, 0.22, z + sz * 0.62, 0.22, 0.2, 'x'); };
+const palm = (h, x, z, s = 1) => {
+  h.cyl(x, 0, z, 0.36 * s, 4 * s, '#8a6a3c', { rt: 0.24 * s, pat: ['bark', '#8a6a3c', 0, 2, 3] });
+  h.cyl(x, 4 * s, z, 0.7 * s, 0.2 * s, '#6b4a2b', { rt: 0.55 * s });
+  for (let i = 0; i < 6; i++) { const a = i * 1.047; h.dome(x + Math.cos(a) * 1.2 * s, 4.1 * s, z + Math.sin(a) * 1.2 * s, 1.4 * s, 0.3 * s, 0.55 * s, '#3f8f3a', { nocol: true, rot: a }); }
+  h.ball(x, 4.35 * s, z, 0.3 * s, '#6b4a2b');
+};
+const tires = (h, x, z, n = 3) => { h.cyl(x, 0, z, 0.45, 0.3 * n, '#1b1d20'); for (let i = 0; i < n; i++) h.tire(x, i * 0.3, z, 0.5); };
+const pylon = (h, x, z) => { h.B(x, 0, z, 0.42, 0.04, 0.42, '#f08a3c', NC); h.cone(x, 0.04, z, 0.17, 0.55, '#f08a3c'); };
+const kart = (h, x, z, c) => { h.B(x, 0.12, z, 1.1, 0.36, 1.8, c, { r: 0.16 }); h.B(x, 0.48, z + 0.4, 0.7, 0.4, 0.45, '#2a3038', { r: 0.12 }); for (const sx of [-1, 1]) for (const sz of [-1, 1]) h.wheel(x + sx * 0.62, 0.22, z + sz * 0.62, 0.22, 0.2, 'x'); };
 const pump = (h, x, z) => {
-  h.B(x, 0, z, 1.5, 0.18, 5, '#c9c9c9'); h.B(x, 0.18, z, 0.95, 1.75, 0.6, '#e0413a', { r: 0.14 }); h.B(x, 1.93, z, 1.05, 0.3, 0.7, '#f4f4f4');
+  h.B(x, 0, z, 1.5, 0.18, 5, '#c9c9c9'); h.B(x, 0.18, z, 0.95, 1.75, 0.6, '#e0413a', { r: 0.2 }); h.B(x, 1.93, z, 1.05, 0.3, 0.7, '#f4f4f4');
   h.B(x, 1.2, z, 0.7, 0.45, 0.64, '#15171a', NC); h.cyl(x - 0.6, 0.18, z, 0.05, 1.2, '#22262b', NC);
   h.cyl(x, 0.18, z - 2.1, 0.12, 0.9, '#f0d040'); h.cyl(x, 0.18, z + 2.1, 0.12, 0.9, '#f0d040');
 };
-const wallX = (h, z, x0, x1, c, ht = WALL) => h.B((x0 + x1) / 2, 0, z, x1 - x0, ht, 0.4, c); // x方向にのびる壁
-const wallZ = (h, x, z0, z1, c, ht = WALL) => h.B(x, 0, (z0 + z1) / 2, 0.4, ht, z1 - z0, c); // z方向にのびる壁
+// x方向／z方向にのびる壁。pat = [模様, 模様の色] で壁紙つき
+const wallPat = (pat, c, len, ht) => (pat ? { pat: [pat[0], c, pat[1], Math.max(1, Math.round(len / 1.6)), Math.max(1, Math.round(ht / 1.6))] } : undefined);
+const wallX = (h, z, x0, x1, c, ht = WALL, pat) => h.B((x0 + x1) / 2, 0, z, x1 - x0, ht, 0.4, c, wallPat(pat, c, x1 - x0, ht));
+const wallZ = (h, x, z0, z1, c, ht = WALL, pat) => h.B(x, 0, (z0 + z1) / 2, 0.4, ht, z1 - z0, c, wallPat(pat, c, z1 - z0, ht));
 const lamp = (h, x, z, ht = 2.6) => { h.cyl(x, 0, z, 0.07, ht, '#444a50'); h.ball(x, ht + 0.22, z, 0.26, '#fff4c2', { glow: 1 }); };
 const TOY = ['#e04f4f', '#4f7fe0', '#f0d040', '#4fbf6a', '#b06fd8', '#f08a3c'];
 const CARD = ['#c7a36a', '#b8935a', '#d4b483', '#a8834f'];
@@ -52,40 +69,95 @@ const shop = (h, x, z, w, d, ht, c, f, ac, night, y = 0) => {
   h.B(x, y, z, w - 0.8, 0.03, d - 0.8, '#d9d2c4', { flat: true }); h.B(x, y + 3.08, z, w * 0.5, 0.06, d * 0.35, '#fff4c2', { nocol: true, glow: 1.3 });
   // 店内
   h.B(x, y, zb + f * 0.7, w - 2, 1.9, 0.7, '#8a5a33'); for (let i = 0; i < 3; i++) h.B(x, y + 0.4 + i * 0.55, zb + f * 0.72, w - 2.3, 0.3, 0.74, TOY[(i + Math.round(Math.abs(x))) % 6], NC);
-  h.B(x - w / 4, y, z + f * (d / 2 - 2), Math.min(2.4, w / 3), 1, 0.8, '#3f5f8a', { r: 0.1 }); h.B(x - w / 4, y + 1, z + f * (d / 2 - 2), 0.5, 0.35, 0.5, '#22262b');
+  h.B(x - w / 4, y, z + f * (d / 2 - 2), Math.min(2.4, w / 3), 1, 0.8, '#3f5f8a', { r: 0.16 }); h.B(x - w / 4, y + 1, z + f * (d / 2 - 2), 0.5, 0.35, 0.5, '#22262b');
   if (d > 6) { h.B(x + w / 5, y, z - f * 0.6, 0.8, 1.4, d * 0.32, '#d9d2c4'); h.B(x + w / 5, y + 1.4, z - f * 0.6, 0.7, 0.25, d * 0.3, TOY[Math.round(Math.abs(z)) % 6], NC); }
-  h.B(x + w / 2 - 1.1, y, zb + f * 2, 1, 0.9, 1, CARD[0], { r: 0.07 }); h.B(x + w / 2 - 1.1, y + 0.9, zb + f * 2, 0.8, 0.7, 0.8, CARD[2], { r: 0.07 }); h.B(x - w / 2 + 1.1, y, zb + f * 2.2, 1, 1, 1, CARD[1], { r: 0.07 });
+  h.B(x + w / 2 - 1.1, y, zb + f * 2, 1, 0.9, 1, CARD[0], { r: 0.12 }); h.B(x + w / 2 - 1.1, y + 0.9, zb + f * 2, 0.8, 0.7, 0.8, CARD[2], { r: 0.12 }); h.B(x - w / 2 + 1.1, y, zb + f * 2.2, 1, 1, 1, CARD[1], { r: 0.12 });
   // 屋上
-  h.cyl(x - w / 4, y + ht + 0.3, z, 0.7, 1.4, '#8d8f94'); h.B(x + w / 4, y + ht + 0.3, z + 1, 1.4, 0.8, 1, '#b9c0c7', { r: 0.1 });
+  h.cyl(x - w / 4, y + ht + 0.3, z, 0.7, 1.4, '#8d8f94'); h.B(x + w / 4, y + ht + 0.3, z + 1, 1.4, 0.8, 1, '#b9c0c7', { r: 0.16 });
 };
 
-// 隠れ場所になる小物（マップごとの kit から自動でたくさん配置される）。pal はそのマップの色
+// 模様えらび（地の色はそのマップの色、模様の色はアクセント色）
 const pick = (h, a) => a[Math.floor(h.rnd() * a.length)];
+const PATK = ['dots', 'hstripe', 'vband', 'diag', 'zigzag', 'check2', 'camo', 'confetti', 'splat', 'wave', 'rainbow', 'brick'];
+function rpat(h, pal, acc, rx = 1, ry = 1, kinds = PATK) {
+  const k = pick(h, kinds), a = pick(h, pal);
+  let b = pick(h, acc); if (b === a) b = '#f4f4f4';
+  const c2 = k === 'camo' ? [pick(h, pal), b, pick(h, pal)] : (k === 'confetti' || k === 'splat' || k === 'rainbow') ? acc : b;
+  return [k, a, c2, rx, ry];
+}
+
+// 隠れ場所になる小物（マップごとの kit から自動でたくさん配置される）。pal = マップの色、acc = アクセント色
 export const KIT = {
-  crate(h, x, z) { const s = 0.8 + h.rnd() * 0.5; h.B(x, 0, z, s, s, s, pick(h, CARD), { r: 0.07 }); if (h.rnd() < 0.55) h.B(x + 0.08, s, z - 0.05, s * 0.8, s * 0.8, s * 0.8, pick(h, CARD), { r: 0.07 }); if (h.rnd() < 0.45) h.B(x + s * 0.95, 0, z + 0.2, s * 0.85, s * 0.7, s * 0.85, pick(h, CARD), { r: 0.07 }); },
+  crate(h, x, z) { const s = 0.8 + h.rnd() * 0.5, o = { r: 0.12 }; h.B(x, 0, z, s, s, s, pick(h, CARD), o); if (h.rnd() < 0.55) h.B(x + 0.08, s, z - 0.05, s * 0.8, s * 0.8, s * 0.8, pick(h, CARD), o); if (h.rnd() < 0.45) h.B(x + s * 0.95, 0, z + 0.2, s * 0.85, s * 0.7, s * 0.85, pick(h, CARD), o); },
   barrel(h, x, z, pal) { const n = 1 + Math.floor(h.rnd() * 3); for (let i = 0; i < n; i++) h.cyl(x + (i % 2) * 0.95, 0, z + (i > 1 ? 0.95 : 0), 0.45, 1.05 + h.rnd() * 0.2, pick(h, pal)); },
-  bush(h, x, z) { const r = 0.7 + h.rnd() * 0.5; h.ball(x, r * 0.75, z, r, pick(h, ['#2f7d3a', '#3b8f46', '#2e6b34']), { col: true }); if (h.rnd() < 0.6) h.ball(x + r * 0.9, r * 0.55, z + 0.3, r * 0.7, '#3b8f46', { col: true }); },
-  rock(h, x, z, pal) { const s = 0.9 + h.rnd() * 1.1; h.B(x, 0, z, s, s * (0.6 + h.rnd() * 0.6), s * (0.7 + h.rnd() * 0.5), pick(h, pal), { r: 0.4 }); if (h.rnd() < 0.5) h.B(x + s * 0.7, 0, z + s * 0.4, s * 0.6, s * 0.45, s * 0.6, pick(h, pal), { r: 0.3 }); },
-  planter(h, x, z, pal) { h.B(x, 0, z, 1.3, 0.6, 1.3, pick(h, pal), { r: 0.12 }); h.ball(x, 1.15, z, 0.7, '#2f7d3a', { col: true }); },
+  bush(h, x, z) { const r = 0.7 + h.rnd() * 0.5; h.ball(x, r * 0.75, z, r, pick(h, ['#2f7d3a', '#3b8f46', '#2e6b34']), { col: true, pat: ['leaf', '#2f7d3a', LEAF, 2, 2] }); if (h.rnd() < 0.6) h.ball(x + r * 0.9, r * 0.55, z + 0.3, r * 0.7, '#3b8f46', { col: true, pat: ['leaf', '#3b8f46', LEAF, 2, 2] }); },
+  rock(h, x, z, pal) { const s = 0.9 + h.rnd() * 1.1; h.B(x, 0, z, s, s * (0.6 + h.rnd() * 0.6), s * (0.7 + h.rnd() * 0.5), pick(h, pal), { r: 0.45 }); if (h.rnd() < 0.5) h.B(x + s * 0.7, 0, z + s * 0.4, s * 0.6, s * 0.45, s * 0.6, pick(h, pal), { r: 0.35 }); },
+  planter(h, x, z, pal) { h.B(x, 0, z, 1.3, 0.6, 1.3, pick(h, pal), { r: 0.22 }); h.ball(x, 1.15, z, 0.7, '#2f7d3a', { col: true, pat: ['leaf', '#2f7d3a', LEAF, 2, 2] }); },
   pillar(h, x, z, pal) { h.cyl(x, 0, z, 0.5 + h.rnd() * 0.25, 2.2 + h.rnd() * 1.6, pick(h, pal)); },
-  screen(h, x, z, pal) { const w = 2 + h.rnd() * 1.6, c = pick(h, pal), ht = 1.5 + h.rnd() * 0.6; if (h.rnd() < 0.5) { h.B(x, 0, z, w, ht, 0.22, c); if (h.rnd() < 0.5) h.B(x + w / 2, 0, z + 0.8, 0.22, ht, 1.6, c); } else { h.B(x, 0, z, 0.22, ht, w, c); if (h.rnd() < 0.5) h.B(x + 0.8, 0, z + w / 2, 1.6, ht, 0.22, c); } },
-  manne(h, x, z, pal) { // マネキン（隠れている人と見分けにくい）
-    const s = pick(h, [0.6, 0.6, 0.9, 1.2]), c = pick(h, pal);
-    h.cyl(x, 0, z, 0.2 * s, 0.6 * s, c, { rt: 0.16 * s }); h.B(x, 0.6 * s, z, 0.44 * s, 0.62 * s, 0.36 * s, c, { r: 0.17 * s, nocol: true }); h.ball(x, 1.46 * s, z, 0.25 * s, c);
-    h.cyl(x - 0.28 * s, 0.7 * s, z, 0.075 * s, 0.45 * s, c, NC); h.cyl(x + 0.28 * s, 0.7 * s, z, 0.075 * s, 0.45 * s, c, NC);
+  screen(h, x, z, pal, acc) { // ついたて（半分は模様つき）
+    const w = 2 + h.rnd() * 1.6, c = pick(h, pal), ht = 1.5 + h.rnd() * 0.6, o = { r: 0.1 };
+    if (h.rnd() < 0.5) o.pat = rpat(h, pal, acc, Math.round(w / 1.2), 1);
+    if (h.rnd() < 0.5) { h.B(x, 0, z, w, ht, 0.22, c, o); if (h.rnd() < 0.5) h.B(x + w / 2, 0, z + 0.8, 0.22, ht, 1.6, c, o); }
+    else { h.B(x, 0, z, 0.22, ht, w, c, o); if (h.rnd() < 0.5) h.B(x + 0.8, 0, z + w / 2, 1.6, ht, 0.22, c, o); }
   },
-  toy(h, x, z) { const n = 2 + Math.floor(h.rnd() * 4); for (let i = 0; i < n; i++) { const s = 0.5 + h.rnd() * 0.4; h.B(x + (i % 2) * 0.8, Math.floor(i / 2) * 0.62, z + (i % 3) * 0.15, s, 0.6, s, pick(h, TOY), { r: 0.1 }); } },
+  toy(h, x, z) { const n = 2 + Math.floor(h.rnd() * 4); for (let i = 0; i < n; i++) { const s = 0.5 + h.rnd() * 0.4; h.B(x + (i % 2) * 0.8, Math.floor(i / 2) * 0.62, z + (i % 3) * 0.15, s, 0.6, s, pick(h, TOY), { r: 0.16 }); } },
   shelfK(h, x, z, pal) { const al = h.rnd() < 0.5; h.B(x, 0, z, al ? 2.2 : 0.7, 1.9, al ? 0.7 : 2.2, pick(h, pal)); for (let i = 0; i < 3; i++) h.B(x, 0.35 + i * 0.6, z, al ? 2.0 : 0.76, 0.28, al ? 0.76 : 2.0, pick(h, TOY), NC); },
   sofaK(h, x, z, pal) { if (h.rnd() < 0.5) sofaX(h, x, z, 2.4 + h.rnd(), pick(h, pal), h.rnd() < 0.5 ? 1 : -1); else sofaZ(h, x, z, 2.4 + h.rnd(), pick(h, pal), h.rnd() < 0.5 ? 1 : -1); },
   stool(h, x, z, pal) { for (let i = 0; i < 3; i++) h.cyl(x + i * 0.75, 0, z + (i % 2) * 0.5, 0.28, 0.5 + (i % 2) * 0.25, pick(h, pal)); },
   plantK(h, x, z) { plant(h, x, z); if (h.rnd() < 0.5) plant(h, x + 0.9, z + 0.3); },
   tiresK(h, x, z) { tires(h, x, z, 2 + Math.floor(h.rnd() * 3)); if (h.rnd() < 0.6) tires(h, x + 1.05, z + 0.2, 1 + Math.floor(h.rnd() * 3)); },
-  pylonK(h, x, z) { for (let i = 0; i < 3; i++) pylon(h, x + i * 0.6, z + (i % 2) * 0.5); h.B(x + 0.6, 0, z - 0.9, 2, 0.9, 0.3, '#f4f4f4', { r: 0.1 }); },
-  vend(h, x, z) { h.B(x, 0, z, 1, 1.9, 0.8, pick(h, ['#e0413a', '#2f6fb0', '#f4f4f4', '#3f9b6a']), { r: 0.1 }); if (h.rnd() < 0.5) h.cyl(x + 0.95, 0, z, 0.33, 0.85, '#55606b'); },
+  pylonK(h, x, z) { for (let i = 0; i < 3; i++) pylon(h, x + i * 0.6, z + (i % 2) * 0.5); h.B(x + 0.6, 0, z - 0.9, 2, 0.9, 0.3, '#f4f4f4', { r: 0.12 }); },
+  vend(h, x, z) { h.B(x, 0, z, 1, 1.9, 0.8, pick(h, ['#e0413a', '#2f6fb0', '#f4f4f4', '#3f9b6a']), { r: 0.16 }); if (h.rnd() < 0.5) h.cyl(x + 0.95, 0, z, 0.33, 0.85, '#55606b'); },
   pot(h, x, z) { for (let i = 0; i < 3; i++) { const px = x + i * 0.8, pz = z + (i % 2) * 0.6, s = 0.8 + h.rnd() * 0.6; h.cyl(px, 0, pz, 0.35 * s, 0.7 * s, '#b5651d', { rt: 0.22 * s }); h.ball(px, 0.95 * s, pz, 0.36 * s, '#b5651d', { col: true }); } },
   crystal(h, x, z) { h.cone(x, 0, z, 0.7, 2.2 + h.rnd(), '#5a3a8a', { seg: 5 }); h.cone(x + 0.75, 0, z + 0.3, 0.45, 1.4, '#7b4fb8', { seg: 5 }); },
-  neonBox(h, x, z, pal) { const s = 0.9 + h.rnd() * 0.5; h.B(x, 0, z, s, s, s, pick(h, pal), { r: 0.15 }); h.B(x, s, z, s * 0.9, 0.06, s * 0.9, pick(h, ['#ff3ab8', '#33eaff', '#ffd940']), { nocol: true, glow: 1.3 }); if (h.rnd() < 0.5) h.B(x + s, 0, z, s * 0.8, s * 1.4, s * 0.8, pick(h, pal), { r: 0.15 }); }
+  neonBox(h, x, z, pal) { const s = 0.9 + h.rnd() * 0.5; h.B(x, 0, z, s, s, s, pick(h, pal), { r: 0.2 }); h.B(x, s, z, s * 0.9, 0.06, s * 0.9, pick(h, ['#ff3ab8', '#33eaff', '#ffd940']), { nocol: true, glow: 1.3 }); if (h.rnd() < 0.5) h.B(x + s, 0, z, s * 0.8, s * 1.4, s * 0.8, pick(h, pal), { r: 0.2 }); },
+
+  /* ---- 色をぬって隠れるための物（模様つき・丸い形） ---- */
+  mural(h, x, z, pal, acc) { // 模様の壁（コの字のくぼみに入って隠れる）
+    const al = h.rnd() < 0.5, w = 2.6 + h.rnd() * 1.2, ht = 2.1 + h.rnd() * 0.8, t = 0.36, wl = 0.9 + h.rnd() * 0.5, sd = h.rnd() < 0.5 ? 1 : -1;
+    const p = rpat(h, pal, acc, Math.max(2, Math.round(w / 1.2)), Math.max(2, Math.round(ht / 1.2)));
+    const o = { pat: p, r: 0.16 }, ow = { pat: [p[0], p[1], p[2], 1, p[4]], r: 0.16 };
+    if (al) { h.B(x, 0, z, w, ht, t, p[1], o); for (const e of [-1, 1]) h.B(x + e * (w / 2 - t / 2), 0, z + sd * (wl + t) / 2, t, ht, wl, p[1], ow); }
+    else { h.B(x, 0, z, t, ht, w, p[1], o); for (const e of [-1, 1]) h.B(x + sd * (wl + t) / 2, 0, z + e * (w / 2 - t / 2), wl, ht, t, p[1], ow); }
+  },
+  blob(h, x, z, pal, acc) { // まんまるクッション
+    const rx = 0.9 + h.rnd() * 0.6, ry = 0.6 + h.rnd() * 0.5, p = rpat(h, pal, acc, 3, 2);
+    h.dome(x, 0, z, rx, ry, rx * (0.85 + h.rnd() * 0.3), p[1], { pat: p, solid: true });
+    if (h.rnd() < 0.5) { const r2 = rx * 0.6; h.dome(x + rx + r2 * 0.5, 0, z + 0.3, r2, ry * 0.75, r2, p[1], { pat: p, solid: true }); }
+  },
+  pole(h, x, z, pal, acc) { // しましまの丸い柱
+    const r = 0.4 + h.rnd() * 0.25, len = 1.4 + h.rnd() * 1.4, p = rpat(h, pal, acc, 3, Math.max(2, Math.round(len)), ['hstripe', 'diag', 'dots', 'zigzag', 'rainbow', 'wave']);
+    h.cap(x, 0, z, r, len, p[1], { pat: p });
+    if (h.rnd() < 0.5) h.cap(x + r * 2.4, 0, z + 0.2, r * 0.75, len * 0.6, p[1], { pat: p });
+  },
+  mush(h, x, z, pal) { // きのこ（かさの下にも上にも隠れられる）
+    const s = 0.8 + h.rnd() * 0.6, sh = (1.3 + h.rnd() * 0.4) * s, cr = (1.1 + h.rnd() * 0.4) * s;
+    const c = pick(h, ['#e04f4f', '#f08a3c', '#b06fd8', '#4f7fe0', '#d8a7b1', pal[0]]);
+    h.cyl(x, 0, z, 0.34 * s, sh, '#efe6d2', { rt: 0.27 * s });
+    h.dome(x, sh, z, cr, 0.75 * s, cr, c, { pat: ['dots', c, '#f7f3ea', 4, 1], solid: true, half: true });
+  },
+  rug(h, x, z, pal, acc) { // 模様のマット（寝そべって隠れる）
+    const r = 1.1 + h.rnd() * 0.7; h.cyl(x, 0, z, r, 0.03, '#ffffff', { pat: rpat(h, pal, acc, 2, 2), nocol: true, flat: true, seg: 40 });
+    if (h.rnd() < 0.6) KIT.blob(h, x + r * 0.45, z - r * 0.35, pal, acc);
+  },
+  arch(h, x, z, pal, acc) { // にじのアーチ（くぐれる・登れる）
+    const R = 1.5 + h.rnd() * 0.5; h.arch(x, z, R, 0.3, h.rnd() < 0.5 ? 0 : Math.PI / 2, ['rainbow', '#ffffff', acc, 1, 1]);
+  },
+  cubes(h, x, z, pal, acc) { // 模様のキューブ
+    const n = 2 + Math.floor(h.rnd() * 3), hs = [];
+    for (let i = 0; i < n; i++) {
+      const s = 0.75 + h.rnd() * 0.45, p = rpat(h, pal, acc, 1, 1);
+      if (i === 3) h.B(x, hs[0], z, s * 0.85, s * 0.85, s * 0.85, p[1], { pat: p, r: 0.2 });
+      else { h.B(x + (i % 2) * 1.0, 0, z + (i === 2 ? 1.0 : 0), s, s, s, p[1], { pat: p, r: 0.2 }); hs.push(s); }
+    }
+  },
+  flowers(h, x, z) { // 花のおか
+    const rx = 1.2 + h.rnd() * 0.6;
+    h.dome(x, 0, z, rx, 0.55 + h.rnd() * 0.3, rx * 0.8, '#4f9a45', { pat: ['confetti', '#4f9a45', ['#ff6fa8', '#ffd940', '#ffffff', '#b06fd8', '#ff8a3c'], 2, 2], solid: true });
+  }
 };
+// 大きめの小物は、まわりに広めのすき間がないと置かない
+export const KIT_R = { mural: 2.4, arch: 2.2, blob: 1.8, rug: 2.0, cubes: 1.6, flowers: 1.8, mush: 1.7, screen: 1.9, sofaK: 1.8 };
 
 export const MAPS = {
   /* ---------- 待合室 ---------- */
@@ -96,8 +168,14 @@ export const MAPS = {
       h.outer(6, '#efe6d6');
       h.B(0, 0, 0, 6, 0.04, 4, '#3f7f8a', { flat: true });
       sofaX(h, 0, -5.8, 5, '#c9573f', -1); table(h, 0, -3.5, 2.2, 1, '#6b4a2b', 0.45);
-      plant(h, -8, -6); plant(h, 8, -6); lamp(h, -8.2, 6.2); lamp(h, 8.2, 6.2);
+      plant(h, -8.1, -4.6); plant(h, 8, -4.9); lamp(h, -8.2, 6.2); lamp(h, 8.2, 6.2);
       h.B(-8.4, 0, 2, 0.9, 2.2, 4, '#8a5a33');
+      // カモフラージュ練習コーナー：模様の壁・しましま柱・水玉クッション・きのこ
+      [['dots', '#f0d040', '#e04f4f', -7.1], ['hstripe', '#4f7fe0', '#f4f4f4', -4.5], ['camo', '#6fae5a', ['#2e6b34', '#8a5a33', '#d8c9a3'], 4.5], ['splat', '#f4f4f4', TOY, 7.1]]
+        .forEach(([k, a, b, x]) => h.B(x, 0, -6.6, 2.4, 2.6, 0.35, a, { pat: [k, a, b, 2, 2], r: 0.15 }));
+      h.cap(-5.6, 0, 1.2, 0.5, 1.6, '#f08a3c', { pat: ['diag', '#f08a3c', '#ffffff', 3, 2] });
+      h.dome(5.6, 0, 1.6, 1.0, 0.75, 0.9, '#b06fd8', { pat: ['dots', '#b06fd8', '#f7f3ea', 3, 2], solid: true });
+      KIT.mush(h, -5.2, 4.2, ['#e04f4f']);
       TOY.forEach((c, i) => h.B(8.75, 0.6 + (i % 2) * 1.3, -3 + Math.floor(i / 2) * 2.2, 0.15, 1.1, 1.8, c, NC)); // 色見本パネル
       TOY.forEach((c, i) => h.B(5 + (i % 3) * 0.9, Math.floor(i / 3) * 0.8, 5.5, 0.8, 0.8, 0.8, c));
       h.B(-5, 0, 5.8, 3, 0.9, 1, '#f4f4f4'); h.cyl(-2, 0, 5.8, 0.4, 0.9, '#2f6fb0');
@@ -106,7 +184,7 @@ export const MAPS = {
 
   /* ---------- おうち ---------- */
   house: {
-    name: 'おうち', hx: 30, hz: 22, sky: '#d5dde6', kit: ['toy', 'plantK', 'screen', 'sofaK', 'shelfK', 'crate', 'manne', 'manne', 'stool'], pal: ['#e8dcc8', '#b98d5c', '#7d8fb3', '#8fbf7a', '#f3f1ec', '#c9573f', '#3f5f8a'], clutter: 70, spawn: [0, -11],
+    name: 'おうち', hx: 30, hz: 22, sky: '#d5dde6', kit: ['toy', 'plantK', 'screen', 'sofaK', 'shelfK', 'crate', 'stool', 'cubes', 'mural', 'mural', 'rug', 'blob', 'pole'], pal: ['#e8dcc8', '#b98d5c', '#7d8fb3', '#8fbf7a', '#f3f1ec', '#c9573f', '#3f5f8a'], clutter: 70, spawn: [0, -11],
     build(h) {
       h.F(-15, -11, 30, 22, 0, ['vstripe', '#b98d5c', '#ad8253', 15, 1]);
       h.F(15, -11, 30, 22, 0, ['checker', '#ecebe4', '#a9bcc6', 15, 11]);
@@ -116,10 +194,10 @@ export const MAPS = {
       const W = '#f3f1ec';
       wallX(h, 0, -30, -21.5, W); wallX(h, 0, -18.5, -1.5, W); wallX(h, 0, 1.5, 18.5, W); wallX(h, 0, 21.5, 30, W);
       wallZ(h, 0, -22, -13, W); wallZ(h, 0, -9, 0, W);
-      wallZ(h, -10, 0, 9, '#e7d9c8'); wallZ(h, -10, 12, 22, '#e7d9c8'); wallZ(h, 10, 0, 9, '#d9e7e3'); wallZ(h, 10, 12, 22, '#d9e7e3');
+      wallZ(h, -10, 0, 9, '#e7d9c8', WALL, ['dots', '#e0719a']); wallZ(h, -10, 12, 22, '#e7d9c8', WALL, ['dots', '#e0719a']); wallZ(h, 10, 0, 9, '#d9e7e3', WALL, ['hstripe', '#59b6d8']); wallZ(h, 10, 12, 22, '#d9e7e3', WALL, ['hstripe', '#59b6d8']);
       for (const p of [[-12, -1], [12, -1], [-11.2, 21], [4, 21.3], [28.8, 11], [-28.8, -1.2], [28.5, -19]]) lamp(h, p[0], p[1]);
       // リビング
-      h.B(-17, 0, -12, 9, 0.04, 7, '#a8443f', { flat: true });
+      h.B(-17, 0, -12, 9, 0.04, 7, '#a8443f', { flat: true, pat: ['diag', '#a8443f', '#d9a441', 6, 5] });
       sofaX(h, -17, -17, 5, '#3f5f8a', -1); sofaZ(h, -23, -12, 4, '#3f5f8a', -1);
       table(h, -17, -12, 2.4, 1.2, '#6b4a2b', 0.45);
       h.B(-17, 0, -6.5, 4.4, 0.6, 0.7, '#2b2b2b'); h.B(-17, 0.6, -6.5, 3, 1.6, 0.12, '#111418');
@@ -140,12 +218,12 @@ export const MAPS = {
       h.cyl(27, 0, -19.5, 0.35, 0.8, '#55606b'); h.cyl(26, 0, -19.6, 0.3, 0.7, '#3f9b6a');
       h.B(26, 0, -0.9, 5, 2.4, 0.9, '#8a6a4a'); h.B(21, 0, -6, 1, 1, 1, CARD[0]); h.B(21.2, 1, -6, 0.7, 0.7, 0.7, CARD[2]); h.B(22.2, 0, -5.6, 0.9, 0.8, 0.9, CARD[1]);
       // 寝室
-      h.B(-21, 0, 13, 7, 0.04, 6, '#e8e1d2', { flat: true });
+      h.B(-21, 0, 13, 7, 0.04, 6, '#e8e1d2', { flat: true, pat: ['dots', '#e8e1d2', '#7d8fb3', 5, 4] });
       bed(h, -25, 18, '#5b76b8'); h.B(-23.2, 0, 19.3, 0.7, 0.6, 0.7, '#7a5a3a'); h.B(-29.3, 0, 6, 1.2, 2.6, 4, '#5a3c28');
       table(h, -14, 20.6, 3, 1.2, '#d8d0c0'); chair(h, -14, 19.3, '#444444'); h.B(-18.5, 0, 21.2, 2.4, 1, 1, '#7a5a3a');
       plant(h, -11, 1.2); h.cyl(-28.5, 0, 12, 0.4, 0.7, '#d8c9a3'); h.B(-13, 0, 6, 1.4, 0.45, 1.4, '#c9573f');
       // 子ども部屋
-      h.B(0, 0, 6, 8, 0.04, 6, '#f0d040', { flat: true });
+      h.B(0, 0, 6, 8, 0.04, 6, '#f0d040', { flat: true, pat: ['confetti', '#f0d040', TOY, 4, 3] });
       bed(h, -7, 18, '#e0719a'); bed(h, 7, 18, '#59b6d8');
       for (let i = 0; i < 14; i++) { const x = -4.5 + h.rnd() * 9, z = 3 + h.rnd() * 7, s = 0.6 + h.rnd() * 0.4; h.B(x, 0, z, s, s, s, TOY[i % 6]); if (i % 4 === 0) h.B(x, s, z, s * 0.8, s * 0.8, s * 0.8, TOY[(i + 2) % 6]); }
       h.B(0, 0, 21.3, 5, 1.4, 0.9, '#f0d040'); h.ball(3.5, 0.5, 13, 0.5, '#e04f4f', { col: true }); h.ball(-3, 0.4, 14, 0.4, '#4f7fe0', { col: true });
@@ -161,7 +239,7 @@ export const MAPS = {
 
   /* ---------- 公園 ---------- */
   park: {
-    name: '公園', hx: 36, hz: 28, sky: '#8fc8f0', dark: 0.95, floorTex: 'grass', kit: ['bush', 'bush', 'rock', 'planter', 'crate', 'manne', 'manne', 'barrel', 'screen'], pal: ['#6fae5a', '#8d8f94', '#8a5a33', '#2e6b34', '#d8c9a3'], clutter: 100, spawn: [0, -6],
+    name: '公園', hx: 36, hz: 28, sky: '#8fc8f0', dark: 0.95, floorTex: 'grass', kit: ['bush', 'bush', 'rock', 'planter', 'crate', 'barrel', 'screen', 'mush', 'mush', 'mural', 'blob', 'arch', 'flowers', 'pole'], pal: ['#6fae5a', '#8d8f94', '#8a5a33', '#2e6b34', '#d8c9a3'], clutter: 100, spawn: [0, -6],
     build(h) {
       h.F(0, 0, 72, 56, '#6fae5a');
       h.outer(6, '#3c6e3a');
@@ -205,7 +283,7 @@ export const MAPS = {
 
   /* ---------- 学校 ---------- */
   school: {
-    name: '学校', hx: 34, hz: 26, sky: '#d5dde6', kit: ['shelfK', 'crate', 'screen', 'toy', 'manne', 'manne', 'stool', 'plantK'], pal: ['#f2efe6', '#c9a26b', '#d7b47c', '#5f87b8', '#b85f5f', '#cfe0d3'], clutter: 70, spawn: [0, 0],
+    name: '学校', hx: 34, hz: 26, sky: '#d5dde6', kit: ['shelfK', 'crate', 'screen', 'toy', 'stool', 'plantK', 'mural', 'mural', 'cubes', 'rug', 'pole', 'blob'], pal: ['#f2efe6', '#c9a26b', '#d7b47c', '#5f87b8', '#b85f5f', '#cfe0d3'], clutter: 70, spawn: [0, 0],
     build(h) {
       h.F(0, 0, 68, 6, '#d9d4c7');
       h.F(0, -14.5, 68, 23, 0, ['vstripe', '#c9a26b', '#bf9860', 34, 1]);
@@ -215,7 +293,7 @@ export const MAPS = {
       const W = '#f2efe6', G = '#cfe0d3';
       wallX(h, -3, -34, -24.5, W); wallX(h, -3, -21.5, -1.5, W); wallX(h, -3, 1.5, 21.5, W); wallX(h, -3, 24.5, 34, W);
       wallX(h, 3, -34, -22.5, G); wallX(h, 3, -19.5, 28.5, G); wallX(h, 3, 31.5, 34, G);
-      wallZ(h, -11.5, -26, -3, W); wallZ(h, 11.5, -26, -3, W); wallZ(h, -8, 3, 26, G);
+      wallZ(h, -11.5, -26, -3, W); wallZ(h, 11.5, -26, -3, W); wallZ(h, -8, 3, 26, G, WALL, ['splat', TOY]); // 図工室の壁はペンキのしぶき
       // 教室 ×3
       [-23, 0, 23].forEach((cx, r) => {
         const cc = ['#4f7fe0', '#e04f4f', '#4fbf6a'][r];
@@ -246,7 +324,7 @@ export const MAPS = {
 
   /* ---------- 倉庫 ---------- */
   warehouse: {
-    name: '倉庫', hx: 36, hz: 26, sky: '#39424d', dark: 0.62, floorTex: 'concrete', kit: ['crate', 'crate', 'barrel', 'pillar', 'tiresK', 'screen', 'manne', 'manne'], pal: ['#8a8d91', '#70757b', '#2f6fb0', '#d98a2b', '#b8452f', '#3d5f93'], clutter: 110, spawn: [3, 1],
+    name: '倉庫', hx: 36, hz: 26, sky: '#39424d', dark: 0.62, floorTex: 'concrete', kit: ['crate', 'crate', 'barrel', 'pillar', 'tiresK', 'screen', 'mural', 'cubes', 'pole'], acc: ['#b8452f', '#2f6fb0', '#3f9b6a', '#d98a2b', '#e0c030', '#f4f4f4'], pal: ['#8a8d91', '#70757b', '#2f6fb0', '#d98a2b', '#b8452f', '#3d5f93'], clutter: 110, spawn: [3, 1],
     build(h) {
       h.F(0, 0, 72, 52, '#8a8d91');
       h.outer(7, '#70757b');
@@ -286,7 +364,7 @@ export const MAPS = {
 
   /* ---------- 商店街 ---------- */
   town: {
-    name: '夜の商店街', hx: 36, hz: 28, sky: '#0b1024', night: true, dark: 0.42, floorTex: 'asphalt', kit: ['crate', 'barrel', 'planter', 'vend', 'manne', 'manne', 'screen'], pal: ['#b9b7b0', '#4a4d52', '#d9b08c', '#c97b63', '#9fb7c4', '#8a5a33'], clutter: 80, spawn: [0, 0],
+    name: '夜の商店街', hx: 36, hz: 28, sky: '#0b1024', night: true, dark: 0.42, floorTex: 'asphalt', kit: ['crate', 'barrel', 'planter', 'vend', 'screen', 'mural', 'mural', 'pole', 'cubes', 'blob'], pal: ['#b9b7b0', '#4a4d52', '#d9b08c', '#c97b63', '#9fb7c4', '#8a5a33'], clutter: 80, spawn: [0, 0],
     build(h) {
       h.F(0, 0, 72, 56, '#4a4d52');
       h.outer(9, '#8d8f94');
@@ -324,7 +402,7 @@ export const MAPS = {
   },
   /* ---------- ガソリンスタンド（まんたんステーションより） ---------- */
   station: {
-    name: 'ガソリンスタンド', hx: 34, hz: 26, sky: '#a9d4ee', floorTex: 'asphalt', kit: ['crate', 'barrel', 'tiresK', 'planter', 'manne', 'manne', 'pylonK', 'vend', 'screen'], pal: ['#5a5d62', '#e0413a', '#f4f4f4', '#eee9df', '#b9c0c7', '#2f6fb0'], clutter: 90, spawn: [0, 13],
+    name: 'ガソリンスタンド', hx: 34, hz: 26, sky: '#a9d4ee', floorTex: 'asphalt', kit: ['crate', 'barrel', 'tiresK', 'planter', 'pylonK', 'vend', 'screen', 'mural', 'mural', 'pole', 'cubes'], pal: ['#5a5d62', '#e0413a', '#f4f4f4', '#eee9df', '#b9c0c7', '#2f6fb0'], clutter: 90, spawn: [0, 13],
     build(h) {
       h.F(0, 0, 68, 52, '#5a5d62'); h.outer(7, '#b9c0c7');
       h.F(0, 21, 68, 10, '#44474c', ['img:road', '#44474c', 0.2, 8, 1.2], 1);
@@ -368,7 +446,7 @@ export const MAPS = {
 
   /* ---------- サーキット（レースマスター「マスター・サーキット」より） ---------- */
   circuit: {
-    name: 'サーキット', hx: 38, hz: 28, sky: '#a8d6f5', floorTex: 'grass', kit: ['tiresK', 'pylonK', 'bush', 'crate', 'barrel', 'manne', 'manne', 'rock', 'screen'], pal: ['#5fa84f', '#45474e', '#e0413a', '#ffffff', '#b8bcc6', '#8d8f94'], clutter: 90, spawn: [0, 0],
+    name: 'サーキット', hx: 38, hz: 28, sky: '#a8d6f5', floorTex: 'grass', kit: ['tiresK', 'pylonK', 'bush', 'crate', 'barrel', 'rock', 'screen', 'mural', 'arch', 'pole', 'flowers', 'mush'], pal: ['#5fa84f', '#45474e', '#e0413a', '#ffffff', '#b8bcc6', '#8d8f94'], clutter: 90, spawn: [0, 0],
     build(h) {
       h.F(0, 0, 76, 56, '#5fa84f'); h.outer(7, '#3c6e3a');
       const RD = '#45474e';
@@ -414,7 +492,7 @@ export const MAPS = {
 
   /* ---------- 古代の砂漠（レースマスター「古代の砂漠」より） ---------- */
   desert: {
-    name: '古代の砂漠', hx: 38, hz: 28, sky: '#f2cc8f', kit: ['rock', 'rock', 'pot', 'pillar', 'crate', 'manne', 'manne', 'screen'], pal: ['#d6ab66', '#c9a36a', '#b8905a', '#ddb672'], clutter: 110, spawn: [0, 4],
+    name: '古代の砂漠', hx: 38, hz: 28, sky: '#f2cc8f', kit: ['rock', 'rock', 'pot', 'pillar', 'crate', 'screen', 'mural', 'mural', 'blob', 'pole'], acc: ['#b8452f', '#2f6fb0', '#f0d040', '#efe2c4', '#8a5a33', '#3fa0c9'], pal: ['#d6ab66', '#c9a36a', '#b8905a', '#ddb672'], clutter: 110, spawn: [0, 4],
     build(h) {
       const S = '#d6ab66', ST = '#c9a36a', ST2 = '#b8905a';
       h.F(0, 0, 76, 56, S); h.outer(7, '#c49a5e');
@@ -449,7 +527,7 @@ export const MAPS = {
 
   /* ---------- ネオン街（レースマスター「ネオン・メトロポリス」より） ---------- */
   neon: {
-    name: 'ネオン街', hx: 36, hz: 28, sky: '#16052a', night: true, dark: 0.4, kit: ['neonBox', 'neonBox', 'barrel', 'manne', 'manne', 'screen', 'pillar'], pal: ['#1c1c2e', '#1a1430', '#221436', '#2a2440', '#3a3550'], clutter: 80, spawn: [0, 0],
+    name: 'ネオン街', hx: 36, hz: 28, sky: '#16052a', night: true, dark: 0.4, kit: ['neonBox', 'neonBox', 'barrel', 'screen', 'pillar', 'mural', 'mural', 'pole', 'cubes', 'blob'], acc: ['#ff3ab8', '#33eaff', '#ffd940', '#8a5cff', '#3dff9a'], pal: ['#1c1c2e', '#1a1430', '#221436', '#2a2440', '#3a3550'], clutter: 80, spawn: [0, 0],
     build(h) {
       const NE = ['#ff3ab8', '#33eaff', '#ffd940', '#8a5cff', '#3dff9a'];
       h.F(0, 0, 72, 56, '#1c1c2e'); h.outer(10, '#14101f');
@@ -484,7 +562,7 @@ export const MAPS = {
 
   /* ---------- 火山（レースマスター「火山コア」より） ---------- */
   volcano: {
-    name: '火山', hx: 36, hz: 28, sky: '#2a0a06', night: true, dark: 0.5, kit: ['rock', 'rock', 'crystal', 'barrel', 'crate', 'manne', 'manne', 'pillar', 'screen'], pal: ['#2b2422', '#3a302c', '#332a27', '#40342f'], clutter: 120, spawn: [0, 2],
+    name: '火山', hx: 36, hz: 28, sky: '#2a0a06', night: true, dark: 0.5, kit: ['rock', 'rock', 'crystal', 'barrel', 'crate', 'pillar', 'screen', 'mural', 'mural', 'blob', 'pole'], acc: ['#ff6a14', '#ffa028', '#5a3a8a', '#7b4fb8', '#1c1513', '#ffb46b'], pal: ['#2b2422', '#3a302c', '#332a27', '#40342f'], clutter: 120, spawn: [0, 2],
     build(h) {
       const RK = '#2b2422', RK2 = '#3a302c', LV = '#ff6a14';
       h.F(0, 0, 72, 56, RK); h.outer(9, '#1f1917');
