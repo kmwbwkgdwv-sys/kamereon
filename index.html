@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>ぬりかくれ！ - ペイントかくれんぼ</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#10151c;color:#fff;font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;user-select:none;-webkit-user-select:none}
+#cv{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;touch-action:none;display:block}
+.hide{display:none!important}
+.screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#17324a,#1d5a45);z-index:30;padding:16px;overflow:auto}
+.card{background:rgba(16,22,30,.92);border-radius:16px;padding:20px;width:100%;max-width:420px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
+.card.t{background:rgba(16,22,30,.82)}
+h1{font-size:26px;margin:0 0 4px}h2{font-size:18px;margin:0 0 10px}
+p.sub{margin:0 0 14px;color:#a9c3b6;font-size:13px}
+input[type=text],select,input[type=number]{width:100%;padding:12px;border-radius:10px;border:1px solid #3b4a5a;background:#0c1118;color:#fff;font-size:16px;margin:6px 0}
+button{font:inherit;color:#fff;background:#2e8b63;border:0;border-radius:10px;padding:12px 14px;font-weight:700;cursor:pointer}
+button.sec{background:#34424f}button.warn{background:#b8452f}button:disabled{opacity:.45}
+button.full{width:100%;margin-top:8px}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
+label.l{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;margin:8px 0}
+label.l input[type=range]{flex:1;max-width:60%}
+label.l select,label.l input[type=number]{width:55%;margin:0;padding:8px}
+#status{color:#ffd27a;font-size:13px;min-height:18px;margin-top:8px;white-space:pre-wrap}
+#hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:calc(6px + env(safe-area-inset-top)) 8px 0;z-index:10;pointer-events:none;gap:6px}
+#hud>div{background:rgba(0,0,0,.55);border-radius:10px;padding:6px 10px;font-size:13px;font-weight:700}
+#hTimer{font-size:20px!important;min-width:64px;text-align:center}
+#cross{position:fixed;left:50%;top:50%;width:22px;height:22px;margin:-11px;border:2px solid #fff;border-radius:50%;z-index:9;pointer-events:none;mix-blend-mode:difference}
+#toast{position:fixed;left:50%;top:18%;transform:translateX(-50%);background:rgba(0,0,0,.75);padding:10px 16px;border-radius:12px;font-weight:700;z-index:25;pointer-events:none;transition:opacity .3s;opacity:0;text-align:center;max-width:90vw}
+#tools{position:fixed;right:8px;top:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px;z-index:12}
+#tools button{padding:9px 10px;font-size:13px;background:rgba(20,28,36,.85)}
+#tools button.on{background:#2e8b63}
+#sys{position:fixed;left:8px;top:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px;z-index:12}
+#sys button{padding:8px 10px;font-size:13px;background:rgba(20,28,36,.85)}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:44vh;overflow:auto;background:rgba(14,19,26,.93);border-radius:16px 16px 0 0;padding:10px 12px calc(12px + env(safe-area-inset-bottom));z-index:14;font-size:13px}
+.sheet .row{flex-wrap:wrap;margin-bottom:6px}.sheet button{padding:8px 10px;font-size:13px;flex:0 0 auto}
+.sheet label.l{margin:4px 0}
+#bcolor{width:52px;height:38px;border:0;padding:0;background:none;flex:0 0 52px}
+#swatches{display:flex;gap:4px;flex-wrap:wrap}#swatches i{width:28px;height:28px;border-radius:6px;border:2px solid #fff3;display:block}
+#blind{position:fixed;inset:0;background:#000;z-index:20;display:flex;align-items:center;justify-content:center;flex-direction:column;font-size:20px;font-weight:700;text-align:center}
+#blind b{font-size:64px}
+#lobby,#reveal{position:fixed;z-index:18}
+#lobby{inset:0;display:flex;align-items:center;justify-content:center;padding:14px;background:rgba(10,20,30,.35);overflow:auto}
+#rank{position:fixed;left:8px;top:calc(190px + env(safe-area-inset-top));z-index:10;pointer-events:none;background:rgba(0,0,0,.5);border-radius:10px;padding:6px 10px;font-size:12px;line-height:1.5;max-width:46vw}
+#rank b{display:block;font-size:12px}#rank small{display:block;font-size:10px}
+#glow{position:fixed;inset:0;z-index:8;pointer-events:none;opacity:0}
+#reveal{left:8px;right:8px;top:calc(50px + env(safe-area-inset-top));max-width:380px;max-height:42vh;overflow:auto}
+#plist div,#rlist div{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 8px;background:#ffffff12;border-radius:8px;margin:4px 0;font-size:14px}
+#rlist button{padding:5px 9px;font-size:12px}
+#joy{position:fixed;left:18px;bottom:calc(22px + env(safe-area-inset-bottom));width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.14);z-index:11;touch-action:none}
+#knob{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.5);pointer-events:none}
+.tbtn{position:fixed;right:20px;width:76px;height:76px;border-radius:50%;z-index:11;font-size:14px;touch-action:none;background:rgba(255,255,255,.22)}
+#bJump{bottom:calc(24px + env(safe-area-inset-bottom))}
+#bFire{bottom:calc(112px + env(safe-area-inset-bottom));background:rgba(230,80,40,.7);width:86px;height:86px}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:flex;align-items:center;justify-content:center;padding:16px}
+small{color:#9fb2c2}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<!-- 名前入力 -->
+<div id="scrName" class="screen"><div class="card">
+  <h1>🦎 ぬりかくれ！</h1>
+  <p class="sub">体をペイントして風景に溶け込む、オンラインかくれんぼ</p>
+  <input id="inName" type="text" maxlength="12" placeholder="プレイヤー名（12文字まで）">
+  <button id="btnName" class="full">スタート</button>
+</div></div>
+
+<!-- ルーム選択 -->
+<div id="scrRoom" class="screen hide"><div class="card">
+  <h2>ルームに参加</h2>
+  <p class="sub">同じルームIDを入力した人同士で遊べます（最大12人）。存在しないIDなら新しく作成されます。</p>
+  <input id="inRoom" type="text" maxlength="20" placeholder="ルームID（半角英数字）" autocapitalize="off" autocomplete="off">
+  <button id="btnJoin" class="full">参加 / 作成</button>
+  <div class="row" style="margin-top:8px">
+    <button id="btnPractice" class="sec">ひとりで練習</button>
+    <button id="btnSet1" class="sec">⚙ 設定</button>
+  </div>
+  <div id="status"></div>
+  <p class="sub" style="margin-top:12px">操作: PCは WASD＋マウス / Space ジャンプ / P ペイント / O ポーズ / F 分身。スマホは左スティック＋画面ドラッグ。</p>
+</div></div>
+
+<!-- HUD -->
+<div id="hud" class="hide"><div id="hRole"></div><div id="hTimer"></div><div id="hInfo"></div></div>
+<div id="cross" class="hide"></div>
+<div id="toast"></div>
+<div id="glow"></div>
+<div id="rank" class="hide"></div>
+<div id="sys" class="hide">
+  <button id="btnSet2">⚙</button>
+  <button id="btnLeave">退出</button>
+  <button id="btnSwap" class="hide">役割切替</button>
+  <button id="btnRoom" class="hide">🏠 ルーム設定</button>
+</div>
+<div id="tools" class="hide">
+  <button id="tPaint">🎨 ペイント</button>
+  <button id="tPose">🧍 ポーズ</button>
+  <button id="tDecoy">👥 分身を置く</button>
+  <button id="tDecoyX">分身を消す</button>
+  <button id="tZoomIn">＋</button>
+  <button id="tZoomOut">－</button>
+</div>
+
+<!-- ペイント -->
+<div id="pPaint" class="sheet hide">
+  <div class="row">
+    <input id="bcolor" type="color" value="#b9b9b9">
+    <button id="bDrop" class="sec">💧 スポイト</button>
+    <button id="bFill" class="sec">全身に塗る</button>
+    <button id="bReset" class="sec">リセット</button>
+    <button class="sec" data-close>閉じる</button>
+  </div>
+  <div id="swatches"></div>
+  <label class="l">ブラシの太さ <input id="bSize" type="range" min="1" max="24" value="8"></label>
+  <label class="l">発光 <input id="mEm" type="range" min="0" max="1.5" step="0.05" value="0"></label>
+  <label class="l">メタリック <input id="mMe" type="range" min="0" max="1" step="0.05" value="0"></label>
+  <label class="l">ツヤ <input id="mRo" type="range" min="0" max="0.95" step="0.05" value="0.1"></label>
+  <small>体をなぞって塗る／体以外をドラッグで視点回転。スポイトは押してから壁や床をタップ。</small>
+</div>
+
+<!-- ポーズ -->
+<div id="pPose" class="sheet hide">
+  <div class="row" id="presets"></div>
+  <div class="row"><button id="rotL" class="sec">⟲ 体の向き</button><button id="rotR" class="sec">体の向き ⟳</button><button class="sec" data-close>閉じる</button></div>
+  <div id="sliders"></div>
+</div>
+
+<div id="blind" class="hide"><div>カメレオンが隠れています…</div><b id="blindT"></b><div>あなたは鬼（ハンター）です</div></div>
+
+<!-- ロビー -->
+<div id="lobby" class="hide"><div class="card t">
+  <h2>ルーム: <span id="lRoom"></span></h2>
+  <div id="plist"></div>
+  <div id="hostSet">
+    <label class="l">ゲームモード <select id="sMode"><option value="fueoni">増え鬼（見つかると鬼になる）</option><option value="basic">ベーシック（鬼は増えない）</option></select></label>
+    <label class="l">マップ <select id="sMap"><option value="random">ランダム</option></select></label>
+    <label class="l">笛が鳴る間隔 <select id="sWhistle"><option value="30">30秒</option><option value="45">45秒</option><option value="60">60秒</option><option value="90">90秒</option><option value="120">120秒</option><option value="0">鳴らさない</option></select></label>
+    <label class="l">最初の鬼の人数 <select id="sHunters"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+    <label class="l">隠れる時間（秒） <input id="sHide" type="number" min="20" max="300" step="10"></label>
+    <label class="l">探す時間（秒） <input id="sHunt" type="number" min="30" max="900" step="10"></label>
+    <label class="l">ショットガンの弾数 <input id="sAmmo" type="number" min="1" max="50"></label>
+  </div>
+  <small id="lNote"></small>
+  <button id="btnStart" class="full">ゲーム開始</button>
+  <button id="btnLobbyClose" class="full sec">閉じて待合室を歩く（ペイント練習OK）</button>
+</div></div>
+
+<!-- 答え合わせ -->
+<div id="reveal" class="card t hide">
+  <h2 id="rTitle"></h2>
+  <small>答え合わせタイム：自由に歩いて、みんなの隠れ場所を見て回ろう</small>
+  <div id="rlist"></div>
+  <button id="btnLobby" class="full">ロビーに戻る</button>
+</div>
+
+<!-- スマホ操作 -->
+<div id="joy" class="hide"><div id="knob"></div></div>
+<button id="bJump" class="tbtn hide">ジャンプ</button>
+<button id="bFire" class="tbtn hide">撃つ</button>
+
+<!-- 設定 -->
+<div id="modal" class="hide"><div class="card">
+  <h2>設定</h2>
+  <label class="l">軽量化モード <input id="oLite" type="checkbox" style="width:22px;height:22px"></label>
+  <label class="l">視点感度 <input id="oSens" type="range" min="0.2" max="3" step="0.1"></label>
+  <label class="l">BGM音量 <input id="oBgm" type="range" min="0" max="1" step="0.05"></label>
+  <label class="l">効果音の音量 <input id="oSe" type="range" min="0" max="1" step="0.05"></label>
+  <small>軽量化モード：影オフ・解像度ダウン・通信頻度ダウン（アンチエイリアスは再読み込み後に反映）</small>
+  <button id="btnSetClose" class="full">閉じる</button>
+</div></div>
+
+<script type="module" src="./game.js"></script>
+</body>
+</html>
