@@ -11,6 +11,7 @@ export const MAP_LIST = [['house', 'おうち'], ['park', '公園'], ['school', 
 
 const NC = { nocol: true }, FL = { nocol: true, flat: true };
 const WALL = 4.5; // 内壁の高さ
+const ROOM_WALL = 6; // 部屋のマップ（おうち・学校）の内壁の高さ＝外壁と同じ。上には見えない天井があり、壁のふちには乗れない
 const shade = (c, k) => '#' + [1, 3, 5].map(i => Math.max(0, Math.min(255, Math.round(parseInt(c.slice(i, i + 2), 16) * k))).toString(16).padStart(2, '0')).join(''); // 色を明るく・暗く
 const seed8 = h => Math.floor(h.rnd() * 8);
 const pick = (h, a) => a[Math.floor(h.rnd() * a.length)];
@@ -1432,7 +1433,7 @@ function city(h, T) {
 const lie = (dir, a, b) => (dir[0] ? [a, b] : [b, a]); // 正面方向 a・横 b の大きさ → x・z の大きさ
 // 部屋の壁：両がわで別の壁紙。ax = 'x' なら z = c の線上に x = a0〜a1。doors = [[中心, 幅, open], ...]（open = わくなしの大きな入口）
 //   sA = 小さい側（z / x が小さい側）の [色, [模様, 模様の色, 体が入るか]]、sB = 大きい側
-function wallR(h, ax, c, a0, a1, doors, sA, sB, ht = WALL) {
+function wallR(h, ax, c, a0, a1, doors, sA, sB, ht = ROOM_WALL) {
   const X = ax === 'x';
   const box = (m, L, off, y0, y1, s) => {
     if (L < 0.04 || y1 - y0 < 0.04) return;
@@ -1850,6 +1851,7 @@ export const MAPS = {
       tile('#eef3f6', '#c9d6de', 5, 10, 1.5, 8); tile('#d8ecf4', '#a8c8d8', 5, 10, 8, 17); tile('#f1ece0', '#d9d2c4', 10, 13, 1.5, 6.5); FL(10, 13, 6.5, 17, ['noise', '#a9a59a', 0, 2, 5]);
       wood('#c9a26b', 13, 24, 1.5, 17);
       h.outer(6, '#efe6d6');
+      h.boxc(0, ROOM_WALL, 0, 2 * HX + 8, 2, 2 * HZ + 8, { noclimb: true, sharp: true }); // 見えない天井（壁のてっぺんと同じ高さ。壁を登っても、ふちの上には出られない）
       // ---- 壁（部屋ごとに壁紙を変える）----
       const S = {
         cor: ['#f3f1ec'], liv: ['#efe3cf', ['dots', '#e2d2b6', 1]], wa: ['#d9c7a0'], hall: ['#f3f1ec'], dk: ['#f4efe4'], pan: ['#e9e4d8'], stu: ['#3f5a50', ['vband', '#365048', 1]],
@@ -2023,6 +2025,7 @@ export const MAPS = {
       wood('#b98d5c', -34, -20, 3, 26); FL(-20, -6, 3, 26, ['vstripe', '#c9a26b', '#bf9860', 7, 1]); tile('#e8eef0', '#c9d3d8', -6, 6, 3, 26);
       tile('#d8ecf4', '#a8c8d8', 6, 12, 3, 13); FL(6, 12, 13, 26, ['noise', '#a9a59a', 0, 2, 5]); wood('#d9a55a', 12, 34, 3, 26);
       h.outer(6, '#f2efe6');
+      h.boxc(0, ROOM_WALL, 0, 2 * 34 + 8, 2, 2 * 26 + 8, { noclimb: true, sharp: true }); // 見えない天井（壁のふちには乗れない）
       // ---- 壁（部屋ごとに色・模様を変える）----
       const S = {
         cor: ['#f2efe6'], c1: ['#f2efe6'], c2: ['#f6f1e2'], stf: ['#e9e4d8'], prn: ['#d9c7a0', ['vband', '#cdb88e', 1]], nur: ['#eef6f2'], brd: ['#5f6f7f', ['dots', '#4f5f6f', 1]],
