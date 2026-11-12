@@ -5,11 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>ぬりかくれ！ - ペイントかくれんぼ</title>
 <style>
+:root{--sl:env(safe-area-inset-left,0px);--sr:env(safe-area-inset-right,0px);--sb:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#10151c;color:#fff;font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;user-select:none;-webkit-user-select:none}
 #cv{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;touch-action:none;display:block}
 .hide{display:none!important}
-.screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#17324a,#1d5a45);z-index:30;padding:16px;overflow:auto}
+.screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding-left:calc(16px + var(--sl))!important;padding-right:calc(16px + var(--sr))!important;background:linear-gradient(160deg,#17324a,#1d5a45);z-index:30;padding:16px;overflow:auto}
 .card{background:rgba(16,22,30,.92);border-radius:16px;padding:20px;width:100%;max-width:420px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
 .card.t{background:rgba(16,22,30,.82)}
 h1{font-size:26px;margin:0 0 4px}h2{font-size:18px;margin:0 0 10px}
@@ -23,15 +24,15 @@ label.l{display:flex;justify-content:space-between;align-items:center;gap:10px;f
 label.l input[type=range]{flex:1;max-width:60%}
 label.l select,label.l input[type=number]{width:55%;margin:0;padding:8px}
 #status{color:#ffd27a;font-size:13px;min-height:18px;margin-top:8px;white-space:pre-wrap}
-#hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:calc(6px + env(safe-area-inset-top)) 8px 0;z-index:10;pointer-events:none;gap:6px}
+#hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:calc(6px + env(safe-area-inset-top)) calc(8px + var(--sr)) 0 calc(8px + var(--sl));z-index:10;pointer-events:none;gap:6px}
 #hud>div{background:rgba(0,0,0,.55);border-radius:10px;padding:6px 10px;font-size:13px;font-weight:700}
 #hTimer{font-size:20px!important;min-width:64px;text-align:center}
 #cross{position:fixed;left:50%;top:50%;width:22px;height:22px;margin:-11px;border:2px solid #fff;border-radius:50%;z-index:9;pointer-events:none;mix-blend-mode:difference}
 #toast{position:fixed;left:50%;top:18%;transform:translateX(-50%);background:rgba(0,0,0,.75);padding:10px 16px;border-radius:12px;font-weight:700;z-index:25;pointer-events:none;transition:opacity .3s;opacity:0;text-align:center;max-width:90vw}
-#tools{position:fixed;right:8px;top:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px;z-index:12}
+#tools{position:fixed;right:calc(8px + var(--sr));top:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px;z-index:12}
 #tools button{padding:9px 10px;font-size:13px;background:rgba(20,28,36,.85)}
 #tools button.on{background:#2e8b63}
-#sys{position:fixed;left:8px;top:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px;z-index:12}
+#sys{position:fixed;left:calc(8px + var(--sl));top:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px;z-index:12}
 #sys button{padding:8px 10px;font-size:13px;background:rgba(20,28,36,.85)}
 .sheet{position:fixed;left:0;right:0;bottom:0;max-height:44vh;overflow:auto;background:rgba(14,19,26,.93);border-radius:16px 16px 0 0;padding:10px 12px calc(12px + env(safe-area-inset-bottom));z-index:14;font-size:13px}
 .sheet .row{flex-wrap:wrap;margin-bottom:6px}.sheet button{padding:8px 10px;font-size:13px;flex:0 0 auto}
@@ -42,22 +43,40 @@ label.l select,label.l input[type=number]{width:55%;margin:0;padding:8px}
 #blind b{font-size:64px}
 #lobby,#reveal{position:fixed;z-index:18}
 #lobby{inset:0;display:flex;align-items:center;justify-content:center;padding:14px;background:rgba(10,20,30,.35);overflow:auto}
-#rank{position:fixed;left:8px;top:calc(190px + env(safe-area-inset-top));z-index:10;pointer-events:none;background:rgba(0,0,0,.5);border-radius:10px;padding:6px 10px;font-size:12px;line-height:1.5;max-width:46vw}
+#rank{position:fixed;left:calc(64px + var(--sl));top:calc(52px + env(safe-area-inset-top));z-index:10;pointer-events:none;background:rgba(0,0,0,.5);border-radius:10px;padding:6px 10px;font-size:12px;line-height:1.5;max-width:46vw}
 #rank b{display:block;font-size:12px}#rank small{display:block;font-size:10px}
 #glow{position:fixed;inset:0;z-index:8;pointer-events:none;opacity:0}
-#reveal{left:8px;right:8px;top:calc(50px + env(safe-area-inset-top));max-width:380px;max-height:42vh;overflow:auto}
+#reveal{left:calc(64px + var(--sl));right:8px;top:calc(50px + env(safe-area-inset-top));max-width:380px;max-height:42vh;overflow:auto}
 #plist div,#rlist div{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 8px;background:#ffffff12;border-radius:8px;margin:4px 0;font-size:14px}
 #rlist button{padding:5px 9px;font-size:12px}
-#joy{position:fixed;left:18px;bottom:calc(22px + env(safe-area-inset-bottom));width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.14);z-index:11;touch-action:none}
+#joy{position:fixed;left:calc(18px + var(--sl));bottom:calc(22px + env(safe-area-inset-bottom));width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.14);z-index:11;touch-action:none}
 #knob{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.5);pointer-events:none}
-.tbtn{position:fixed;right:20px;width:76px;height:76px;border-radius:50%;z-index:11;font-size:14px;touch-action:none;background:rgba(255,255,255,.22)}
+.tbtn{position:fixed;right:calc(20px + var(--sr));width:76px;height:76px;border-radius:50%;z-index:11;font-size:14px;touch-action:none;background:rgba(255,255,255,.22)}
 #bJump{bottom:calc(24px + env(safe-area-inset-bottom))}
 #bFire{bottom:calc(112px + env(safe-area-inset-bottom));background:rgba(230,80,40,.7);width:86px;height:86px}
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:flex;align-items:center;justify-content:center;padding:16px}
 small{color:#9fb2c2}
+#shells{position:fixed;left:50%;bottom:calc(14px + var(--sb));transform:translateX(-50%);display:flex;gap:5px;z-index:10;pointer-events:none}
+#shells i{display:block;width:10px;height:26px;border-radius:3px 3px 1px 1px;background:linear-gradient(#e0413a 0 72%,#d8b44a 72%);box-shadow:0 1px 3px #0008}
+#rotate{display:none;position:fixed;inset:0;z-index:99;background:#10151c;align-items:center;justify-content:center;flex-direction:column;gap:10px;font-size:20px;font-weight:700;text-align:center}
+#rotate span{font-size:64px}
+@media (orientation:portrait) and (pointer:coarse){#rotate{display:flex}}
+/* スマホ横画面（高さが低い）向けレイアウト */
+@media (max-height:520px){
+  .screen,#lobby{align-items:flex-start}
+  .card{padding:12px 14px}h1{font-size:20px}h2{font-size:15px;margin-bottom:6px}p.sub{margin-bottom:6px;font-size:12px}
+  input[type=text],select,input[type=number]{padding:8px;margin:4px 0}button{padding:9px 12px}
+  label.l{margin:4px 0;font-size:13px}
+  #lobby .card{max-width:640px}#hostSet{display:grid;grid-template-columns:1fr 1fr;column-gap:14px}
+  .sheet{left:auto;right:0;top:0;bottom:0;width:min(330px,44vw);max-height:none;border-radius:16px 0 0 16px;padding:8px calc(10px + var(--sr)) 8px 10px}
+  #tools button,#sys button{padding:6px 8px;font-size:12px}#tools,#sys{gap:4px;top:calc(46px + env(safe-area-inset-top))}
+  #reveal{max-width:300px;max-height:60vh}
+  #joy{width:110px;height:110px;bottom:calc(14px + var(--sb))}#knob{left:30px;top:30px}
+  .tbtn{width:66px;height:66px}#bJump{bottom:calc(14px + var(--sb))}#bFire{bottom:calc(90px + var(--sb));width:76px;height:76px}
+}
 </style>
 <script type="importmap">
-{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"}}
 </script>
 </head>
 <body>
@@ -90,6 +109,8 @@ small{color:#9fb2c2}
 <div id="cross" class="hide"></div>
 <div id="toast"></div>
 <div id="glow"></div>
+<div id="shells"></div>
+<div id="rotate"><span>📱↻</span>スマホを横向きにしてください<small>このゲームは横画面専用です</small></div>
 <div id="rank" class="hide"></div>
 <div id="sys" class="hide">
   <button id="btnSet2">⚙</button>
@@ -125,6 +146,7 @@ small{color:#9fb2c2}
 
 <!-- ポーズ -->
 <div id="pPose" class="sheet hide">
+  <div class="row"><button data-shape="round">● 丸キャラ</button><button data-shape="box" class="sec">■ 四角キャラ</button><button data-size="1">小(1倍)</button><button data-size="1.5" class="sec">1.5倍</button><button data-size="2" class="sec">2倍</button></div>
   <div class="row" id="presets"></div>
   <div class="row"><button id="rotL" class="sec">⟲ 体の向き</button><button id="rotR" class="sec">体の向き ⟳</button><button class="sec" data-close>閉じる</button></div>
   <div id="sliders"></div>
@@ -170,7 +192,7 @@ small{color:#9fb2c2}
   <label class="l">視点感度 <input id="oSens" type="range" min="0.2" max="3" step="0.1"></label>
   <label class="l">BGM音量 <input id="oBgm" type="range" min="0" max="1" step="0.05"></label>
   <label class="l">効果音の音量 <input id="oSe" type="range" min="0" max="1" step="0.05"></label>
-  <small>軽量化モード：影オフ・解像度ダウン・通信頻度ダウン（アンチエイリアスは再読み込み後に反映）</small>
+  <small>自分のアプリで音楽を流しながら遊ぶときは、BGM音量を0にしてください（効果音だけ鳴ります）。<br>軽量化モード：影オフ・解像度ダウン・通信頻度ダウン（アンチエイリアスは再読み込み後に反映）</small>
   <button id="btnSetClose" class="full">閉じる</button>
 </div></div>
 

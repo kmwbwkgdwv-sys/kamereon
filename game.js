@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { firebaseConfig } from './firebase-config.js';
 import { MAPS, MAP_LIST } from './maps.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const $ = id => document.getElementById(id);
 const V3 = THREE.Vector3;
@@ -98,51 +99,122 @@ const sun = new THREE.DirectionalLight(0xffffff, 1.0);
 sun.position.set(12, 46, 8); sun.shadow.mapSize.set(settings.lite ? 1024 : 4096, settings.lite ? 1024 : 4096); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
 { const c = sun.shadow.camera; c.left = -30; c.right = 30; c.top = 30; c.bottom = -30; c.near = 1; c.far = 80; }
 scene.add(hemi, sun);
-function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+let composer = null;
+function resize() {
+  renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth, innerHeight); }
+}
 function applyGfx() {
   const dpr = window.devicePixelRatio || 1;
   renderer.setPixelRatio(settings.lite ? Math.min(dpr, 1) * 0.8 : Math.min(dpr, 2.5));
   sun.castShadow = !settings.lite; resize();
 }
 addEventListener('resize', resize); applyGfx();
+// ブルーム（光のにじみ）。読み込めなければ通常描画のまま
+Promise.all(['EffectComposer', 'RenderPass', 'UnrealBloomPass', 'OutputPass'].map(n => import(`three/addons/postprocessing/${n}.js`))).then(([E, Rp, U, O]) => {
+  const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: 4 });
+  const c = new E.EffectComposer(renderer, rt);
+  c.addPass(new Rp.RenderPass(scene, camera)); c.addPass(new U.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.38, 0.6, 1.0)); c.addPass(new O.OutputPass());
+  composer = c; resize();
+}).catch(e => console.warn('postfx off', e));
 // メタリック質感用の環境光（失敗しても続行）
 import('three/addons/environments/RoomEnvironment.js').then(m => {
   const pm = new THREE.PMREMGenerator(renderer);
   scene.environment = pm.fromScene(new m.RoomEnvironment(), 0.04).texture;
-  hemi.intensity = 0.35; sun.intensity = 0.8;
+  envReady = true; applyLight();
 }).catch(() => {});
 
 /* ---------------- ワールド ---------------- */
 const worldMeshes = []; const colliders = [];
 function patternTex(kind, c1, c2, rx, ry) {
-  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d', { willReadFrequently: true });
-  x.fillStyle = c1; x.fillRect(0, 0, 64, 64); x.fillStyle = c2;
-  if (kind === 'checker') { x.fillRect(0, 0, 32, 32); x.fillRect(32, 32, 32, 32); }
-  else if (kind === 'stripe') { x.fillRect(0, 0, 64, 32); }
-  else if (kind === 'vstripe') { x.fillRect(0, 0, 32, 64); }
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry);
-  t.magFilter = THREE.NearestFilter;
+  if (kind.startsWith('img:')) { // 写真テクスチャ（読み込み後に色味を重ねる）。スポイトで吸えるようキャンバスに描く
+    const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d', { willReadFrequently: true });
+    x.fillStyle = c1; x.fillRect(0, 0, 256, 256);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = 8;
+    const im = new Image();
+    im.onload = () => { x.drawImage(im, 0, 0, 256, 256); x.globalAlpha = c2 || 0.38; x.fillStyle = c1; x.fillRect(0, 0, 256, 256); x.globalAlpha = 1; t.needsUpdate = true; };
+    im.src = './tex/' + kind.slice(4) + '_c.jpg';
+    return { t, c };
+  }
+  const S = 128, c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d', { willReadFrequently: true });
+  const r = rng(kind.length * 131 + String(c1).length * 7 + Math.round(rx * 13) + String(c1).charCodeAt(1));
+  x.fillStyle = c1; x.fillRect(0, 0, S, S);
+  const speck = (n, a) => { for (let i = 0; i < n; i++) { x.fillStyle = r() < 0.5 ? `rgba(0,0,0,${a})` : `rgba(255,255,255,${a})`; x.fillRect(r() * S, r() * S, 2 + r() * 6, 2 + r() * 6); } };
+  if (kind === 'checker') { // タイル
+    x.fillStyle = c2; x.fillRect(0, 0, 64, 64); x.fillRect(64, 64, 64, 64); speck(70, 0.03);
+    x.strokeStyle = 'rgba(0,0,0,0.28)'; x.lineWidth = 2; for (const p of [[0, 0], [64, 0], [0, 64], [64, 64]]) x.strokeRect(p[0], p[1], 64, 64);
+  } else if (kind === 'vstripe') { // 板張り
+    for (let i = 0; i < 4; i++) {
+      x.fillStyle = i % 2 ? c2 : c1; x.fillRect(i * 32, 0, 32, S);
+      for (let k = 0; k < 9; k++) { x.fillStyle = `rgba(0,0,0,${(0.03 + r() * 0.05).toFixed(3)})`; x.fillRect(i * 32 + r() * 30, 0, 1, S); }
+      x.fillStyle = 'rgba(0,0,0,0.35)'; x.fillRect(i * 32, 0, 1, S); x.fillRect(i * 32, Math.floor(r() * S), 32, 1);
+    }
+  } else if (kind === 'stripe') { x.fillStyle = c2; x.fillRect(0, 0, S, 64); }
+  else if (kind === 'panel') { // 壁パネル
+    speck(50, 0.025); x.strokeStyle = 'rgba(0,0,0,0.32)'; x.lineWidth = 3; x.strokeRect(0, 0, S, S);
+    x.strokeStyle = 'rgba(255,255,255,0.14)'; x.lineWidth = 1; x.strokeRect(3.5, 3.5, S - 7, S - 7);
+  } else speck(280, 0.035); // ざらつき
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = 8;
   return { t, c };
 }
 function addBox(x, y, z, w, h, d, color, opt = {}) {
-  const mat = new THREE.MeshStandardMaterial({ color: opt.pat ? 0xffffff : color, roughness: 0.9, metalness: 0 });
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  const mat = new THREE.MeshStandardMaterial({ color: opt.pat ? 0xffffff : color, roughness: opt.rough == null ? 0.88 : opt.rough, metalness: 0 });
+  const rr = (opt.flat || opt.pat || opt.sharp) ? 0 : Math.min(opt.r || 0.1, Math.min(w, h, d) * 0.45); // 角を丸める
+  const m = new THREE.Mesh(rr > 0.012 ? new RoundedBoxGeometry(w, h, d, 3, rr) : new THREE.BoxGeometry(w, h, d), mat);
+  if (opt.glow) { mat.emissive.set(color); mat.emissiveIntensity = opt.glow === true ? 1.6 : opt.glow; }
   if (opt.pat) { const p = patternTex(opt.pat[0], opt.pat[1], opt.pat[2], opt.pat[3], opt.pat[4]); mat.map = p.t; m.userData.pc = p.c; }
   m.position.set(x, y + h / 2, z); m.castShadow = !opt.flat; m.receiveShadow = true;
   scene.add(m); worldMeshes.push(m);
   if (!opt.nocol) colliders.push({ x0: x - w / 2, x1: x + w / 2, z0: z - d / 2, z1: z + d / 2, y0: y, y1: y + h });
 }
 function addCyl(x, y, z, r, h, color, opt = {}) {
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 24), new THREE.MeshStandardMaterial({ color, roughness: 0.85 }));
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(opt.rt == null ? r : opt.rt, r, h, opt.seg || 24), new THREE.MeshStandardMaterial({ color, roughness: 0.85 }));
+  if (opt.glow) { m.material.emissive.set(color); m.material.emissiveIntensity = opt.glow; }
   m.position.set(x, y + h / 2, z); m.castShadow = !opt.flat; m.receiveShadow = true; scene.add(m); worldMeshes.push(m);
   if (!opt.nocol) colliders.push({ x0: x - r * 0.8, x1: x + r * 0.8, z0: z - r * 0.8, z1: z + r * 0.8, y0: y, y1: y + h });
 }
 function addBall(x, y, z, r, color, opt = {}) {
   const m = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14), new THREE.MeshStandardMaterial({ color, roughness: 0.95 }));
-  m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; scene.add(m); worldMeshes.push(m);
+  m.position.set(x, y, z); m.castShadow = m.receiveShadow = !opt.glow; scene.add(m); worldMeshes.push(m);
+  if (opt.glow) { // 光るランタン
+    m.material.emissive.set(color); m.material.emissiveIntensity = 2.6 * opt.glow;
+    if (!opt.nolight && !settings.lite && lampCount < 10) { lampCount++; const k = MAPINFO.dark || 1, L = new THREE.PointLight(0xffc27a, 14 + 60 * (1 - k), 16, 2); L.position.set(x, y, z); scene.add(L); extras.push(L); }
+  }
   if (opt.col) colliders.push({ x0: x - r * 0.75, x1: x + r * 0.75, z0: z - r * 0.75, z1: z + r * 0.75, y0: y - r, y1: y + r * 0.8 });
 }
-let curMap = '', MAPINFO = MAPS.lobby, spots = [];
+// 山形の物は「段々の当たり判定」で中に入り込めないようにする
+function stepCol(x, y, z, levels) { for (const [hx, hz, y0, y1] of levels) colliders.push({ x0: x - hx, x1: x + hx, z0: z - hz, z1: z + hz, y0: y + y0, y1: y + y1 }); }
+function addCone(x, y, z, r, h, color, opt = {}) {
+  const seg = opt.seg || 22, rt = opt.rt || 0;
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, r, h, seg), new THREE.MeshStandardMaterial({ color, roughness: 0.9, flatShading: seg <= 9 }));
+  m.position.set(x, y + h / 2, z); if (seg === 4) m.rotation.y = Math.PI / 4; m.castShadow = m.receiveShadow = true; scene.add(m); worldMeshes.push(m);
+  if (opt.nocol) return;
+  const k = seg === 4 ? 0.69 : 0.93, L = [];
+  for (let i = 0; i < 4; i++) { const e = (r - (r - rt) * i / 4) * k * (i ? 0.85 : 1); L.push([e, e, h * i / 4, h * (i + 1) / 4]); }
+  stepCol(x, y, z, L);
+}
+function addDome(x, y, z, rx, ry, rz, color, opt = {}) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshStandardMaterial({ color, roughness: 0.95 }));
+  m.scale.set(rx, ry, rz); m.position.set(x, y, z); if (opt.rot) m.rotation.y = -opt.rot; m.castShadow = !opt.sky; m.receiveShadow = !opt.sky; scene.add(m);
+  if (opt.sky) { m.material.fog = false; extras.push(m); return; } // 空の雲はスポイト・当たり判定の対象外
+  worldMeshes.push(m);
+  if (!opt.nocol) stepCol(x, y, z, [[rx * 0.93, rz * 0.93, 0, ry * 0.36], [rx * 0.7, rz * 0.7, ry * 0.36, ry * 0.7], [rx * 0.5, rz * 0.5, ry * 0.7, ry * 0.96]]);
+}
+function addTire(x, y, z, r) {
+  const m = new THREE.Mesh(new THREE.TorusGeometry(r * 0.72, r * 0.3, 10, 22), new THREE.MeshStandardMaterial({ color: 0x1b1d20, roughness: 0.8 }));
+  m.rotation.x = Math.PI / 2; m.position.set(x, y + r * 0.3, z); m.castShadow = m.receiveShadow = true; scene.add(m); worldMeshes.push(m);
+}
+function addWheel(x, y, z, r, w, axis) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, w, 18), new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.8 }));
+  if (axis === 'x') m.rotation.z = Math.PI / 2; else m.rotation.x = Math.PI / 2;
+  m.position.set(x, y, z); m.castShadow = true; scene.add(m); worldMeshes.push(m);
+}
+let curMap = '', MAPINFO = MAPS.lobby, spots = [], extras = [], lampCount = 0, envReady = false;
+function applyLight() {
+  const k = MAPINFO.dark || 1;
+  hemi.intensity = (envReady ? 0.35 : 0.75) * k; sun.intensity = (envReady ? 0.8 : 1.0) * k; scene.environmentIntensity = k;
+  sun.color.set(MAPINFO.night ? 0x9db4ff : 0xffffff); renderer.toneMappingExposure = MAPINFO.night ? 1.25 : 1.08;
+}
 function isFree(x, z, r) {
   for (const c of colliders) { if (c.y1 <= 0.4 || c.y0 >= 1.8) continue; if (x > c.x0 - r && x < c.x1 + r && z > c.z0 - r && z < c.z1 + r) return false; }
   return true;
@@ -153,17 +225,27 @@ function loadMap(name) {
   curMap = name; MAPINFO = MAPS[name];
   for (const m of worldMeshes) { scene.remove(m); m.geometry.dispose(); if (m.material.map) m.material.map.dispose(); m.material.dispose(); }
   worldMeshes.length = 0; colliders.length = 0; clearSplats();
+  for (const o of extras) { scene.remove(o); if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }
+  extras = []; lampCount = 0;
   const M = MAPINFO, hx = M.hx, hz = M.hz;
   const h = {
-    B: addBox, cyl: addCyl, ball: addBall, rnd: rng(name.length * 977 + name.charCodeAt(0) * 31),
-    F: (x, z, w, d, color, pat) => addBox(x, -0.2, z, w, 0.2, d, color, { nocol: true, flat: true, pat }),
+    B: addBox, cyl: addCyl, ball: addBall, cone: addCone, dome: addDome, tire: addTire, wheel: addWheel, rnd: rng(name.length * 977 + name.charCodeAt(0) * 31),
+    F: (x, z, w, d, color, pat, lift) => addBox(x, lift ? 0 : -0.2, z, w, lift ? 0.02 : 0.2, d, color, { nocol: true, flat: true,
+      pat: pat || (M.floorTex && !lift ? ['img:' + M.floorTex, color, 0.38, w / 5, d / 5] : ['noise', color, 0, w / 4, d / 4]), rough: pat && (pat[0] === 'checker' || pat[0] === 'img:tile') ? 0.28 : (pat ? 0.5 : 0.9) }),
     outer: (ht, color) => { // 抜けられない厚い外壁
-      addBox(0, 0, -hz - 1.5, 2 * hx + 6, ht, 3, color); addBox(0, 0, hz + 1.5, 2 * hx + 6, ht, 3, color);
-      addBox(-hx - 1.5, 0, 0, 3, ht, 2 * hz, color); addBox(hx + 1.5, 0, 0, 3, ht, 2 * hz, color);
+      const px = { pat: ['panel', color, 0, (2 * hx + 6) / 3, ht / 3] }, pz = { pat: ['panel', color, 0, 2 * hz / 3, ht / 3] };
+      addBox(0, 0, -hz - 1.5, 2 * hx + 6, ht, 3, color, px); addBox(0, 0, hz + 1.5, 2 * hx + 6, ht, 3, color, px);
+      addBox(-hx - 1.5, 0, 0, 3, ht, 2 * hz, color, pz); addBox(hx + 1.5, 0, 0, 3, ht, 2 * hz, color, pz);
     }
   };
   M.build(h);
-  scene.background.set(M.sky); scene.fog = new THREE.Fog(M.sky, 60, 170);
+  scene.background.set(M.sky); scene.fog = new THREE.Fog(M.sky, 60, 170); applyLight();
+  if (M.night) { // 星空
+    const n = 700, a = new Float32Array(n * 3), r = rng(99);
+    for (let i = 0; i < n; i++) { const th = r() * 6.283, ph = Math.acos(r() * 0.95), R = 140; a[i * 3] = Math.sin(ph) * Math.cos(th) * R; a[i * 3 + 1] = Math.cos(ph) * R; a[i * 3 + 2] = Math.sin(ph) * Math.sin(th) * R; }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a, 3));
+    const st = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 0.7, fog: false })); scene.add(st); extras.push(st);
+  }
   const c = sun.shadow.camera, e = Math.max(hx, hz) + 8; c.left = -e; c.right = e; c.top = e; c.bottom = -e; c.far = 120; c.updateProjectionMatrix();
   sun.position.set(hx * 0.35, 46, hz * 0.3);
   spots = [];
@@ -189,15 +271,34 @@ function partGeo(geo, col, row) {
   for (let i = 0; i < uv.count; i++) uv.setXY(i, (col + uv.getX(i)) / 4, ((1 - row) + uv.getY(i)) / 2);
   return geo;
 }
-const GEO = {
-  head: partGeo(new THREE.SphereGeometry(0.2, 28, 20), 0, 0),
-  torso: partGeo(new THREE.CapsuleGeometry(0.2, 0.24, 8, 24).scale(1, 1, 0.68), 1, 0),
-  armL: partGeo(new THREE.CapsuleGeometry(0.07, 0.42, 6, 16), 2, 0),
-  armR: partGeo(new THREE.CapsuleGeometry(0.07, 0.42, 6, 16), 3, 0),
-  legL: partGeo(new THREE.CapsuleGeometry(0.095, 0.56, 6, 16), 0, 1),
-  legR: partGeo(new THREE.CapsuleGeometry(0.095, 0.56, 6, 16), 1, 1),
+function boxGeo(w, h, d, col, row) { // 四角キャラ用：側面4枚を横一列、上下面を下段に並べたUV
+  const g = new THREE.BoxGeometry(w, h, d), uv = g.attributes.uv, strip = [1, 3, -1, -1, 0, 2]; // px,nx,py,ny,pz,nz
+  for (let f = 0; f < 6; f++) for (let i = f * 4; i < f * 4 + 4; i++) {
+    const u = uv.getX(i), v = uv.getY(i);
+    if (f === 2) uv.setXY(i, u * 0.25, v * 0.25); else if (f === 3) uv.setXY(i, 0.25 + u * 0.25, v * 0.25);
+    else uv.setXY(i, (strip[f] + u) / 4, 0.25 + v * 0.75);
+  }
+  return partGeo(g, col, row);
+}
+const PARTS = ['torso', 'head', 'armL', 'armR', 'legL', 'legR'];
+const GEOS = {
+  round: {
+    head: partGeo(new THREE.SphereGeometry(0.2, 28, 20), 0, 0),
+    torso: partGeo(new THREE.CapsuleGeometry(0.2, 0.24, 8, 24).scale(1, 1, 0.68), 1, 0),
+    armL: partGeo(new THREE.CapsuleGeometry(0.07, 0.42, 6, 16), 2, 0),
+    armR: partGeo(new THREE.CapsuleGeometry(0.07, 0.42, 6, 16), 3, 0),
+    legL: partGeo(new THREE.CapsuleGeometry(0.095, 0.56, 6, 16), 0, 1),
+    legR: partGeo(new THREE.CapsuleGeometry(0.095, 0.56, 6, 16), 1, 1)
+  },
+  box: {
+    head: boxGeo(0.36, 0.36, 0.36, 0, 0), torso: boxGeo(0.44, 0.62, 0.26, 1, 0),
+    armL: boxGeo(0.14, 0.56, 0.14, 2, 0), armR: boxGeo(0.14, 0.56, 0.14, 3, 0),
+    legL: boxGeo(0.19, 0.75, 0.19, 0, 1), legR: boxGeo(0.19, 0.75, 0.19, 1, 1)
+  },
   gun: new THREE.BoxGeometry(0.09, 0.09, 0.55)
 };
+const HIDER_BASE = 0.6; // 隠れる側の基準サイズ（鬼=1.0）
+const styleOf = p => (p.role === 'hunter' && meta.state !== 'lobby') ? ['round', 1] : [p.shape === 'box' ? 'box' : 'round', HIDER_BASE * ([1, 1.5, 2].includes(p.size) ? p.size : 1)];
 const hunterMats = {};
 function hunterMat(slot) {
   const k = String(slot || 0);
@@ -219,31 +320,31 @@ function loadSkin(skin, url) {
 }
 const _box = new THREE.Box3();
 function makeAvatar(skin) {
-  const root = new THREE.Group(), hip = new THREE.Group(), waist = new THREE.Group();
-  root.add(hip); hip.add(waist);
+  const root = new THREE.Group(), body = new THREE.Group(), hip = new THREE.Group(), waist = new THREE.Group();
+  root.add(body); body.add(hip); hip.add(waist);
   const meshes = [];
   const part = (geo, parent, x, y, z, half) => { const m = new THREE.Mesh(geo, skin.mat); m.userData.half = half; m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; parent.add(m); meshes.push(m); return m; };
   const pivot = (parent, x, y) => { const g = new THREE.Group(); g.position.set(x, y, 0); parent.add(g); return g; };
-  part(GEO.torso, waist, 0, 0.3, 0, 0.3); part(GEO.head, waist, 0, 0.84, 0, 0.12);
+  part(GEOS.round.torso, waist, 0, 0.3, 0, 0.3); part(GEOS.round.head, waist, 0, 0.84, 0, 0.12);
   const aL = pivot(waist, -0.3, 0.56), aR = pivot(waist, 0.3, 0.56), lL = pivot(hip, -0.12, 0), lR = pivot(hip, 0.12, 0);
-  part(GEO.armL, aL, 0, -0.28, 0, 0.26); part(GEO.armR, aR, 0, -0.28, 0, 0.26);
-  part(GEO.legL, lL, 0, -0.375, 0, 0.35); part(GEO.legR, lR, 0, -0.375, 0, 0.35);
-  const gun = new THREE.Mesh(GEO.gun, gunMat); gun.position.set(0.22, 0.38, -0.35); gun.visible = false; waist.add(gun);
+  part(GEOS.round.armL, aL, 0, -0.28, 0, 0.26); part(GEOS.round.armR, aR, 0, -0.28, 0, 0.26);
+  part(GEOS.round.legL, lL, 0, -0.375, 0, 0.35); part(GEOS.round.legR, lR, 0, -0.375, 0, 0.35);
+  const gun = new THREE.Mesh(GEOS.gun, gunMat); gun.position.set(0.22, 0.38, -0.35); gun.visible = false; waist.add(gun);
   // 名前タグ
   const tc = document.createElement('canvas'); tc.width = 256; tc.height = 64;
   const tt = new THREE.CanvasTexture(tc); tt.colorSpace = THREE.SRGBColorSpace;
   const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tt, transparent: true })); tag.scale.set(1.6, 0.4, 1); tag.position.y = 2.05; root.add(tag);
   const av = {
-    root, meshes, tag, skin, height: 1.7,
+    root, meshes, tag, skin, height: 1.7, sc: 1, lastPose: ZERO, style: 'round1',
     setPose(p) {
-      p = p || ZERO; const g = i => rad(Number(p[i]) || 0);
+      p = p || ZERO; av.lastPose = p; const g = i => rad(Number(p[i]) || 0);
       hip.rotation.set(-g(0), 0, g(1)); waist.rotation.x = -g(2);
       aL.rotation.set(g(3), 0, -g(4)); aR.rotation.set(g(5), 0, g(6));
       lL.rotation.set(g(7), 0, -g(8)); lR.rotation.set(g(9), 0, g(10));
       hip.position.y = 0; root.updateMatrixWorld(true);
       _box.makeEmpty(); for (const m of meshes) _box.expandByObject(m, true);
       const wy = root.getWorldPosition(new V3()).y;
-      hip.position.y = wy - _box.min.y; av.height = _box.max.y - _box.min.y;
+      hip.position.y = (wy - _box.min.y) / av.sc; av.height = _box.max.y - _box.min.y; tag.position.y = av.height + 0.35;
     },
     probes(out) { // 体の各パーツの両端（めり込み判定用）
       let n = 0;
@@ -255,7 +356,12 @@ function makeAvatar(skin) {
       x.lineWidth = 6; x.strokeStyle = '#000'; x.strokeText(text, 128, 32, 250); x.fillStyle = '#fff'; x.fillText(text, 128, 32, 250); tt.needsUpdate = true;
     },
     setHunter(on, slot) { const m = on ? hunterMat(slot) : skin.mat; for (const x of meshes) x.material = m; gun.visible = on; },
-    setOwner(o) { for (const x of meshes) x.userData.owner = o; }
+    setOwner(o) { for (const x of meshes) x.userData.owner = o; },
+    setStyle(shape, sc) { // 丸/四角 と 大きさ
+      const key = shape + sc; if (av.style === key) return; av.style = key;
+      const G = GEOS[shape] || GEOS.round; meshes.forEach((m, i) => { m.geometry = G[PARTS[i]]; });
+      body.scale.setScalar(sc); av.sc = sc; av.setPose(av.lastPose);
+    }
   };
   av.setPose(ZERO);
   return av;
@@ -269,7 +375,8 @@ const mySkin = makeSkin();
 const me = { pos: new V3(0, 0, 0), vy: 0, yaw: 0, camYaw: 0, camPitch: -0.25, ground: true, dist: 3.2, pose: ZERO.slice(), ammo: 0, slot: '0' };
 let lastRound = -1, lastState = '', panel = '', eyedrop = false;
 let lobbyOpen = false, myScore = 0, sentScore = 0, lastWh = 0, rankSnap = null, rankAt = 0;
-me.h = 1.6;
+me.h = 1.6; me.r = 0.33; me.shape = 'round'; me.size = 1;
+try { const o = JSON.parse(localStorage.getItem('nurikakure_body') || '{}'); if (o.shape === 'box') me.shape = 'box'; if ([1, 1.5, 2].includes(o.size)) me.size = o.size; } catch (e) {}
 const knownFound = new Set();
 const brush = { color: BASE_COLOR, size: 8 };
 const myRole = () => (P[uid] && P[uid].role) || 'spectator';
@@ -286,6 +393,7 @@ function note(dest, f, t, dur, type, vol) {
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.02);
 }
+try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e) {} // iOS: 他のアプリの音楽を止めずにミックス再生
 function audioInit() {
   if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
   try {
@@ -352,7 +460,7 @@ async function joinRoom(id, isPractice) {
     me.slot = slot;
     for (const k of ['players', 'pos', 'skins', 'decoys']) net.onDisc(`${base}/${k}/${uid}`);
     net.onDisc(`${base}/slots/${slot}`);
-    await net.set(`${base}/players/${uid}`, { name: myName, slot, role: 'spectator', pose: me.pose, mat: matArr() });
+    await net.set(`${base}/players/${uid}`, { name: myName, slot, role: 'spectator', pose: me.pose, mat: matArr(), shape: me.shape, size: me.size });
     const [m, ps] = await Promise.all([net.get(base + '/meta'), net.get(base + '/players')]);
     if (!ps || !ps[uid]) throw new Error('ルームに参加できませんでした。Firebase の匿名認証とルールの公開を確認してください。');
     if (!m || !m.host || Object.keys(ps).length <= 1) {
@@ -393,6 +501,7 @@ function leaveRoom(msg) {
   if (document.pointerLockElement) document.exitPointerLock();
   panel = '';
   for (const id of ['hud', 'sys', 'tools', 'pPaint', 'pPose', 'blind', 'lobby', 'reveal', 'cross', 'joy', 'bJump', 'bFire', 'rank', 'btnRoom']) show(id, false);
+  fpGun.visible = false; $('shells').innerHTML = ''; $('shells').dataset.n = '';
   meta = {}; loadMap('park');
   show('scrRoom', true); $('status').textContent = msg || '';
 }
@@ -416,6 +525,7 @@ function syncEnts() {
     }
     if (e.name !== p.name) { e.name = p.name; e.av.setTag(p.name || '?'); }
     e.av.setHunter(p.role === 'hunter' && meta.state !== 'lobby', p.slot);
+    { const sl = styleOf(p); e.av.setStyle(sl[0], sl[1]); }
     if (id !== uid) {
       const pj = JSON.stringify(p.pose || 0);
       if (pj !== e.pj) { e.pj = pj; e.av.setPose(p.pose); }
@@ -431,7 +541,7 @@ function rebuildDecoys() {
     const e = ents[id], ds = DEC[id]; if (!e || !ds) continue;
     for (const i of [0, 1]) {
       const d = ds[i]; if (!d || !d.p) continue;
-      const av = makeAvatar(e.skin); av.root.position.set(d.p[0], d.p[1], d.p[2]); av.root.rotation.y = d.p[3]; av.setPose(d.pose);
+      const av = makeAvatar(e.skin); av.root.position.set(d.p[0], d.p[1], d.p[2]); av.root.rotation.y = d.p[3]; av.lastPose = d.pose || ZERO; av.setStyle(d.shape === 'box' ? 'box' : 'round', HIDER_BASE * (d.size || 1));
       av.tag.visible = false; av.setOwner({ type: 'decoy', uid: id, i }); av.owner = id; av.root.visible = false; scene.add(av.root); decoyAvs.push(av);
     }
   }
@@ -443,7 +553,7 @@ function buildReveal() {
   for (const id of hs) {
     const p = P[id], e = ents[id];
     if (p.found && p.last && p.last.p && e) {
-      const av = makeAvatar(e.skin); av.root.position.set(p.last.p[0], p.last.p[1], p.last.p[2]); av.root.rotation.y = p.last.p[3]; av.setPose(p.last.pose);
+      const av = makeAvatar(e.skin); av.root.position.set(p.last.p[0], p.last.p[1], p.last.p[2]); av.root.rotation.y = p.last.p[3]; av.lastPose = p.last.pose || ZERO; av.setStyle(p.shape === 'box' ? 'box' : 'round', HIDER_BASE * ([1, 1.5, 2].includes(p.size) ? p.size : 1));
       av.setTag('✖ ' + p.name); scene.add(av.root); ghosts.push(av);
     }
     const row = document.createElement('div'), nm = document.createElement('span'), b = document.createElement('button');
@@ -601,7 +711,7 @@ function placeDecoy() {
   if (myRole() !== 'hider' || (meta.state !== 'hiding' && meta.state !== 'hunting')) return;
   const ds = DEC[uid] || {}; const i = !ds[0] ? 0 : !ds[1] ? 1 : -1;
   if (i < 0) { toast('分身は2体までです'); return; }
-  net.set(`${base}/decoys/${uid}/${i}`, { p: posArr(), pose: me.pose.slice() }); sfx('pop'); toast(`分身を設置（${i + 1}/2）`);
+  net.set(`${base}/decoys/${uid}/${i}`, { p: posArr(), pose: me.pose.slice(), shape: me.shape, size: me.size }); sfx('pop'); toast(`分身を設置（${i + 1}/2）`);
 }
 
 /* ---------------- 射撃 ---------------- */
@@ -623,11 +733,18 @@ function hitTargets() {
   return l;
 }
 let nextFire = 0;
+const fpGun = new THREE.Group(); // 鬼の一人称視点に見える腕とショットガン
+{
+  const b = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.08, 0.62), gunMat); b.position.set(0.2, -0.2, -0.5);
+  const st = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.3), new THREE.MeshStandardMaterial({ color: 0x6b4a2b, roughness: 0.6 })); st.position.set(0.2, -0.25, -0.2);
+  const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.42, 4, 12), hunterMat(0)); arm.position.set(0.3, -0.37, -0.28); arm.rotation.set(1.2, 0, 0.3);
+  fpGun.add(b, st, arm); fpGun.visible = false; camera.add(fpGun); scene.add(camera);
+}
 function fire() {
   if (!inRoom || myRole() !== 'hunter' || meta.state !== 'hunting') return;
   const now = performance.now(); if (now < nextFire) return;
   if (me.ammo <= 0) { toast('弾切れ！'); return; }
-  nextFire = now + 700; me.ammo--; net.set(`${base}/players/${uid}/ammo`, me.ammo);
+  nextFire = now + 700; me.ammo--; fpGun.position.z = 0.12; fpGun.rotation.x = 0.14; net.set(`${base}/players/${uid}/ammo`, me.ammo);
   const o = camera.getWorldPosition(new V3()).toArray().map(v => +v.toFixed(2)), d = camera.getWorldDirection(new V3()).toArray().map(v => +v.toFixed(3));
   const seed = (Math.random() * 1e9) | 0;
   doShot(o, d, seed, true, uid);
@@ -696,7 +813,7 @@ cv.addEventListener('wheel', e => { me.dist = Math.max(1.2, Math.min(7, me.dist 
 cv.addEventListener('contextmenu', e => e.preventDefault());
 { // スティック
   const j = $('joy'), k = $('knob');
-  const mv = e => { if (e.pointerId !== joy.id) return; const r = j.getBoundingClientRect(); let dx = e.clientX - (r.left + 60), dy = e.clientY - (r.top + 60); const l = Math.hypot(dx, dy), m = 45; if (l > m) { dx *= m / l; dy *= m / l; } joy.x = dx / m; joy.y = -dy / m; k.style.transform = `translate(${dx}px,${dy}px)`; };
+  const mv = e => { if (e.pointerId !== joy.id) return; const r = j.getBoundingClientRect(); let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2); const l = Math.hypot(dx, dy), m = 45; if (l > m) { dx *= m / l; dy *= m / l; } joy.x = dx / m; joy.y = -dy / m; k.style.transform = `translate(${dx}px,${dy}px)`; };
   const end = e => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; k.style.transform = ''; };
   j.addEventListener('pointerdown', e => { audioInit(); joy.id = e.pointerId; try { j.setPointerCapture(e.pointerId); } catch (_) {} mv(e); });
   j.addEventListener('pointermove', mv); j.addEventListener('pointerup', end); j.addEventListener('pointercancel', end);
@@ -705,9 +822,8 @@ cv.addEventListener('contextmenu', e => e.preventDefault());
 }
 
 /* ---------------- 移動・カメラ ---------------- */
-const R = 0.33;
 function collide(p) {
-  let ground = 0;
+  const R = me.r; let ground = 0;
   for (const c of colliders) {
     const cx = Math.max(c.x0, Math.min(p.x, c.x1)), cz = Math.max(c.z0, Math.min(p.z, c.z1));
     const dx = p.x - cx, dz = p.z - cz, d2 = dx * dx + dz * dz;
@@ -751,7 +867,7 @@ function updateMe(dt) {
   const mx = (-sy * iy + cy * ix) * sp, mz = (-cy * iy - sy * ix) * sp;
   me.pos.x += mx * dt; me.pos.z += mz * dt;
   if (third) { if (l > 0.15) me.yaw = Math.atan2(-mx, -mz); } else me.yaw = me.camYaw;
-  const e = ents[uid]; me.h = third && e ? Math.max(0.3, e.av.height) : 1.6;
+  const e = ents[uid]; me.h = third && e ? Math.max(0.3, e.av.height) : 1.6; me.r = third && e ? Math.max(0.18, Math.min(0.42, 0.33 * e.av.sc)) : 0.33;
   if (jumpQ && me.ground) { me.vy = 7; me.ground = false; }
   jumpQ = false;
   me.vy -= 20 * dt; me.pos.y += me.vy * dt;
@@ -772,6 +888,8 @@ function updateCamera() {
     const h = ray.intersectObjects(worldMeshes, false)[0]; if (h) d = Math.max(0.35, h.distance - 0.15);
     camera.position.copy(_t).addScaledVector(_b, d);
   } else camera.position.set(me.pos.x, me.pos.y + 1.55, me.pos.z);
+  const hunting = myRole() === 'hunter' && (meta.state === 'hunting' || meta.state === 'hiding');
+  fpGun.visible = hunting; if (hunting) fpGun.children[2].material = hunterMat(me.slot);
 }
 function updateEnts(dt) {
   const st = meta.state, role = myRole(), seeH = st === 'reveal' || role !== 'hider' || meta.mode === 'basic';
@@ -805,6 +923,8 @@ function updateHud(now) {
   const dc = DEC[uid] ? [0, 1].filter(i => DEC[uid][i]).length : 0;
   $('hInfo').textContent = st === 'lobby' ? `${Object.keys(P).length}人` : role === 'hunter' ? `弾 ${me.ammo}｜残り ${alive}人` : `残り ${alive}人｜分身 ${dc}/2`;
   if (st === 'hiding') $('blindT').textContent = left;
+  const sh = $('shells'), n = (role === 'hunter' && st === 'hunting') ? Math.min(me.ammo, 16) : -1;
+  if (sh.dataset.n !== String(n)) { sh.dataset.n = n; sh.innerHTML = n > 0 ? '<i></i>'.repeat(n) : ''; }
 }
 /* ---------------- 見逃しランキング・笛 ---------------- */
 const WH_RANGE = 24; // 笛が聞こえる距離（m）
@@ -874,7 +994,9 @@ function tick() {
       const a = posArr(), s = a.join(); if (s !== lastPos) { lastPos = s; net.set(`${base}/pos/${uid}`, a); }
     }
   } else { const t = now / 9000; camera.position.set(Math.sin(t) * 30, 16, Math.cos(t) * 30); camera.lookAt(0, 0, 0); camera.rotation.order = 'YXZ'; }
-  renderer.render(scene, camera);
+  fpGun.position.z *= 0.8; fpGun.rotation.x *= 0.8;
+  if (composer && !settings.lite) { try { composer.render(); } catch (e) { console.warn(e); composer = null; } }
+  else renderer.render(scene, camera);
 }
 
 /* ---------------- 画面のイベント ---------------- */
@@ -883,6 +1005,7 @@ $('btnName').onclick = () => {
   const n = $('inName').value.trim().slice(0, 12); if (!n) { $('inName').focus(); return; }
   myName = n; try { localStorage.setItem('nurikakure_name', n); } catch (e) {}
   audioInit(); show('scrName', false); show('scrRoom', true);
+  if (isTouch) { try { const el = document.documentElement, f = el.requestFullscreen || el.webkitRequestFullscreen; if (f) Promise.resolve(f.call(el)).then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')).catch(() => {}); } catch (e) {} }
   if (!configured) $('status').textContent = '※ Firebase 未設定のため、今は「ひとりで練習」だけ遊べます。';
 };
 $('inName').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnName').click(); });
@@ -945,6 +1068,16 @@ for (const name in PRESETS) {
   b.onclick = () => { me.pose = PRESETS[name].slice(); sliderEls.forEach((s, i) => { s.value = me.pose[i]; }); applyPose(); };
   $('presets').append(b);
 }
+function setBody(shape, size) {
+  me.shape = shape; me.size = size;
+  try { localStorage.setItem('nurikakure_body', JSON.stringify({ shape, size })); } catch (e) {}
+  document.querySelectorAll('[data-shape]').forEach(b => b.classList.toggle('sec', b.dataset.shape !== shape));
+  document.querySelectorAll('[data-size]').forEach(b => b.classList.toggle('sec', Number(b.dataset.size) !== size));
+  if (inRoom) net.update(`${base}/players/${uid}`, { shape, size });
+}
+document.querySelectorAll('[data-shape]').forEach(b => { b.onclick = () => setBody(b.dataset.shape, me.size); });
+document.querySelectorAll('[data-size]').forEach(b => { b.onclick = () => setBody(me.shape, Number(b.dataset.size)); });
+setBody(me.shape, me.size);
 $('rotL').onclick = () => { me.yaw += Math.PI / 12; }; $('rotR').onclick = () => { me.yaw -= Math.PI / 12; };
 // 設定
 function openSettings() { $('oLite').checked = settings.lite; $('oSens').value = settings.sens; $('oBgm').value = settings.bgm; $('oSe').value = settings.se; show('modal', true); if (document.pointerLockElement) document.exitPointerLock(); }
