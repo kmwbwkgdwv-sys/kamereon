@@ -233,7 +233,7 @@ function place(m, opt) { // 世界に置く。模様つきはスポイト用に�
 function geoCache(key, make) { let g = W.geo.get(key); if (!g) { g = make(); W.geo.set(key, g); } return g; }
 function addBox(x, y, z, w, h, d, color, opt = {}) {
   const rr = (opt.flat || opt.sharp) ? 0 : Math.min(opt.r == null ? 0.16 : opt.r, Math.min(w, h, d) * 0.35); // 角を丸める
-  const round = rr > 0.012 && !W.cheap;
+  const round = rr > 0.025 && !W.cheap; // とても小さい丸みは四角のまま（軽くする）
   const m = new THREE.Mesh(geoCache(`b${w},${h},${d},${round ? rr : 0}`, () => round ? new RoundedBoxGeometry(w, h, d, 2, rr) : new THREE.BoxGeometry(w, h, d)), makeMat(color, opt, 0.88));
   m.position.set(x, y + h / 2, z); m.castShadow = !opt.flat; m.receiveShadow = true;
   if (opt.rot) m.rotation.set(opt.rot[0], opt.rot[1], opt.rot[2]); // かたむけた箱（がらくたの山など）は見た目だけ
@@ -289,7 +289,8 @@ function addCyl(x, y, z, r, h, color, opt = {}) {
   const k = seg >= 8 ? 1 : 0.92; W.cols.push(cylCol(x, z, y, y + h, r * k, rt * k, { nc: opt.noclimb }));
 }
 function addBall(x, y, z, r, color, opt = {}) {
-  const m = new THREE.Mesh(geoCache(`s${r}`, () => new THREE.SphereGeometry(r, W.cheap ? 12 : 22, W.cheap ? 8 : 16)), makeMat(color, opt, 0.95, opt.glow ? 1.6 : 1));
+  const sm = r < 0.12 || W.cheap; // 小さい玉は細かくしない（軽くする）
+  const m = new THREE.Mesh(geoCache(`s${r},${sm ? 1 : 0}`, () => new THREE.SphereGeometry(r, sm ? 12 : 22, sm ? 8 : 16)), makeMat(color, opt, 0.95, opt.glow ? 1.6 : 1));
   m.position.set(x, y, z); m.castShadow = m.receiveShadow = !opt.glow;
   if (opt.soft) m.userData.sph = [x, y, z, r]; // 葉っぱ：中にいると自分からは透けて見える
   place(m, opt);
@@ -327,7 +328,7 @@ function addArch(x, z, R, t, rot, pat) { // アーチ（当たり判定は弧に
 }
 // でこぼこの形（岩・ふくろ・しげみ・変なオブジェ）。当たり判定は少し小さめのだ円体
 function addLump(x, y, z, rx, ry, rz, color, opt = {}) {
-  const sd = opt.seed || 0, bump = opt.bump == null ? 0.25 : opt.bump, freq = opt.freq || 2.2, det = W.cheap ? 2 : 3;
+  const sd = opt.seed || 0, bump = opt.bump == null ? 0.25 : opt.bump, freq = opt.freq || 2.2, det = W.cheap || Math.max(rx, ry, rz) < 0.6 ? 2 : 3; // 小さいでこぼこは細かくしない（軽くする）
   const g = geoCache(`L${sd},${bump},${freq},${det}`, () => {
     const L = lump(sd * 7919 + 13, bump, freq, det), gg = new THREE.BufferGeometry();
     gg.setAttribute('position', new THREE.BufferAttribute(L.pos, 3)); gg.setAttribute('normal', new THREE.BufferAttribute(L.nrm, 3)); gg.setAttribute('uv', new THREE.BufferAttribute(L.uv, 2)); gg.setIndex(new THREE.BufferAttribute(L.idx, 1));
@@ -545,6 +546,7 @@ function unFight() {
 }
 function buildWorld(name) { // マップを W に組み立てる。設計図の座標を scale 倍して置く
   const M = MAPS[name], I = infoOf(name), S = I.S, hx = M.hx, hz = M.hz; W.info = I; W.S = S;
+  const NK = []; // 建物の中など、小物を自動で置かない所
   const sc = o => { if (!o || (o.r == null && o.rt == null && o.sinkV == null)) return o; const c = Object.assign({}, o); if (c.r != null) c.r *= S; if (c.rt != null) c.rt *= S; if (c.sinkV != null) c.sinkV *= S; return c; };
   const h = {
     B: (x, y, z, w, ht, d, col, o) => addBox(x * S, y * S, z * S, w * S, ht * S, d * S, col, sc(o)),
@@ -575,6 +577,8 @@ function buildWorld(name) { // マップを W に組み立てる。設計図の�
     cylc: (x, y, z, r, ht) => W.cols.push(cylCol(x * S, z * S, y * S, (y + ht) * S, r * S, r * S)), // 見えない円柱（葉っぱの中の幹など）
     ells: (x, y, z, rx, ry, rz, sinkV) => W.cols.push(ellCol(x * S, y * S, z * S, rx * S, ry * S, rz * S, { soft: true, sinkV: sinkV * S })), // 上に乗ると沈む葉っぱ（横からは入れる）
     rnd: rng(name.length * 977 + name.charCodeAt(0) * 31),
+    nokit: (x0, x1, z0, z1) => NK.push([x0, x1, z0, z1]), // ここ（設計図の座標）には小物を自動で置かない
+    inNoKit: (x, z, rr = 0) => NK.some(r => x > r[0] - rr && x < r[1] + rr && z > r[2] - rr && z < r[3] + rr), // rr = 置く物の半径
     F: (x, z, w, d, color, pat, lift) => addBox(x * S, lift ? 0 : -0.2, z * S, w * S, lift ? 0.02 : 0.2, d * S, color, { nocol: true, flat: true,
       pat: pat || (M.floorTex && !lift ? ['img:' + M.floorTex, color, 0.38, w * S / 5, d * S / 5] : ['noise', color, 0, w * S / 4, d * S / 4]), rough: pat && (pat[0] === 'checker' || pat[0] === 'img:tile') ? 0.28 : (pat ? 0.5 : 0.9) }),
     outer: (ht, color) => { // 抜けられない厚い外壁（登れない）
@@ -588,7 +592,7 @@ function buildWorld(name) { // マップを W に組み立てる。設計図の�
     const n = Math.round((M.clutter || 90) * 1.25), cap = Math.max(3, Math.ceil(n / M.kit.length * 2.2)), cnt = {}; let made = 0, guard = 0; // 小さい物ばかりにならないよう、1種類の数に上限
     while (made < n && guard++ < n * 14) {
       const x = (h.rnd() * 2 - 1) * (hx - 1.8), z = (h.rnd() * 2 - 1) * (hz - 1.8), k = M.kit[Math.floor(h.rnd() * M.kit.length)];
-      if ((cnt[k] || 0) >= cap || Math.hypot(x - M.spawn[0], z - M.spawn[1]) < 4.5 || !isFree(x * S, z * S, (KIT_R[k] || 1.35) * S, W.cols)) continue;
+      if ((cnt[k] || 0) >= cap || Math.hypot(x - M.spawn[0], z - M.spawn[1]) < 4.5 || h.inNoKit(x, z, KIT_R[k] || 1.35) || !isFree(x * S, z * S, (KIT_R[k] || 1.35) * S, W.cols)) continue;
       KIT[k](h, x, z, M.pal || ['#b9b9b9'], M.acc || ACC); made++; cnt[k] = (cnt[k] || 0) + 1;
     }
   }
