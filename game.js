@@ -1438,6 +1438,23 @@ function fire() {
   net.set(`${base}/players/${uid}/ammo`, me.ammo);
   if (me.ammo <= 0) outOfAmmo();
 }
+// ねらう（エイム）：撃つボタン（PC は左クリック）を押している間はねらう。少し拡大し、銃が真ん中に来る。
+// ボタンを押した指をそのまま動かすと、その方向を向く。指（クリック）をはなすと撃つ。待ち時間中にはなしたら、撃てるようになった時に撃つ
+const aim = { on: false, pid: null, lx: 0, ly: 0 }; let aimK = 0, pendingFire = false;
+const canFire = () => !specOn() && inRoom && myRole() === 'hunter' && meta.state === 'hunting';
+function aimStart(pid, x, y) {
+  if (aim.on || !canFire()) return false;
+  if (me.ammo <= 0) { outOfAmmo(); return false; }
+  audioInit(); aim.on = true; aim.pid = pid; aim.lx = x; aim.ly = y; pendingFire = false;
+  $('bFire').classList.add('aiming'); $('cross').classList.add('aim');
+  return true;
+}
+function aimMove(x, y) { if (!aim.on) return; look(x - aim.lx, y - aim.ly, 2); aim.lx = x; aim.ly = y; }
+function aimEnd(shoot) {
+  if (!aim.on) return; aim.on = false; aim.pid = null;
+  $('bFire').classList.remove('aiming'); $('cross').classList.remove('aim');
+  if (shoot) { if (performance.now() >= nextFire) fire(); else pendingFire = true; }
+}
 // 弾が0になった鬼は負け（脱落）。鬼がだれもいなくなったらカメレオンの勝ち
 function outOfAmmo() {
   if (meta.practice) { me.ammo = Number(meta.ammo) || 8; net.set(`${base}/players/${uid}/ammo`, me.ammo); toast('弾が0になった！ 本番ならここで鬼の負け（練習なので弾を補充しました）', 3200); return; }
@@ -1505,6 +1522,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Space') { jumpUp(); if (e.target.tagName === 'BUTTON') e.preventDefault(); } });
 function look(dx, dy, k) {
   if (panel === 'paint') k /= paintZoom; // 拡大中は視点もゆっくり動かす
+  if (aim.on) k *= 0.6; // ねらっている間もゆっくり（細かくねらえる）
   me.camYaw -= dx * 0.0026 * settings.sens * k; me.camPitch -= dy * 0.0026 * settings.sens * k;
   me.camPitch = Math.max(-1.5, Math.min(1.5, me.camPitch));
 }
@@ -1518,7 +1536,7 @@ cv.addEventListener('pointerdown', e => {
   audioInit(); if (!inRoom) return;
   if (e.pointerType === 'touch') { pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (pts.size === 2 && panel === 'paint') { pinchD = pinchDist(); if (paintId !== null) { paintId = null; queueSkin(); } lookId = null; return; } }
   if (eyedrop && canTool()) { const h = dropAt(document.pointerLockElement === cv ? null : e); if (h) { doPick(h); return; } }
-  if (document.pointerLockElement === cv) { fire(); return; }
+  if (document.pointerLockElement === cv) { if (e.button === 0) aimStart('mouse', 0, 0); return; } // 押している間ねらう（はなすと撃つ）
   if (e.pointerType === 'mouse' && !panel && !(lobbyLike(meta.state) && lobbyOpen)) { if (cv.requestPointerLock) cv.requestPointerLock(); return; }
   if (panel === 'paint' && ents[uid]) {
     { ents[uid].av.bounds(); const h = castPtr(e, ents[uid].av.meshes); if (h && h.face) { paintId = e.pointerId; paintHit(h, true); try { cv.setPointerCapture(e.pointerId); } catch (_) {} return; } }
@@ -1527,15 +1545,15 @@ cv.addEventListener('pointerdown', e => {
 });
 cv.addEventListener('pointermove', e => {
   if (pts.has(e.pointerId)) { pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (pinchD && pts.size >= 2) { const d = pinchDist(); if (d > 0) { setZoom(paintZoom * d / pinchD); pinchD = d; } return; } }
-  if (document.pointerLockElement === cv) { look(e.movementX || 0, e.movementY || 0, 1); return; }
+  if (document.pointerLockElement === cv) { if (aim.pid === 'mouse' && !(e.buttons & 1)) aimEnd(true); look(e.movementX || 0, e.movementY || 0, 1); return; } // 左ボタンをはなしたら撃つ（右ボタンといっしょに押していた時も）
   if (e.pointerId === paintId) { const h = ents[uid] && castPtr(e, ents[uid].av.meshes); if (h && h.face) paintHit(h); return; }
   if (e.pointerId === lookId) { look(e.clientX - lx, e.clientY - ly, 2); lx = e.clientX; ly = e.clientY; }
 });
-const ptrEnd = e => { pts.delete(e.pointerId); if (pts.size < 2) pinchD = 0; if (e.pointerId === paintId) { paintId = null; queueSkin(); } if (e.pointerId === lookId) lookId = null; };
+const ptrEnd = e => { if (aim.pid === 'mouse' && e.pointerType === 'mouse') aimEnd(e.type === 'pointerup'); pts.delete(e.pointerId); if (pts.size < 2) pinchD = 0; if (e.pointerId === paintId) { paintId = null; queueSkin(); } if (e.pointerId === lookId) lookId = null; };
 cv.addEventListener('pointerup', ptrEnd); cv.addEventListener('pointercancel', ptrEnd);
 cv.addEventListener('wheel', e => { if (panel === 'paint') setZoom(paintZoom - Math.sign(e.deltaY) * 0.3); else me.dist = Math.max(1.2, Math.min(7, me.dist + Math.sign(e.deltaY) * 0.4)); }, { passive: true });
 cv.addEventListener('contextmenu', e => e.preventDefault());
-document.addEventListener('pointerlockchange', () => { const on = document.pointerLockElement === cv; $('lockTip').classList.toggle('hide', !on); if (on) setTimeout(() => { if (document.pointerLockElement === cv) $('lockTip').classList.add('hide'); }, 6000); }); // PC：マウスが画面に入っている間はボタンを押せないので教える
+document.addEventListener('pointerlockchange', () => { const on = document.pointerLockElement === cv; if (!on && aim.pid === 'mouse') aimEnd(false); $('lockTip').classList.toggle('hide', !on); if (on) setTimeout(() => { if (document.pointerLockElement === cv) $('lockTip').classList.add('hide'); }, 6000); }); // PC：マウスが画面に入っている間はボタンを押せないので教える
 { // スティックとボタン
   const j = $('joy'), k = $('knob');
   const mv = e => { if (e.pointerId !== joy.id) return; const r = j.getBoundingClientRect(), sc = Number(j.dataset.sc) || 1; let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2); const l = Math.hypot(dx, dy), m = 45 * sc; if (l > m) { dx *= m / l; dy *= m / l; } joy.x = dx / m; joy.y = -dy / m; k.style.transform = `translate(${dx / sc}px,${dy / sc}px)`; }; // 大きさを変えたスティックにも合わせる
@@ -1546,16 +1564,21 @@ document.addEventListener('pointerlockchange', () => { const on = document.point
   bj.addEventListener('pointerdown', guard(e => { e.preventDefault(); jump.pid = e.pointerId; try { bj.setPointerCapture(e.pointerId); } catch (_) {} jumpDown(); }));
   for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) bj.addEventListener(ev, jumpUp);
   $('bPose').addEventListener('pointerdown', guard(e => { e.preventDefault(); if (performance.now() - wheelAt > 450 || $('wheel').classList.contains('hide')) toggleWheel(); }));
-  $('bFire').addEventListener('pointerdown', guard(e => { e.preventDefault(); fire(); }));
+  const bf = $('bFire'); // 押している間ねらう。押した指を動かすとその方向を向く。はなすと撃つ
+  bf.addEventListener('pointerdown', guard(e => { e.preventDefault(); if (aimStart(e.pointerId, e.clientX, e.clientY)) try { bf.setPointerCapture(e.pointerId); } catch (_) {} }));
+  bf.addEventListener('pointermove', e => { if (aim.on && e.pointerId === aim.pid) { e.preventDefault(); aimMove(e.clientX, e.clientY); } });
+  bf.addEventListener('pointerup', guard(e => { if (e.pointerId === aim.pid) aimEnd(true); }));
+  bf.addEventListener('pointercancel', e => { if (e.pointerId === aim.pid) aimEnd(false); });
   $('bSpecH').addEventListener('pointerdown', guard(e => { e.preventDefault(); nextSpec(); }));
   // 指が画面から全部はなれたら、押したまま・つかんだままの状態を全部もどす（iPhone で指の終わりが届かなかった時の保険）
   const allUp = e => {
     if (e.touches && e.touches.length) return;
     jumpUp(); if (joy.id !== null) { joy.id = null; joy.x = joy.y = 0; k.style.transform = ''; }
+    if (aim.on && aim.pid !== 'mouse') aimEnd(true);
     pts.clear(); pinchD = 0; lookId = null; if (paintId !== null) { paintId = null; queueSkin(); }
   };
   for (const ev of ['touchend', 'touchcancel']) addEventListener(ev, allUp, { capture: true, passive: true });
-  addEventListener('pointerup', e => { if (e.pointerId === jump.pid) jumpUp(); if (e.pointerId === joy.id) end(e); }, true);
+  addEventListener('pointerup', e => { if (e.pointerId === jump.pid) jumpUp(); if (e.pointerId === joy.id) end(e); if (aim.on && e.pointerId === aim.pid) aimEnd(true); }, true);
 }
 function setClingUI() { // くっついている間はジャンプボタンが「はなれる」になる
   const on = !!me.cling, b = $('bJump');
@@ -1652,7 +1675,7 @@ function updateCamera() {
   if (specId && !specOn()) { specId = ''; refreshUI(); } // 観戦していた人が見つかった・いなくなった
   if (specId && specCamera()) return;
   camera.rotation.set(me.camPitch, me.camYaw, 0);
-  const pz = panel === 'paint' && tp(), fov = pz ? 70 / paintZoom : 70;
+  const pz = panel === 'paint' && tp(), fov = pz ? 70 / paintZoom : 70 - 20 * aimK; // ねらっている間は少し拡大
   if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
   if (tp()) {
     _t.set(me.pos.x, me.pos.y + (pz ? me.h * paintY : Math.min(1.0, me.h * 0.7 + 0.2)), me.pos.z); _b.set(0, 0, 1).applyQuaternion(camera.quaternion);
@@ -1801,6 +1824,11 @@ function tick() {
       const a = posArr(), s = a.join(); if (s !== lastPos) { lastPos = s; net.set(`${base}/pos/${uid}`, a); }
     }
   } else { const t = now / 9000; camera.position.set(Math.sin(t) * 30, 16, Math.cos(t) * 30); camera.lookAt(0, 0, 0); camera.rotation.order = 'YXZ'; }
+  if (aim.on && !canFire()) aimEnd(false); // 観戦・役が変わった・時間切れなどでやめる
+  if (pendingFire && (!canFire() || aim.on)) pendingFire = false;
+  if (pendingFire && now >= nextFire) { pendingFire = false; fire(); }
+  aimK += ((aim.on ? 1 : 0) - aimK) * Math.min(1, dt * 12);
+  fpGun.position.x = -0.2 * aimK; fpGun.position.y = 0.08 * aimK; // ねらう時は銃が画面の真ん中へ
   fpGun.position.z *= 0.8; fpGun.rotation.x *= 0.8;
   if (innerWidth !== lastW || innerHeight !== lastH) resize();
   offscreenWork();
