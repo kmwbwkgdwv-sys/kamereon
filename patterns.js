@@ -202,49 +202,6 @@ export function drawPattern(x, S, kind, c1, c2, r) {
       x.fillStyle = 'rgba(255,255,255,0.6)'; for (let i = 0; i < 10; i++) { x.beginPath(); x.arc(S * 0.8 + r() * 10, r() * S * 0.8, 2 + r() * 2, 0, 6.2832); x.fill(); }
       break;
     }
-    case 'pegboard': // 有孔ボード（工具をかける板の穴）
-      speck(60, 0.03); x.fillStyle = 'rgba(0,0,0,0.5)';
-      for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) { x.beginPath(); x.arc((i + 0.5) * S / 6, (j + 0.5) * S / 6, 2.6, 0, 6.2832); x.fill(); }
-      break;
-    case 'scales': // うろこ（こいのぼり・魚）
-      x.lineWidth = 3;
-      for (let j = 0; j < 5; j++) for (let i = -1; i < 5; i++) { const cx = i * S / 4 + (j % 2 ? S / 8 : 0), cy = j * S / 4; x.fillStyle = col(j); x.beginPath(); x.arc(cx, cy, S / 8, 0, Math.PI); x.fill(); x.strokeStyle = 'rgba(255,255,255,0.55)'; x.beginPath(); x.arc(cx, cy, S / 8, 0, Math.PI); x.stroke(); }
-      break;
-    case 'cork': // コルクの板
-      for (let i = 0; i < 900; i++) { x.fillStyle = r() < 0.5 ? 'rgba(90,50,20,0.22)' : 'rgba(255,230,190,0.18)'; x.fillRect(r() * S, r() * S, 1 + r() * 3, 1 + r() * 3); }
-      break;
-    case 'shutter': // シャッター（よこのみぞ）
-      for (let i = 0; i < 8; i++) { x.fillStyle = 'rgba(0,0,0,0.28)'; x.fillRect(0, i * S / 8, S, 3); x.fillStyle = 'rgba(255,255,255,0.18)'; x.fillRect(0, i * S / 8 + 3, S, 2); }
-      speck(40, 0.03);
-      break;
-    case 'grate': // 金あみの床・たな
-      x.strokeStyle = col(0); x.lineWidth = 3;
-      for (let i = 0; i <= 8; i++) { x.beginPath(); x.moveTo(i * S / 8, 0); x.lineTo(i * S / 8, S); x.stroke(); x.beginPath(); x.moveTo(0, i * S / 8); x.lineTo(S, i * S / 8); x.stroke(); }
-      break;
-    case 'plaid': // チェックの布
-      x.globalAlpha = 0.45; x.fillStyle = col(0); for (let i = 0; i < 4; i += 2) { x.fillRect(i * q, 0, q, S); x.fillRect(0, i * q, S, q); }
-      x.globalAlpha = 0.6; x.fillStyle = col(1); x.fillRect(q * 1.4, 0, 4, S); x.fillRect(0, q * 1.4, S, 4); x.fillRect(q * 3.4, 0, 4, S); x.fillRect(0, q * 3.4, S, 4); x.globalAlpha = 1;
-      break;
-    case 'adobe': // 日干しれんが（土のかべ）
-      speck(200, 0.05); x.fillStyle = 'rgba(80,50,20,0.16)';
-      for (let j = 0; j < 4; j++) { x.fillRect(0, j * q, S, 3); for (let i = 0; i < 2; i++) x.fillRect(((i * S / 2 + (j % 2 ? S / 4 : 0)) % S), j * q, 3, q); }
-      break;
-    case 'hiero': { // 古代の壁の絵文字（目・鳥・波・羽・丸）
-      x.fillStyle = 'rgba(60,40,20,0.12)'; for (let i = 1; i < 4; i++) x.fillRect(i * q - 1, 0, 2, S);
-      const sym = (k, a, b) => {
-        x.fillStyle = col(k); x.strokeStyle = col(k); x.lineWidth = 3;
-        if (k % 5 === 0) { x.beginPath(); x.ellipse(a, b, 11, 6, 0, 0, 6.2832); x.stroke(); x.beginPath(); x.arc(a, b, 3.5, 0, 6.2832); x.fill(); }
-        else if (k % 5 === 1) { x.beginPath(); x.ellipse(a, b, 9, 6, 0, 0, 6.2832); x.fill(); x.beginPath(); x.moveTo(a + 7, b - 3); x.lineTo(a + 14, b - 6); x.lineTo(a + 8, b + 1); x.fill(); x.fillRect(a - 3, b + 5, 2, 7); x.fillRect(a + 2, b + 5, 2, 7); }
-        else if (k % 5 === 2) { x.beginPath(); for (let i = 0; i <= 6; i++) x.lineTo(a - 12 + i * 4, b + (i % 2 ? -4 : 4)); x.stroke(); }
-        else if (k % 5 === 3) { x.beginPath(); x.ellipse(a, b, 4, 12, 0.2, 0, 6.2832); x.fill(); }
-        else { x.beginPath(); x.arc(a, b - 4, 6, 0, 6.2832); x.stroke(); x.fillRect(a - 1.5, b + 2, 3, 12); x.fillRect(a - 7, b + 4, 14, 3); }
-      };
-      for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) sym(i * 3 + j * 2 + Math.floor(r() * 2), i * q + q / 2, j * q + q / 2);
-      break;
-    }
-    case 'frost': // しもがついた（冷凍庫）
-      for (let i = 0; i < 220; i++) { x.fillStyle = `rgba(255,255,255,${(0.08 + r() * 0.2).toFixed(3)})`; x.beginPath(); x.arc(r() * S, r() * S, 1 + r() * 4, 0, 6.2832); x.fill(); }
-      break;
     default: speck(280, 0.035); // ざらつき
   }
 }
@@ -260,7 +217,6 @@ function drawArt(x, S, kind, c1, P, r) {
   const hill = (c, base, amp, f, ph) => { const pts = [[0, 256]]; for (let i = 0; i <= 32; i++) pts.push([i * 8, base - amp * (0.6 * Math.sin(i * f + ph) + 0.4 * Math.sin(i * f * 2.3 + ph * 1.7))]); pts.push([256, 256]); poly(c, pts); };
   const brush = (n, a) => { for (let i = 0; i < n; i++) { x.fillStyle = r() < 0.5 ? `rgba(0,0,0,${a})` : `rgba(255,255,255,${a})`; x.fillRect(r() * S, r() * S, (3 + r() * 10) * u, (1 + r() * 2) * u); } }; // 筆のあと
   x.fillStyle = c1; x.fillRect(0, 0, S, S);
-  { const a = kind.split('|'); if (EXTRA[a[0]]) { EXTRA[a[0]](x, S, c1, P, r, a.slice(1), u); return; } }
   switch (kind) {
     case 'artLand': { // 山と丘の風景
       for (let i = 0; i < 6; i++) rect(i % 2 ? '#bfe3f2' : '#aedcf0', 0, i * 22, 256, 22);
@@ -343,119 +299,3 @@ function drawArt(x, S, kind, c1, P, r) {
   brush(160, 0.05);
 }
 const shade = (c, k) => '#' + [1, 3, 5].map(i => Math.max(0, Math.min(255, Math.round(parseInt(c.slice(i, i + 2), 16) * k))).toString(16).padStart(2, '0')).join('');
-
-// ---- 看板の文字・はり紙・標識・旗など（kind = '名前|引数|…'）----
-const JFONT = '"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic","Meiryo",system-ui,sans-serif';
-// 文字を箱にぴったり入れる（v = たて書き）
-function fitText(x, t, cx, cy, w, h, col, v, weight = 900, stroke) {
-  x.fillStyle = col; x.textAlign = 'center'; x.textBaseline = 'middle';
-  const ch = Array.from(t);
-  if (v) {
-    let fs = Math.min(w * 0.92, h / ch.length * 0.98);
-    x.font = `${weight} ${fs}px ${JFONT}`;
-    const top = cy - fs * ch.length / 2 + fs / 2;
-    ch.forEach((c, i) => { if (stroke) { x.lineWidth = fs * 0.12; x.strokeStyle = stroke; x.strokeText(c, cx, top + i * fs); } x.fillText(c, cx, top + i * fs); });
-  } else {
-    let fs = h * 0.9; x.font = `${weight} ${fs}px ${JFONT}`;
-    const mw = x.measureText(t).width; if (mw > w) { fs *= w / mw; x.font = `${weight} ${fs}px ${JFONT}`; }
-    if (stroke) { x.lineWidth = fs * 0.12; x.strokeStyle = stroke; x.strokeText(t, cx, cy + fs * 0.04); }
-    x.fillText(t, cx, cy + fs * 0.04);
-  }
-}
-// 面の縦横の比（asp = 横 / 縦）に合わせて、文字がのびないように描く
-function aspect(x, S, asp, fn) {
-  x.save();
-  if (asp >= 1) { x.scale(1 / asp, 1); fn(S * asp, S); } else { x.scale(1, asp); fn(S, S / asp); }
-  x.restore();
-}
-const EXTRA = {
-  // 看板の文字：artTxt|文字|h か v|横/縦の比|わく(0/1)
-  artTxt(x, S, c1, P, r, a) {
-    const [t = '', mode = 'h', asp = '1', fr = '1'] = a, v = mode === 'v';
-    aspect(x, S, Number(asp) || 1, (W, H) => {
-      if (fr === '1') { x.strokeStyle = P[1] || P[0]; x.lineWidth = Math.min(W, H) * 0.06; x.strokeRect(x.lineWidth / 2 + 2, x.lineWidth / 2 + 2, W - x.lineWidth - 4, H - x.lineWidth - 4); }
-      const m = Math.min(W, H) * (fr === '1' ? 0.16 : 0.08);
-      fitText(x, t, W / 2, H / 2, W - 2 * m, H - 2 * m, P[0], v, 900, P[2]);
-    });
-  },
-  // のれん：artNoren|文字|何枚目|全部で何枚
-  artNoren(x, S, c1, P, r, a) {
-    const t = a[0] || '', i = Number(a[1]) || 0, n = Number(a[2]) || 1, ch = Array.from(t);
-    x.fillStyle = 'rgba(255,255,255,0.12)'; x.fillRect(0, S * 0.86, S, S * 0.03);
-    const per = Math.ceil(ch.length / n), part = ch.slice(i * per, i * per + per).join('');
-    if (part) fitText(x, part, S / 2, S * 0.45, S * 0.8, S * 0.62, P[0], true);
-  },
-  // はり紙：artPaper|種類（0〜7）
-  artPaper(x, S, c1, P, r, a) {
-    const k = Number(a[0]) || 0, p = i => P[i % P.length], u = S / 256;
-    const R = (c, a1, b, w, h) => { x.fillStyle = c; x.fillRect(a1 * u, b * u, w * u, h * u); };
-    const C = (c, a1, b, rad) => { x.fillStyle = c; x.beginPath(); x.arc(a1 * u, b * u, rad * u, 0, 6.2832); x.fill(); };
-    const lines = (y0, n, w = 200) => { for (let i = 0; i < n; i++) R('rgba(40,40,50,0.55)', 28, y0 + i * 18, w * (0.55 + r() * 0.45), 6); };
-    if (k === 0) { R(p(0), 0, 0, 256, 56); fitText(x, ['おしらせ', 'ぼしゅう', 'ちゅうい', 'お祭り', 'イベント'][Math.floor(r() * 5)], S / 2, 28 * u, 220 * u, 44 * u, '#ffffff', false); lines(80, 8); }
-    else if (k === 1) { R('#bfe3f2', 0, 0, 256, 150); C('#ffd23a', 200, 50, 26); R('#7fbf5f', 0, 150, 256, 106); R(p(1), 70, 110, 80, 70); x.fillStyle = p(2); x.beginPath(); x.moveTo(60 * u, 112 * u); x.lineTo(110 * u, 70 * u); x.lineTo(160 * u, 112 * u); x.fill(); R('#6b4a2b', 98, 140, 22, 40); }
-    else if (k === 2) { R('#f4f4f4', 0, 0, 256, 256); R(p(0), 16, 16, 224, 160); R(shade(p(0), 0.7), 16, 120, 224, 56); C('#fff4c2', 190, 60, 18); lines(196, 3); }
-    else if (k === 3) { R('#f4f4f4', 0, 0, 256, 256); for (let i = 0; i < 6; i++) { const hh = 40 + r() * 140; R(p(i), 28 + i * 36, 220 - hh, 24, hh); } R('#2a3038', 22, 220, 214, 4); R('#2a3038', 22, 30, 4, 194); }
-    else if (k === 4) { R('#f4f4f4', 0, 0, 256, 256); R(p(0), 0, 0, 256, 40); x.strokeStyle = 'rgba(40,40,50,0.5)'; x.lineWidth = 2 * u; for (let i = 0; i <= 7; i++) { x.beginPath(); x.moveTo((16 + i * 32) * u, 48 * u); x.lineTo((16 + i * 32) * u, 240 * u); x.stroke(); } for (let j = 0; j <= 5; j++) { x.beginPath(); x.moveTo(16 * u, (48 + j * 38) * u); x.lineTo(240 * u, (48 + j * 38) * u); x.stroke(); } for (let i = 0; i < 5; i++) C(p(i + 1), 32 + Math.floor(r() * 7) * 32, 66 + Math.floor(r() * 5) * 38, 9); }
-    else if (k === 5) { R('#efe6cf', 0, 0, 256, 256); x.strokeStyle = '#7f9fbf'; x.lineWidth = 10 * u; x.beginPath(); x.moveTo(0, 90 * u); x.bezierCurveTo(80 * u, 60 * u, 150 * u, 180 * u, 256 * u, 150 * u); x.stroke(); x.strokeStyle = '#c9a26b'; x.lineWidth = 6 * u; x.beginPath(); x.moveTo(60 * u, 0); x.lineTo(110 * u, 256 * u); x.moveTo(0, 200 * u); x.lineTo(256 * u, 210 * u); x.stroke(); C('#e0413a', 140, 120, 12); C('#ffffff', 140, 120, 5); }
-    else if (k === 6) { R('#f3e3b0', 0, 0, 256, 256); fitText(x, 'さがしています', S / 2, 30 * u, 220 * u, 40 * u, '#5a2a1a', false); C(p(0), 128, 130, 62); C('#1b1d20', 108, 120, 7); C('#1b1d20', 148, 120, 7); R('#1b1d20', 112, 152, 32, 5); lines(206, 2); }
-    else { R(p(0), 0, 0, 256, 256); for (let i = 0; i < 14; i++) { x.fillStyle = p(i + 1); x.beginPath(); x.arc(r() * S, r() * S, (8 + r() * 26) * u, 0, 6.2832); x.fill(); } R('#ffffff', 20, 190, 216, 48); fitText(x, ['SALE', '大売出し', 'NEW', 'ひみつ', 'ぬりえ大会'][Math.floor(r() * 5)], S / 2, 214 * u, 200 * u, 40 * u, p(1), false); }
-  },
-  // 道路標識の中の絵：artRoad|種類
-  artRoad(x, S, c1, P, r, a) {
-    const k = a[0], u = S / 256;
-    if (k === 'stop') fitText(x, '止まれ', S / 2, S * 0.4, S * 0.7, S * 0.36, '#ffffff', false);
-    else if (k === 'speed') { fitText(x, String(a[1] || '40'), S / 2, S / 2, S * 0.8, S * 0.62, '#2a5fb0', false); }
-    else if (k === 'warn') fitText(x, '！', S / 2, S / 2, S * 0.6, S * 0.7, '#1b1d20', false);
-    else if (k === 'work') { x.fillStyle = '#1b1d20'; x.beginPath(); x.arc(S * 0.45, S * 0.28, S * 0.08, 0, 6.2832); x.fill(); x.lineWidth = S * 0.07; x.strokeStyle = '#1b1d20'; x.lineCap = 'round'; x.beginPath(); x.moveTo(S * 0.45, S * 0.36); x.lineTo(S * 0.4, S * 0.6); x.lineTo(S * 0.3, S * 0.82); x.moveTo(S * 0.4, S * 0.6); x.lineTo(S * 0.52, S * 0.82); x.moveTo(S * 0.44, S * 0.42); x.lineTo(S * 0.66, S * 0.56); x.stroke(); x.fillRect(S * 0.6, S * 0.7, S * 0.22, S * 0.12); }
-    else if (k === 'P') fitText(x, 'P', S / 2, S / 2, S * 0.7, S * 0.8, '#ffffff', false);
-    else if (k === 'walk') { x.fillStyle = '#ffffff'; x.beginPath(); x.moveTo(S * 0.5, S * 0.1); x.lineTo(S * 0.9, S * 0.85); x.lineTo(S * 0.1, S * 0.85); x.closePath(); x.fill(); x.fillStyle = '#1b1d20'; x.beginPath(); x.arc(S * 0.52, S * 0.36, S * 0.06, 0, 6.2832); x.fill(); x.lineWidth = S * 0.06; x.strokeStyle = '#1b1d20'; x.lineCap = 'round'; x.beginPath(); x.moveTo(S * 0.5, S * 0.44); x.lineTo(S * 0.46, S * 0.62); x.lineTo(S * 0.38, S * 0.76); x.moveTo(S * 0.46, S * 0.62); x.lineTo(S * 0.56, S * 0.76); x.stroke(); for (let i = 0; i < 4; i++) x.fillRect(S * (0.22 + i * 0.15), S * 0.79, S * 0.08, S * 0.04); }
-    else fitText(x, a[1] || '徐行', S / 2, S / 2, S * 0.8, S * 0.5, '#1b1d20', false);
-  },
-  // 非常口（みどりの板・走る人・ドア）
-  artExit(x, S, c1, P, r, a) {
-    aspect(x, S, 2.4, (W, H) => {
-      x.fillStyle = '#ffffff'; x.fillRect(W * 0.08, H * 0.12, W * 0.26, H * 0.76); x.fillStyle = c1; x.fillRect(W * 0.12, H * 0.18, W * 0.18, H * 0.64);
-      x.fillStyle = '#ffffff'; x.beginPath(); x.arc(W * 0.5, H * 0.26, H * 0.11, 0, 6.2832); x.fill();
-      x.strokeStyle = '#ffffff'; x.lineCap = 'round'; x.lineWidth = H * 0.12; x.beginPath(); x.moveTo(W * 0.5, H * 0.42); x.lineTo(W * 0.46, H * 0.62); x.lineTo(W * 0.36, H * 0.84); x.moveTo(W * 0.46, H * 0.62); x.lineTo(W * 0.58, H * 0.86); x.moveTo(W * 0.4, H * 0.45); x.lineTo(W * 0.6, H * 0.52); x.stroke();
-      fitText(x, 'EXIT', W * 0.8, H * 0.5, W * 0.3, H * 0.5, '#ffffff', false);
-    });
-  },
-  // 旗：artFlag|がら|何本目|全部で何本（横に切って、なみうつ板に1枚ずつはる）
-  artFlag(x, S, c1, P, r, a) {
-    const d = a[0] || 'stripe', i = Number(a[1]) || 0, n = Number(a[2]) || 1, p = k => P[k % P.length];
-    x.save(); x.scale(n, 1); x.translate(-i * S / n, 0); // 旗ぜんたい（横 S、縦 S）の i 番目のたての帯だけが見える
-    const W = S, H = S;
-    if (d === 'stripe') { for (let k = 0; k < 3; k++) { x.fillStyle = p(k); x.fillRect(0, k * H / 3, W, H / 3 + 1); } }
-    else if (d === 'band') { for (let k = 0; k < 3; k++) { x.fillStyle = p(k); x.fillRect(k * W / 3, 0, W / 3 + 1, H); } }
-    else if (d === 'star') { x.fillStyle = c1; x.fillRect(0, 0, W, H); x.fillStyle = p(0); x.beginPath(); for (let k = 0; k < 10; k++) { const t = k * Math.PI / 5 - Math.PI / 2, rr = k % 2 ? H * 0.14 : H * 0.32; x.lineTo(W * 0.5 + Math.cos(t) * rr, H * 0.5 + Math.sin(t) * rr); } x.fill(); }
-    else if (d === 'check') { const m = 6; for (let a1 = 0; a1 < m; a1++) for (let b = 0; b < m; b++) { x.fillStyle = (a1 + b) % 2 ? '#15171a' : '#ffffff'; x.fillRect(a1 * W / m, b * H / m, W / m + 1, H / m + 1); } }
-    else if (d === 'diag') { x.fillStyle = c1; x.fillRect(0, 0, W, H); x.fillStyle = p(0); x.beginPath(); x.moveTo(0, H); x.lineTo(W, 0); x.lineTo(W, H); x.fill(); x.fillStyle = p(1); x.beginPath(); x.arc(W * 0.28, H * 0.3, H * 0.14, 0, 6.2832); x.fill(); }
-    else if (d === 'fish') { x.fillStyle = c1; x.fillRect(0, 0, W, H); for (let k = 0; k < 4; k++) { x.fillStyle = p(k); x.fillRect(0, H * (0.7 + k * 0.075), W, H * 0.075); } x.fillStyle = p(1); x.beginPath(); x.ellipse(W * 0.48, H * 0.36, W * 0.26, H * 0.16, 0, 0, 6.2832); x.fill(); x.beginPath(); x.moveTo(W * 0.72, H * 0.36); x.lineTo(W * 0.9, H * 0.2); x.lineTo(W * 0.9, H * 0.52); x.fill(); x.fillStyle = '#ffffff'; x.beginPath(); x.arc(W * 0.32, H * 0.32, H * 0.04, 0, 6.2832); x.fill(); fitText(x, a[3] || '大漁', W * 0.5, H * 0.6, W * 0.6, H * 0.14, p(0), false); }
-    else { x.fillStyle = c1; x.fillRect(0, 0, W, H); x.fillStyle = p(0); x.beginPath(); x.arc(W * 0.5, H * 0.5, H * 0.3, 0, 6.2832); x.fill(); fitText(x, a[3] || '★', W * 0.5, H * 0.5, H * 0.4, H * 0.4, p(1), false); }
-    x.restore();
-  },
-  // 黒板のメニュー・ホワイトボード：artChalk|0/1
-  artChalk(x, S, c1, P, r, a) {
-    const white = a[0] === '1', ink = white ? ['#2f6fb0', '#e0413a', '#2a3038'] : ['#f4f4f4', '#ffd96b', '#ff9bb8'], u = S / 256;
-    x.strokeStyle = ink[0]; x.lineWidth = 3 * u; x.lineCap = 'round';
-    fitText(x, white ? ['きょうの予定', 'かいぎ', 'TODO', '作業メモ'][Math.floor(r() * 4)] : ['おすすめ', 'MENU', 'きょうの定食', 'ランチ'][Math.floor(r() * 4)], S / 2, 30 * u, 200 * u, 40 * u, ink[1], false, 700);
-    for (let i = 0; i < 6; i++) { const y = 70 + i * 28; x.beginPath(); x.moveTo(30 * u, y * u); for (let k = 0; k < 8; k++) x.lineTo((30 + k * 14 + r() * 6) * u, (y + (r() - 0.5) * 6) * u); x.stroke(); x.fillStyle = ink[2]; x.fillRect(190 * u, (y - 6) * u, 36 * u, 10 * u); }
-    if (white) { x.strokeStyle = ink[1]; x.strokeRect(150 * u, 60 * u, 70 * u, 40 * u); x.beginPath(); x.moveTo(150 * u, 80 * u); x.lineTo(110 * u, 120 * u); x.stroke(); }
-    else { x.fillStyle = ink[2]; x.beginPath(); x.arc(200 * u, 220 * u, 18 * u, 0, 6.2832); x.fill(); }
-  },
-  // 画面（モニター）：artScreen|種類
-  artScreen(x, S, c1, P, r, a) {
-    const k = Number(a[0]) || 0, u = S / 256;
-    x.fillStyle = '#0d1a24'; x.fillRect(0, 0, S, S);
-    if (k === 0) { x.strokeStyle = '#3dff9a'; x.lineWidth = 3 * u; for (let j = 0; j < 3; j++) { x.beginPath(); for (let i = 0; i <= 64; i++) x.lineTo(i * 4 * u, (60 + j * 70 + Math.sin(i * 0.4 + j) * (10 + r() * 20)) * u); x.stroke(); } }
-    else if (k === 1) { x.fillStyle = '#2f6f4a'; x.fillRect(0, 0, S, S); x.strokeStyle = '#9fd0a8'; x.lineWidth = 2 * u; for (let i = 0; i < 6; i++) { x.beginPath(); x.arc(128 * u, 128 * u, (20 + i * 20) * u, 0, 6.2832); x.stroke(); } x.fillStyle = '#ff6a14'; x.beginPath(); x.arc((128 + r() * 40) * u, (128 - r() * 40) * u, 10 * u, 0, 6.2832); x.fill(); }
-    else if (k === 2) { for (let i = 0; i < 4; i++) { x.fillStyle = ['#3a4a5e', '#4a5a4a', '#5a4a3a', '#3a3a5a'][i]; x.fillRect((i % 2) * 128 * u + 4, Math.floor(i / 2) * 128 * u + 4, 120 * u, 120 * u); } }
-    else { for (let i = 0; i < 8; i++) { x.fillStyle = ['#ff6a14', '#ffd23a', '#3dff9a', '#33eaff'][i % 4]; const hh = 30 + r() * 180; x.fillRect((20 + i * 28) * u, (230 - hh) * u, 18 * u, hh * u); } }
-  },
-  // ちょうちん：artChochin|文字（まわりの4分の1に、たて書き）
-  artChochin(x, S, c1, P, r, a) {
-    x.fillStyle = 'rgba(0,0,0,0.18)'; for (let i = 0; i < 12; i++) x.fillRect(0, i * S / 12, S, 2);
-    fitText(x, a[0] || '祭', S * 0.25, S / 2, S * 0.2, S * 0.7, P[0] || '#1b1d20', true);
-    fitText(x, a[0] || '祭', S * 0.75, S / 2, S * 0.2, S * 0.7, P[0] || '#1b1d20', true);
-  }
-};

@@ -9,7 +9,8 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 *{touch-action:manipulation}
 .sheet,.card,.screen,#lobby,#reveal{touch-action:pan-y}
-html,body{position:fixed;inset:0;width:100%;touch-action:none;overscroll-behavior:none;-webkit-text-size-adjust:100%;margin:0;height:100%;overflow:hidden;background:#10151c;color:#fff;font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;user-select:none;-webkit-user-select:none}
+button *{pointer-events:none} /* ボタンの中の文字が入れかわっても、指はいつもボタンそのものに当たる（iPhone で指の終わりを見失わないように） */
+html,body{-webkit-touch-callout:none;position:fixed;inset:0;width:100%;touch-action:none;overscroll-behavior:none;-webkit-text-size-adjust:100%;margin:0;height:100%;overflow:hidden;background:#10151c;color:#fff;font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;user-select:none;-webkit-user-select:none}
 #cv{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;touch-action:none;display:block}
 .hide{display:none!important}
 .screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding-left:calc(16px + var(--sl))!important;padding-right:calc(16px + var(--sr))!important;background:linear-gradient(160deg,#17324a,#1d5a45);z-index:30;padding:16px;overflow:auto}
@@ -31,17 +32,17 @@ label.l select,label.l input[type=number]{width:55%;margin:0;padding:8px}
 #hTimer{font-size:20px!important;min-width:64px;text-align:center}
 #cross{position:fixed;left:50%;top:50%;width:22px;height:22px;margin:-11px;border:2px solid #fff;border-radius:50%;z-index:9;pointer-events:none;mix-blend-mode:difference}
 #toast{position:fixed;left:50%;top:18%;transform:translateX(-50%);background:rgba(0,0,0,.75);padding:10px 16px;border-radius:12px;font-weight:700;z-index:25;pointer-events:none;transition:opacity .3s;opacity:0;text-align:center;max-width:90vw}
-#tools{position:fixed;right:calc(8px + var(--sr));top:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px;z-index:12}
+#tools{position:fixed;right:calc(8px + var(--sr));top:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px;z-index:15}
 #tools button{padding:9px 10px;font-size:13px;background:rgba(20,28,36,.85)}
 #tools button.on{background:#2e8b63}
+#tools.two,#sys.two{display:grid;grid-template-columns:auto auto;align-items:start}
+#tools.three,#sys.three{display:grid;grid-template-columns:auto auto auto;align-items:start}
 #tDrop{border-left:10px solid #b9b9b9}
 #sys{position:fixed;left:calc(8px + var(--sl));top:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px;z-index:12}
 #sys button{padding:8px 10px;font-size:13px;background:rgba(20,28,36,.85)}
-.sheet{position:fixed;left:0;right:0;bottom:0;max-height:44vh;overflow:auto;background:rgba(14,19,26,.93);border-radius:16px 16px 0 0;padding:10px 12px calc(12px + env(safe-area-inset-bottom));z-index:14;font-size:13px}
+.sheet{position:fixed;left:0;right:var(--sheetR,0px);bottom:0;max-height:44vh;overflow:auto;background:rgba(14,19,26,.93);border-radius:16px 16px 0 0;padding:10px 12px calc(12px + env(safe-area-inset-bottom));z-index:14;font-size:13px}
 .sheet .row{flex-wrap:wrap;margin-bottom:6px}.sheet button{padding:8px 10px;font-size:13px;flex:0 0 auto}
 .sheet label.l{margin:4px 0}
-#pPaint.mini label,#pPaint.mini small,#pPaint.mini #swatches,#pPaint.mini #bFill,#pPaint.mini #bReset{display:none}
-#pPaint.mini .row{margin:0}
 #bcolor{width:52px;height:38px;border:0;padding:0;background:none;flex:0 0 52px}
 #swatches{display:flex;gap:4px;flex-wrap:wrap}#swatches i{width:28px;height:28px;border-radius:6px;border:2px solid #fff3;display:block}
 #blind{position:fixed;inset:0;background:#000;z-index:20;display:flex;align-items:center;justify-content:center;flex-direction:column;font-size:20px;font-weight:700;text-align:center}
@@ -56,15 +57,75 @@ label.l select,label.l input[type=number]{width:55%;margin:0;padding:8px}
 #rlist button{padding:5px 9px;font-size:12px}
 #joy{position:fixed;left:calc(18px + var(--sl));bottom:calc(22px + env(safe-area-inset-bottom));width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.14);z-index:11;touch-action:none}
 #knob{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.5);pointer-events:none}
-.tbtn{position:fixed;right:calc(20px + var(--sr));width:76px;height:76px;border-radius:50%;z-index:11;font-size:14px;touch-action:none;background:rgba(255,255,255,.22)}
+.tbtn{position:fixed;right:calc(20px + var(--sr));width:76px;height:76px;border-radius:50%;z-index:11;font-size:14px;touch-action:none;background:rgba(255,255,255,.22);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0;line-height:1.1;border:2px solid rgba(255,255,255,.35)}
+.tbtn small{color:#fff;font-size:9px;font-weight:600;opacity:.9}
 #bJump{bottom:calc(24px + env(safe-area-inset-bottom))}
+#bJump.cling{background:rgba(240,170,40,.85);border-color:#ffe2a0}
+#bPose{bottom:calc(24px + env(safe-area-inset-bottom));right:calc(108px + var(--sr));background:rgba(46,139,99,.75)}
+#bPose.on{background:#ffd27a;color:#1b2a22}
+#bPose small{max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.pc .tbtn{width:66px;height:66px;font-size:13px}body.pc #bPose{right:calc(96px + var(--sr))}
+/* ポーズのえらび輪 */
+#wheel{position:fixed;inset:0;z-index:16;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.28)}
+#ring{position:relative;width:380px;height:380px;flex:0 0 380px;border-radius:50%;transform:scale(var(--ws,1));background:radial-gradient(circle,rgba(16,26,36,.35) 0 27%,rgba(14,20,28,.86) 28%);border:3px solid rgba(255,255,255,.9);box-shadow:0 0 0 6px rgba(46,139,99,.55),0 12px 40px rgba(0,0,0,.5)}
+#ring .pi{position:absolute;width:56px;height:56px;margin:-28px;border-radius:50%;padding:0;background:#24384a;border:2px solid rgba(255,255,255,.3);overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;font-weight:700}
+#ring .pi img{width:100%;height:40px;object-fit:cover;flex:0 0 40px}
+#ring .pi i{font-style:normal;font-size:22px;line-height:40px;height:40px}
+#ring .pi span{font-size:8.5px;line-height:1;white-space:nowrap;margin-top:1px;letter-spacing:-.3px}
+#ring .pi.cur{border-color:#ffd27a;box-shadow:0 0 0 2px #ffd27a}
+#ring .pi.empty{opacity:.55;border-style:dashed}
+#ring .pi:hover{border-color:#fff}
+#wClose{position:absolute;left:50%;top:50%;width:66px;height:66px;margin:-33px;border-radius:50%;padding:0;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.5);font-size:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15}
+#wClose b{font-size:18px}#wName{font-size:9px;color:#ffd27a;max-width:60px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+/* マップえらび */
+#mapPick{position:fixed;inset:0;z-index:45;background:#10151c;display:flex;align-items:flex-start;justify-content:center;padding:14px calc(14px + var(--sr)) 14px calc(14px + var(--sl));overflow:auto;touch-action:pan-y}
+#mapPick .card{max-width:760px}
+#mapGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:6px 0}
+.mc{padding:0;background:#1d2732;border:2px solid transparent;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;text-align:center}
+.mc span,.mapcard span{padding:6px 4px;font-size:14px}
+.mc.on{border-color:#ffd27a}
+.ph{position:relative;width:100%;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ph img:not([src]){display:none}
+.ph:not(.rnd)::before{content:'📷 じゅんび中…';font-size:11px;color:#fff;text-shadow:0 1px 3px #000;opacity:.8}
+.ph.rnd{background:linear-gradient(135deg,#2e8b63,#2f6fb0);font-size:42px}
+.mapcard{display:flex;align-items:center;gap:8px;padding:4px;background:#1d2732;width:55%;text-align:left}
+.mapcard .ph{width:96px;flex:0 0 96px;border-radius:8px}
+.mapcard.rnd-on .ph{font-size:30px}
+.mapcard:disabled{opacity:1}
 #bFire{bottom:calc(112px + env(safe-area-inset-bottom));background:rgba(230,80,40,.7);width:86px;height:86px}
+/* 隠れている人の「鬼を見る」ボタン：ポーズボタンの上（ほかのボタンと重ならない）。止まっている時間が輪になってたまる */
+#bSpecH{bottom:calc(112px + env(safe-area-inset-bottom));right:calc(108px + var(--sr));background:conic-gradient(rgba(90,200,255,.8) var(--p,0deg),rgba(255,255,255,.16) 0);font-size:12px}
+#bSpecH.ready{background:rgba(40,150,230,.85);border-color:#bfe6ff}
+#bSpecH[data-st=back]{background:rgba(255,210,122,.9);color:#1b2a22}
+#bSpecH[data-st=back] small{color:#1b2a22}
+body.pc #bSpecH{right:calc(96px + var(--sr));bottom:calc(100px + env(safe-area-inset-bottom))}
+#ghostP{position:fixed;z-index:18;left:calc(64px + var(--sl));top:calc(50px + env(safe-area-inset-top));max-width:300px;max-height:40vh;overflow:auto;padding:10px 12px}
+#ghostP b{display:block;font-size:14px}#ghostP small{display:block;margin:2px 0 4px}
+#glist div{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 8px;background:#ffffff12;border-radius:8px;margin:4px 0;font-size:13px}
+#glist button{padding:5px 9px;font-size:12px}
+#rX{display:block;color:#ff9a9a;font-weight:700;margin:2px 0}
+/* ボタン配置の編集 */
+body.laying .layed{outline:2px dashed #ffd27a;outline-offset:3px;z-index:55!important;cursor:move}
+body.laying .layed.sel{outline:3px solid #ffd27a}
+body.laying #layShade{display:block}
+#layShade{display:none;position:fixed;inset:0;z-index:50;background:rgba(10,16,24,.45)}
+#layBar{position:fixed;left:50%;top:calc(8px + env(safe-area-inset-top));transform:translateX(-50%);z-index:60;background:rgba(14,19,26,.95);border-radius:14px;padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:center;max-width:94vw;font-size:13px;box-shadow:0 6px 24px #0008}
+#layBar button{padding:7px 10px;font-size:13px}
+#layBar input[type=range]{width:130px}
+#count{position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:15;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:4px;text-shadow:0 3px 12px #000a}
+#count b{font-size:84px;line-height:1;color:#fff}#count span{font-size:14px;font-weight:700;background:rgba(0,0,0,.5);padding:4px 10px;border-radius:10px}
+#lockTip{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));transform:translateX(-50%);z-index:12;pointer-events:none;background:rgba(0,0,0,.55);color:#fff;font-size:12px;padding:5px 12px;border-radius:999px;white-space:nowrap}
+#onH{position:fixed;left:50%;bottom:calc(16px + var(--sb));transform:translateX(-50%);z-index:12;pointer-events:none;background:#d9342b;color:#fff;font-weight:800;padding:8px 14px;border-radius:999px;box-shadow:0 2px 10px #0006;font-size:14px}
+#btnGo{background:#2e8b63!important}#btnGo.stop{background:#b8452f!important}
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:flex;align-items:center;justify-content:center;padding:16px}
+#btnSetX{position:sticky;top:0;float:right;margin:-4px -4px 0 8px;width:40px;height:40px;padding:0;border-radius:50%;font-size:18px;z-index:2} /* 横画面で下までスクロールしなくても閉じられる */
+#modal .card{max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;touch-action:pan-y} /* 横画面のスマホでも下の「閉じる」まで届くようにスクロール */
 small{color:#9fb2c2}
 #chatLog{position:fixed;left:50%;transform:translateX(-50%);top:calc(48px + env(safe-area-inset-top));width:min(420px,46vw);z-index:13;pointer-events:none;display:flex;flex-direction:column;gap:3px;font-size:13px}
 #chatLog div{background:rgba(0,0,0,.55);border-radius:8px;padding:3px 8px;word-break:break-all}#chatLog div.me{background:rgba(30,90,65,.7)}
-#chatBar{position:fixed;left:50%;transform:translateX(-50%);top:calc(6px + env(safe-area-inset-top));width:min(520px,70vw);z-index:26;display:flex;gap:6px;background:rgba(14,19,26,.95);padding:6px;border-radius:12px}
-#chatBar input{margin:0;flex:1;padding:8px 10px}#chatBar button{padding:8px 12px;flex:0 0 auto}
+#chatBar{position:fixed;left:50%;transform:translateX(-50%);top:calc(6px + env(safe-area-inset-top));width:min(520px,70vw);z-index:61;display:flex;gap:6px;background:rgba(14,19,26,.95);padding:6px;border-radius:12px}
+#chatBar input{margin:0;flex:1;padding:8px 10px;font-size:16px}#chatBar button{padding:8px 12px;flex:0 0 auto}
 #shells{position:fixed;left:50%;bottom:calc(14px + var(--sb));transform:translateX(-50%);display:flex;gap:5px;z-index:10;pointer-events:none}
 #shells i{display:block;width:10px;height:26px;border-radius:3px 3px 1px 1px;background:linear-gradient(#e0413a 0 72%,#d8b44a 72%);box-shadow:0 1px 3px #0008}
 #rotate{display:none;position:fixed;inset:0;z-index:99;background:#10151c;align-items:center;justify-content:center;flex-direction:column;gap:10px;font-size:20px;font-weight:700;text-align:center}
@@ -77,12 +138,12 @@ small{color:#9fb2c2}
   input[type=text],select,input[type=number]{padding:8px;margin:4px 0}button{padding:9px 12px}
   label.l{margin:4px 0;font-size:13px}
   #lobby .card{max-width:640px}#hostSet{display:grid;grid-template-columns:1fr 1fr;column-gap:14px}
-  .sheet{left:auto;right:0;top:0;bottom:0;width:min(330px,44vw);max-height:none;border-radius:16px 0 0 16px;padding:8px calc(10px + var(--sr)) 8px 10px}
-  #pPaint.mini{bottom:auto;width:auto;border-radius:0 0 0 16px}
+  .sheet{left:auto;right:var(--sheetR,0px);top:0;bottom:0;width:min(330px,44vw);max-height:none;border-radius:16px 0 0 16px;padding:8px calc(10px + var(--sr)) 8px 10px}
   #tools button,#sys button{padding:6px 8px;font-size:12px}#tools,#sys{gap:4px;top:calc(46px + env(safe-area-inset-top))}
   #reveal{max-width:300px;max-height:60vh}
   #joy{width:110px;height:110px;bottom:calc(14px + var(--sb))}#knob{left:30px;top:30px}
-  .tbtn{width:66px;height:66px}#bJump{bottom:calc(14px + var(--sb))}#bFire{bottom:calc(90px + var(--sb));width:76px;height:76px}
+  .tbtn{width:66px;height:66px}#bJump,#bPose{bottom:calc(14px + var(--sb))}#bPose{right:calc(96px + var(--sr))}#bFire{bottom:calc(90px + var(--sb));width:76px;height:76px}#bSpecH{bottom:calc(90px + var(--sb));right:calc(96px + var(--sr))}
+  #mapGrid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}.mapcard .ph{width:72px;flex-basis:72px}
 }
 </style>
 <script type="importmap">
@@ -111,7 +172,7 @@ small{color:#9fb2c2}
     <button id="btnSet1" class="sec">⚙ 設定</button>
   </div>
   <div id="status"></div>
-  <p class="sub" style="margin-top:12px">操作: PCは WASD＋マウス / Space ジャンプ（壁に向かって長押しでよじ登り） / Enter チャット / P ペイント / E スポイト / O ポーズ / Q ポーズ切替 / F 分身。スマホは左スティック＋画面ドラッグ。</p>
+  <p class="sub" style="margin-top:12px">ルームに入るとロビーに出ます。歩き回ったり体を塗って待ち、ホストが「▶ ゲーム開始」を押すと10秒後にスタート。まんなかの <b>HUNTER</b> の円に乗っていると鬼になれます。<br>操作: PCは WASD＋マウス / Space ジャンプ（壁の近くで長押しすると壁にくっつく。離してもくっついたまま、もう一度押すと離れる） / P ペイント / E スポイト / O ポーズをえらぶ / Q ポーズ切替 / F 分身 / V 観戦（隠れている人は止まって2秒で鬼の画面）。スマホは左スティック＋画面ドラッグ＋右下のボタン。ボタンの場所と大きさは ⚙ 設定で変えられます。</p>
 </div></div>
 
 <!-- HUD -->
@@ -130,12 +191,14 @@ small{color:#9fb2c2}
   <button id="btnLeave">退出</button>
   <button id="btnSwap" class="hide">役割切替</button>
   <button id="btnRoom" class="hide">🏠 ルーム設定</button>
+  <button id="btnMap" class="hide">🗺 マップ</button>
+  <button id="btnGo" class="hide">▶ ゲーム開始</button>
+  <button id="btnSpec" class="hide">👀 観戦きりかえ</button>
 </div>
 <div id="tools" class="hide">
   <button id="tPaint">🎨 ペイント</button>
   <button id="tDrop">💧 スポイト</button>
-  <button id="tPose">🧍 ポーズ</button>
-  <button id="tNext">🔁 ポーズ切替</button>
+  <button id="tPose">🧍 体の形</button>
   <button id="tDecoy">👥 分身を置く</button>
   <button id="tDecoyX">分身を消す</button>
   <button id="tZoomIn">＋</button>
@@ -149,7 +212,6 @@ small{color:#9fb2c2}
     <button id="bDrop" class="sec">💧 スポイト</button>
     <button id="bFill" class="sec">全身に塗る</button>
     <button id="bReset" class="sec">リセット</button>
-    <button id="bMini" class="sec">▼ たたむ</button>
     <button class="sec" data-close>閉じる</button>
   </div>
   <div id="swatches"></div>
@@ -164,55 +226,88 @@ small{color:#9fb2c2}
 
 <!-- ポーズ -->
 <div id="pPose" class="sheet hide">
-  <div class="row"><button data-shape="round">● 丸キャラ</button><button data-shape="box" class="sec">■ 四角キャラ</button><button data-size="1">小(1倍)</button><button data-size="1.5" class="sec">1.5倍</button><button data-size="2" class="sec">2倍</button></div>
-  <div class="row" id="presets"></div>
-  <div class="row"><button id="poseSave" class="sec">いまのポーズを保存</button><button data-slot="0" class="sec">★1</button><button data-slot="1" class="sec">★2</button><button data-slot="2" class="sec">★3</button></div>
+  <div class="row"><button data-shape="round">● 丸キャラ</button><button data-shape="box" class="sec">■ 四角キャラ</button></div>
+  <div class="row"><button data-size="1">小(1倍)</button><button data-size="1.5" class="sec">1.5倍</button><button data-size="2" class="sec">2倍</button></div>
   <div class="row"><button id="rotL" class="sec">⟲ 体の向き</button><button id="rotR" class="sec">体の向き ⟳</button><button class="sec" data-close>閉じる</button></div>
-  <div id="sliders"></div>
+  <small>ポーズは右下の「ポーズ」ボタンの丸い枠からえらびます。</small>
+</div>
 </div>
 
-<div id="blind" class="hide"><div>カメレオンが隠れています…</div><b id="blindT"></b><div>あなたは鬼（ハンター）です</div></div>
+<!-- ゲーム開始のカウントダウン -->
+<div id="count" class="hide"><b id="countN">10</b><span id="countS"></span></div>
+<div id="onH" class="hide">🔴 HUNTER の円に乗っています（鬼の候補）</div>
+<div id="lockTip" class="hide">マウスは画面の中です（視点を動かす・撃つ）。ボタンを押す時は <b>Esc</b> キーでマウスを出してね</div>
 
 <!-- ロビー -->
 <div id="lobby" class="hide"><div class="card t">
-  <h2>ルーム: <span id="lRoom"></span></h2>
+  <h2>🏠 ルーム設定：<span id="lRoom"></span></h2>
   <div id="plist"></div>
   <div id="hostSet">
     <label class="l">ゲームモード <select id="sMode"><option value="fueoni">増え鬼（見つかると鬼になる）</option><option value="basic">ベーシック（鬼は増えない）</option></select></label>
-    <label class="l">マップ <select id="sMap"><option value="random">ランダム</option></select></label>
+    <label class="l">マップ <button id="mapCard" class="mapcard" type="button"></button></label>
     <label class="l">笛が鳴る間隔 <select id="sWhistle"><option value="30">30秒</option><option value="45">45秒</option><option value="60">60秒</option><option value="90">90秒</option><option value="120">120秒</option><option value="0">鳴らさない</option></select></label>
     <label class="l">最初の鬼の人数 <select id="sHunters"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
-    <label class="l">隠れる時間（秒） <input id="sHide" type="number" min="20" max="300" step="10"></label>
-    <label class="l">探す時間（秒） <input id="sHunt" type="number" min="30" max="900" step="10"></label>
+    <label class="l">隠れる時間 <select id="sHide"><option value="30">30秒</option><option value="60">60秒</option><option value="90">90秒</option><option value="120">120秒</option><option value="180">180秒</option><option value="300">300秒</option><option value="480">480秒</option></select></label>
+    <label class="l">見つける時間 <select id="sHunt"><option value="60">60秒</option><option value="120">120秒</option><option value="180">180秒</option><option value="300">300秒</option><option value="480">480秒</option></select></label>
     <label class="l">ショットガンの弾数 <input id="sAmmo" type="number" min="1" max="50"></label>
   </div>
   <small id="lNote"></small>
   <button id="btnStart" class="full">ゲーム開始</button>
-  <button id="btnLobbyClose" class="full sec">閉じて待合室を歩く（ペイント練習OK）</button>
+  <button id="btnLobbyClose" class="full sec">閉じてロビーを歩く（ペイント練習OK）</button>
 </div></div>
 
 <!-- 答え合わせ -->
 <div id="reveal" class="card t hide">
   <h2 id="rTitle"></h2>
   <small>答え合わせタイム：自由に歩いて、みんなの隠れ場所を見て回ろう</small>
-  <div id="rlist"></div>
+  <span id="rX"></span>
   <button id="btnLobby" class="full">ロビーに戻る</button>
+  <div id="rlist"></div>
 </div>
 
 <!-- スマホ操作 -->
 <div id="joy" class="hide"><div id="knob"></div></div>
-<button id="bJump" class="tbtn hide">ジャンプ<br><small style="color:#fff">長押しで登る</small></button>
+<button id="bJump" class="tbtn hide"></button>
+<button id="bPose" class="tbtn hide"><b>ポーズ</b><small id="bPoseN"></small></button>
+
+<!-- ポーズのえらび輪：押すとそのポーズになる -->
+<div id="wheel" class="hide"><div id="ring"><button id="wClose"><b>✕</b>とじる<span id="wName"></span></button></div></div>
+
+<!-- マップえらび（写真つき） -->
+<div id="mapPick" class="hide"><div class="card">
+  <h2 id="mpTitle">マップをえらぶ</h2>
+  <div id="mapGrid"></div>
+  <button id="mpClose" class="full sec">もどる</button>
+</div></div>
 <button id="bFire" class="tbtn hide">撃つ</button>
+<button id="bSpecH" class="tbtn hide"></button>
+
+<!-- ゴースト（ベーシックで見つかった人）：隠れている人を見に行く -->
+<div id="ghostP" class="card t hide"><b>👻 ゴースト</b><small>あなたの姿は鬼にも隠れている人にも見えません。隠れている人の名前は壁ごしに見えます</small><div id="glist"></div></div>
+
+<!-- ボタン配置の編集 -->
+<div id="layShade"></div>
+<div id="layBar" class="hide">
+  <span id="layName">ボタンをドラッグして動かす／タップで選んで大きさを変える</span>
+  <label>大きさ <input id="laySize" type="range" min="0.6" max="1.8" step="0.05" value="1"></label>
+  <button id="layOne" class="sec">これを元に戻す</button>
+  <button id="layAll" class="sec">全部元に戻す</button>
+  <button id="layDone">完了</button>
+</div>
 
 <!-- 設定 -->
 <div id="modal" class="hide"><div class="card">
+  <button id="btnSetX" aria-label="閉じる">✕</button>
   <h2>設定</h2>
   <label class="l">軽量化モード <input id="oLite" type="checkbox" style="width:22px;height:22px"></label>
   <label class="l">光のにじみ（重い端末はオフ） <input id="oBloom" type="checkbox" style="width:22px;height:22px"></label>
   <label class="l">視点感度 <input id="oSens" type="range" min="0.2" max="3" step="0.1"></label>
   <label class="l">BGM音量 <input id="oBgm" type="range" min="0" max="1" step="0.05"></label>
   <label class="l">効果音の音量 <input id="oSe" type="range" min="0" max="1" step="0.05"></label>
-  <small>自分のアプリで音楽を流しながら遊ぶときは、BGM音量を0にしてください（効果音だけ鳴ります）。<br>軽量化モード：影オフ・解像度ダウン・通信頻度ダウン（アンチエイリアスは再読み込み後に反映）</small>
+  <label class="l">音の出し方 <select id="oSnd"><option value="mix">音楽アプリといっしょに（効果音だけ）</option><option value="mixbgm">音楽アプリといっしょに（BGMも）</option><option value="silent">マナーモードでも鳴らす</option></select></label>
+  <button id="btnLay" class="full sec">🕹 ボタンの配置・大きさを変える</button>
+  <small>「音楽アプリといっしょに」：Spotify・ミュージックなどの音楽を止めずに、ショットガン・足音などのゲームの音が重なって聞こえます（iPhone は本体の横の消音スイッチをオフ＝着信音が鳴る状態にしてください。オンだと iOS のきまりでブラウザのゲームの音は消えます）。<br>「マナーモードでも鳴らす」：消音スイッチがオンでも鳴りますが、ほかのアプリの音楽は止まります（ブラウザではこの2つを同時にはできません）。<br>軽量化モード：影オフ・解像度ダウン・通信頻度ダウン（アンチエイリアスは再読み込み後に反映）</small>
+  <small id="errLine" style="display:block;color:#ff9a9a;margin:6px 0;word-break:break-all"></small>
   <button id="btnSetClose" class="full">閉じる</button>
 </div></div>
 
