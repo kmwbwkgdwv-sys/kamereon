@@ -64,6 +64,13 @@
           }
         },
 
+        "chat": {
+          "$id": {
+            ".write": "auth != null && !data.exists() && root.child('rooms').child($room).child('players').child(auth.uid).exists()",
+            ".validate": "newData.child('by').val() === auth.uid && newData.child('text').isString() && newData.child('text').val().length <= 80 && newData.child('name').isString() && newData.child('name').val().length <= 16 && newData.child('t').isNumber()"
+          }
+        },
+
         "shots": {
           "$id": {
             ".write": "auth != null && !data.exists() && root.child('rooms').child($room).child('players').child(auth.uid).exists()",

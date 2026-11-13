@@ -490,6 +490,7 @@ async function joinRoom(id, isPractice) {
       net.on(base + '/players', 'value', v => { P = v || {}; onPlayers(); }),
       net.on(base + '/pos', 'value', v => { POS = v || {}; }),
       net.on(base + '/decoys', 'value', v => { DEC = v || {}; rebuildDecoys(); }),
+      net.on(base + '/chat', 'child_added', (k, m) => { if (m && net.now() - m.t < 60000) addChat(m); }),
       net.on(base + '/skins', 'child_added', onSkin),
       net.on(base + '/skins', 'child_changed', onSkin),
       net.on(base + '/shots', 'child_added', (k, s) => { if (s && s.by !== uid && net.now() - s.t < 5000) doShot(s.o, s.d, s.seed, false, s.by); })
@@ -515,7 +516,8 @@ function leaveRoom(msg) {
   clearList(decoyAvs); decoyAvs = []; clearGhosts(); clearSplats();
   if (document.pointerLockElement) document.exitPointerLock();
   panel = '';
-  for (const id of ['hud', 'sys', 'tools', 'pPaint', 'pPose', 'blind', 'lobby', 'reveal', 'cross', 'joy', 'bJump', 'bFire', 'rank', 'btnRoom']) show(id, false);
+  for (const id of ['hud', 'sys', 'tools', 'pPaint', 'pPose', 'blind', 'lobby', 'reveal', 'cross', 'joy', 'bJump', 'bFire', 'rank', 'btnRoom', 'chatBar']) show(id, false);
+  $('chatLog').textContent = '';
   camera.clearViewOffset(); voX = voY = 0;
   fpGun.visible = false; $('shells').innerHTML = ''; $('shells').dataset.n = '';
   meta = {}; loadMap('park');
@@ -524,6 +526,24 @@ function leaveRoom(msg) {
 const clearList = l => l.forEach(a => scene.remove(a.root));
 function clearGhosts() { clearList(ghosts); ghosts = []; }
 function clearSplats() { splats.forEach(s => { scene.remove(s); s.material.dispose(); }); splats = []; }
+
+/* ---------------- チャット ---------------- */
+function addChat(m) {
+  const log = $('chatLog'), d = document.createElement('div'), b = document.createElement('b');
+  b.textContent = String(m.name || '?').slice(0, 16) + '：'; d.append(b, document.createTextNode(String(m.text || '').slice(0, 80)));
+  if (m.by === uid) d.classList.add('me');
+  log.append(d); while (log.children.length > 6) log.firstChild.remove();
+  setTimeout(() => d.remove(), 14000); if (m.by !== uid) sfx('pop');
+}
+function openChat(on) {
+  show('chatBar', on);
+  if (on) { if (document.pointerLockElement) document.exitPointerLock(); for (const k in keys) keys[k] = false; $('chatIn').focus(); } else $('chatIn').blur();
+}
+function sendChat() {
+  const t = $('chatIn').value.trim().slice(0, 80); $('chatIn').value = '';
+  if (t && inRoom) net.push(base + '/chat', { by: uid, name: myName, text: t, t: net.now() });
+  openChat(false);
+}
 
 /* ---------------- 同期コールバック ---------------- */
 function onSkin(id, url) { SKINS[id] = url; if (id !== uid && ents[id]) loadSkin(ents[id].skin, url); }
@@ -659,7 +679,7 @@ function startGame() {
     const role = i < n ? 'hunter' : 'hider';
     Object.assign(u, { [`players/${id}/role`]: role, [`players/${id}/orig`]: role, [`players/${id}/found`]: null, [`players/${id}/last`]: null, [`players/${id}/ammo`]: meta.ammo, [`players/${id}/rd`]: round, [`players/${id}/score`]: null });
   });
-  u.decoys = null; u.shots = null;
+  u.decoys = null; u.shots = null; u.chat = null;
   u['meta/cur'] = (MAPS[meta.map] && meta.map !== 'lobby') ? meta.map : MAP_LIST[Math.floor(Math.random() * MAP_LIST.length)][0];
   u['meta/hs'] = practice ? net.now() : null;
   u['meta/state'] = practice ? 'hunting' : 'hiding';
@@ -804,6 +824,7 @@ function doShot(o, d, seed, mine, by) {
 const keys = {}; const joy = { x: 0, y: 0, id: null }; let jumpQ = false, jumpHold = false;
 addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (inRoom && (e.code === 'Enter' || e.code === 'KeyT')) { openChat(true); e.preventDefault(); return; }
   keys[e.code] = true;
   if (!inRoom) return;
   if (e.code === 'Space') { jumpQ = true; e.preventDefault(); }
@@ -1064,6 +1085,9 @@ const doJoin = async (id, pr) => { if (joining || inRoom) return; joining = true
 $('btnJoin').onclick = () => { const id = $('inRoom').value.trim(); if (!id) { $('status').textContent = 'ルームIDを入力してください'; return; } doJoin(id, false); };
 $('btnPractice').onclick = () => doJoin('practice', true);
 $('btnLeave').onclick = () => leaveRoom('');
+$('btnChat').onclick = () => openChat($('chatBar').classList.contains('hide'));
+$('chatSend').onclick = sendChat; $('chatX').onclick = () => openChat(false);
+$('chatIn').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); else if (e.key === 'Escape') openChat(false); e.stopPropagation(); });
 $('btnStart').onclick = () => { if (meta.host === uid) startGame(); };
 $('btnLobby').onclick = () => { if (meta.host === uid) { if (practice) leaveRoom(''); else net.update(base + '/meta', { state: 'lobby' }); } };
 $('btnSwap').onclick = () => { if (!practice) return; const r = myRole() === 'hider' ? 'hunter' : 'hider'; me.ammo = 99; net.update(`${base}/players/${uid}`, { role: r, ammo: 50 }); toast(r === 'hunter' ? '鬼に切替：自分の分身を撃って試せます' : 'カメレオンに切替'); };
